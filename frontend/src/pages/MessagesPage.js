@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
@@ -21,7 +21,6 @@ import {
   Check
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { Textarea } from '../components/ui/textarea';
 import { ScrollArea } from '../components/ui/scroll-area';
 import {
@@ -44,9 +43,6 @@ export default function MessagesPage() {
   const [filter, setFilter] = useState(searchParams.get('label') || 'all');
   const [attachmentsOnly, setAttachmentsOnly] = useState(searchParams.get('attachments') === 'true');
   
-  // AI States
-  const [aiInput, setAiInput] = useState('');
-  const [aiLoading, setAiLoading] = useState(false);
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [drafts, setDrafts] = useState([]);
@@ -56,30 +52,12 @@ export default function MessagesPage() {
   const [showFullBody, setShowFullBody] = useState(false);
   const [copiedDraft, setCopiedDraft] = useState(null);
 
-  useEffect(() => {
-    fetchEmails();
-  }, [filter, attachmentsOnly]);
-
-  useEffect(() => {
-    const selectedId = searchParams.get('selected');
-    if (selectedId && emails.length > 0) {
-      const email = emails.find(e => e.email.id === selectedId);
-      if (email) {
-        setSelectedEmail(email);
-      }
-    }
-  }, [emails, searchParams]);
-
-  const fetchEmails = async () => {
+  const fetchEmails = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
-      if (filter !== 'all') {
-        params.set('label', filter);
-      }
-      if (attachmentsOnly) {
-        params.set('has_attachments', 'true');
-      }
+      if (filter !== 'all') params.set('label', filter);
+      if (attachmentsOnly) params.set('has_attachments', 'true');
       
       const response = await axios.get(`${API}/emails?${params.toString()}`);
       setEmails(response.data);
@@ -88,7 +66,19 @@ export default function MessagesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filter, attachmentsOnly]);
+
+  useEffect(() => {
+    fetchEmails();
+  }, [fetchEmails]);
+
+  useEffect(() => {
+    const selectedId = searchParams.get('selected');
+    if (selectedId && emails.length > 0) {
+      const email = emails.find(e => e.email.id === selectedId);
+      if (email) setSelectedEmail(email);
+    }
+  }, [emails, searchParams]);
 
   const handleFilterChange = (newFilter) => {
     setFilter(newFilter);
@@ -99,11 +89,7 @@ export default function MessagesPage() {
   const handleAttachmentsFilter = () => {
     setAttachmentsOnly(!attachmentsOnly);
     setFilter('all');
-    if (!attachmentsOnly) {
-      setSearchParams({ attachments: 'true' });
-    } else {
-      setSearchParams({});
-    }
+    setSearchParams(attachmentsOnly ? {} : { attachments: 'true' });
   };
 
   const handleSelectEmail = (email) => {
@@ -145,35 +131,6 @@ export default function MessagesPage() {
     }
   };
 
-  const handleAiChat = async (e) => {
-    e.preventDefault();
-    if (!aiInput.trim()) return;
-    setAiLoading(true);
-    try {
-      const response = await axios.post(`${API}/ai/chat`, { message: aiInput });
-      
-      // Handle filter action
-      if (response.data.action?.type === 'filter') {
-        const payload = response.data.action.payload;
-        if (payload.label) {
-          setFilter(payload.label);
-          setAttachmentsOnly(false);
-        } else if (payload.has_attachments) {
-          setAttachmentsOnly(true);
-          setFilter('all');
-        } else {
-          setFilter('all');
-          setAttachmentsOnly(false);
-        }
-      }
-    } catch (error) {
-      console.error('AI chat error:', error);
-    } finally {
-      setAiLoading(false);
-      setAiInput('');
-    }
-  };
-
   const copyDraft = (draft, index) => {
     navigator.clipboard.writeText(draft);
     setCopiedDraft(index);
@@ -181,30 +138,21 @@ export default function MessagesPage() {
   };
 
   const getPriorityIcon = (label) => {
-    switch (label) {
-      case 'PRIORITARIO':
-        return <AlertCircle className="w-4 h-4 text-blue-400" strokeWidth={1.5} />;
-      case 'SEGUIMIENTO':
-        return <Clock className="w-4 h-4 text-amber-400" strokeWidth={1.5} />;
-      default:
-        return <Info className="w-4 h-4 text-slate-400" strokeWidth={1.5} />;
-    }
+    if (label === 'PRIORITARIO') return <AlertCircle className="w-4 h-4 text-blue-400" strokeWidth={1.5} />;
+    if (label === 'SEGUIMIENTO') return <Clock className="w-4 h-4 text-amber-400" strokeWidth={1.5} />;
+    return <Info className="w-4 h-4 text-slate-400" strokeWidth={1.5} />;
   };
 
   const getPriorityClass = (label) => {
-    switch (label) {
-      case 'PRIORITARIO': return 'priority-high';
-      case 'SEGUIMIENTO': return 'priority-medium';
-      default: return 'priority-low';
-    }
+    if (label === 'PRIORITARIO') return 'priority-high';
+    if (label === 'SEGUIMIENTO') return 'priority-medium';
+    return 'priority-low';
   };
 
   const getPriorityLabel = (label) => {
-    switch (label) {
-      case 'PRIORITARIO': return t(language, 'prioritario');
-      case 'SEGUIMIENTO': return t(language, 'seguimiento');
-      default: return t(language, 'informativo');
-    }
+    if (label === 'PRIORITARIO') return t(language, 'prioritario');
+    if (label === 'SEGUIMIENTO') return t(language, 'seguimiento');
+    return t(language, 'informativo');
   };
 
   const formatFileSize = (bytes) => {
@@ -216,46 +164,17 @@ export default function MessagesPage() {
   return (
     <Layout>
       <div className="flex h-[calc(100vh-80px)]" data-testid="messages-page">
-        {/* Email List - Left Panel */}
         <div className="w-full md:w-[35%] border-r border-slate-800 flex flex-col">
-          {/* Filters */}
           <div className="p-4 border-b border-slate-800">
             <div className="flex flex-wrap gap-2">
-              <FilterButton
-                active={filter === 'all' && !attachmentsOnly}
-                onClick={() => handleFilterChange('all')}
-                label={t(language, 'allEmails')}
-                testId="filter-all"
-              />
-              <FilterButton
-                active={filter === 'PRIORITARIO'}
-                onClick={() => handleFilterChange('PRIORITARIO')}
-                label={t(language, 'priority')}
-                highlight
-                testId="filter-priority"
-              />
-              <FilterButton
-                active={filter === 'SEGUIMIENTO'}
-                onClick={() => handleFilterChange('SEGUIMIENTO')}
-                label={t(language, 'followUp')}
-                testId="filter-followup"
-              />
-              <FilterButton
-                active={filter === 'INFO'}
-                onClick={() => handleFilterChange('INFO')}
-                label={t(language, 'info')}
-                testId="filter-info"
-              />
-              <FilterButton
-                active={attachmentsOnly}
-                onClick={handleAttachmentsFilter}
-                icon={<Paperclip className="w-4 h-4" strokeWidth={1.5} />}
-                testId="filter-attachments"
-              />
+              <FilterBtn active={filter === 'all' && !attachmentsOnly} onClick={() => handleFilterChange('all')} label={t(language, 'allEmails')} testId="filter-all" />
+              <FilterBtn active={filter === 'PRIORITARIO'} onClick={() => handleFilterChange('PRIORITARIO')} label={t(language, 'priority')} highlight testId="filter-priority" />
+              <FilterBtn active={filter === 'SEGUIMIENTO'} onClick={() => handleFilterChange('SEGUIMIENTO')} label={t(language, 'followUp')} testId="filter-followup" />
+              <FilterBtn active={filter === 'INFO'} onClick={() => handleFilterChange('INFO')} label={t(language, 'info')} testId="filter-info" />
+              <FilterBtn active={attachmentsOnly} onClick={handleAttachmentsFilter} icon={<Paperclip className="w-4 h-4" strokeWidth={1.5} />} testId="filter-attachments" />
             </div>
           </div>
 
-          {/* Email List */}
           <ScrollArea className="flex-1">
             {loading ? (
               <div className="p-8 text-center">
@@ -276,33 +195,21 @@ export default function MessagesPage() {
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.03 * index }}
                     onClick={() => handleSelectEmail(item)}
-                    className={`w-full p-4 text-left hover:bg-slate-800/50 transition-colors ${
+                    className={`w-full p-4 text-left hover:bg-slate-800/50 ${
                       selectedEmail?.email.id === item.email.id ? 'bg-slate-800/70 border-l-2 border-blue-500' : ''
                     }`}
                     data-testid={`email-item-${item.email.id}`}
                   >
                     <div className="flex items-start gap-3">
-                      <div className="flex-shrink-0 mt-1">
-                        {getPriorityIcon(item.priority.priority_label)}
-                      </div>
+                      <div className="flex-shrink-0 mt-1">{getPriorityIcon(item.priority.priority_label)}</div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1">
-                          <span className="text-sm font-medium text-slate-200 truncate">
-                            {item.email.from_name}
-                          </span>
-                          {item.email.has_attachments && (
-                            <Paperclip className="w-3 h-3 text-slate-500 flex-shrink-0" strokeWidth={1.5} />
-                          )}
+                          <span className="text-sm font-medium text-slate-200 truncate">{item.email.from_name}</span>
+                          {item.email.has_attachments && <Paperclip className="w-3 h-3 text-slate-500 flex-shrink-0" strokeWidth={1.5} />}
                         </div>
-                        <p className="text-sm text-slate-300 truncate mb-1">
-                          {item.email.subject}
-                        </p>
-                        <p className="text-xs text-slate-500 truncate">
-                          {item.email.snippet}
-                        </p>
-                        <p className="text-xs text-slate-600 mt-1">
-                          {new Date(item.email.date).toLocaleDateString()}
-                        </p>
+                        <p className="text-sm text-slate-300 truncate mb-1">{item.email.subject}</p>
+                        <p className="text-xs text-slate-500 truncate">{item.email.snippet}</p>
+                        <p className="text-xs text-slate-600 mt-1">{new Date(item.email.date).toLocaleDateString()}</p>
                       </div>
                     </div>
                   </motion.button>
@@ -312,39 +219,23 @@ export default function MessagesPage() {
           </ScrollArea>
         </div>
 
-        {/* Email Detail - Right Panel */}
         <div className="hidden md:flex md:w-[65%] flex-col">
           {selectedEmail ? (
             <>
               <ScrollArea className="flex-1 p-6">
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  key={selectedEmail.email.id}
-                >
-                  {/* Email Header */}
+                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} key={selectedEmail.email.id}>
                   <div className="mb-6">
                     <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getPriorityClass(selectedEmail.priority.priority_label)}`}>
-                          {getPriorityIcon(selectedEmail.priority.priority_label)}
-                          {getPriorityLabel(selectedEmail.priority.priority_label)}
-                          <span className="ml-1 opacity-70">({selectedEmail.priority.priority_score})</span>
-                        </span>
-                      </div>
-                      <button
-                        onClick={() => setSelectedEmail(null)}
-                        className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200"
-                        data-testid="close-email-detail"
-                      >
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${getPriorityClass(selectedEmail.priority.priority_label)}`}>
+                        {getPriorityIcon(selectedEmail.priority.priority_label)}
+                        {getPriorityLabel(selectedEmail.priority.priority_label)}
+                        <span className="ml-1 opacity-70">({selectedEmail.priority.priority_score})</span>
+                      </span>
+                      <button onClick={() => setSelectedEmail(null)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-200" data-testid="close-email-detail">
                         <X className="w-5 h-5" strokeWidth={1.5} />
                       </button>
                     </div>
-                    
-                    <h2 className="text-2xl font-semibold text-slate-100 mb-3">
-                      {selectedEmail.email.subject}
-                    </h2>
-                    
+                    <h2 className="text-2xl font-semibold text-slate-100 mb-3">{selectedEmail.email.subject}</h2>
                     <div className="flex items-center gap-4 text-sm text-slate-400">
                       <span>{t(language, 'from')}: <span className="text-slate-200">{selectedEmail.email.from_name}</span></span>
                       <span>&lt;{selectedEmail.email.from_email}&gt;</span>
@@ -352,25 +243,17 @@ export default function MessagesPage() {
                     </div>
                   </div>
 
-                  {/* Priority Explanation Accordion */}
                   <Accordion type="single" collapsible className="mb-6">
                     <AccordionItem value="priority" className="glass-subtle rounded-xl border-0">
                       <AccordionTrigger className="px-4 py-3 hover:no-underline" data-testid="priority-explanation-trigger">
-                        <span className="text-sm font-medium text-slate-300">
-                          {t(language, 'why')}
-                        </span>
+                        <span className="text-sm font-medium text-slate-300">{t(language, 'why')}</span>
                       </AccordionTrigger>
                       <AccordionContent className="px-4 pb-4">
                         <p className="text-slate-400 text-sm mb-3">{selectedEmail.priority.explain}</p>
                         {selectedEmail.priority.rule_hits.length > 0 && (
                           <div className="flex flex-wrap gap-2">
                             {selectedEmail.priority.rule_hits.map((rule, i) => (
-                              <span
-                                key={i}
-                                className="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono"
-                              >
-                                {rule}
-                              </span>
+                              <span key={i} className="px-2 py-1 rounded bg-slate-800 text-xs text-slate-400 font-mono">{rule}</span>
                             ))}
                           </div>
                         )}
@@ -378,14 +261,8 @@ export default function MessagesPage() {
                     </AccordionItem>
                   </Accordion>
 
-                  {/* Summary Section */}
                   {summary && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="glass-subtle rounded-xl p-4 mb-6"
-                      data-testid="email-summary"
-                    >
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-subtle rounded-xl p-4 mb-6" data-testid="email-summary">
                       <h4 className="text-sm font-medium text-slate-300 mb-2 flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-blue-400" strokeWidth={1.5} />
                         {t(language, 'summary')}
@@ -394,32 +271,15 @@ export default function MessagesPage() {
                     </motion.div>
                   )}
 
-                  {/* Email Body */}
                   <div className="glass-subtle rounded-xl p-4 mb-6">
                     <div className={`text-slate-300 text-sm leading-relaxed whitespace-pre-wrap ${!showFullBody ? 'line-clamp-6' : ''}`}>
                       {selectedEmail.email.body}
                     </div>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setShowFullBody(!showFullBody)}
-                      className="mt-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 p-0 h-auto"
-                      data-testid="toggle-full-message"
-                    >
-                      {showFullBody ? (
-                        <>
-                          <ChevronUp className="w-4 h-4 mr-1" />
-                          {t(language, 'hideFullMessage')}
-                        </>
-                      ) : (
-                        <>
-                          <ChevronDown className="w-4 h-4 mr-1" />
-                          {t(language, 'showFullMessage')}
-                        </>
-                      )}
+                    <Button variant="ghost" onClick={() => setShowFullBody(!showFullBody)} className="mt-3 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 p-0 h-auto" data-testid="toggle-full-message">
+                      {showFullBody ? (<><ChevronUp className="w-4 h-4 mr-1" />{t(language, 'hideFullMessage')}</>) : (<><ChevronDown className="w-4 h-4 mr-1" />{t(language, 'showFullMessage')}</>)}
                     </Button>
                   </div>
 
-                  {/* Attachments */}
                   {selectedEmail.email.has_attachments && selectedEmail.email.attachments.length > 0 && (
                     <div className="glass-subtle rounded-xl p-4 mb-6" data-testid="attachments-section">
                       <h4 className="text-sm font-medium text-slate-300 mb-3 flex items-center gap-2">
@@ -428,10 +288,7 @@ export default function MessagesPage() {
                       </h4>
                       <div className="space-y-2">
                         {selectedEmail.email.attachments.map((att) => (
-                          <div
-                            key={att.id}
-                            className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800 transition-colors"
-                          >
+                          <div key={att.id} className="flex items-center justify-between p-3 rounded-lg bg-slate-800/50 hover:bg-slate-800">
                             <div className="flex items-center gap-3">
                               <FileText className="w-5 h-5 text-blue-400" strokeWidth={1.5} />
                               <div>
@@ -439,14 +296,8 @@ export default function MessagesPage() {
                                 <p className="text-xs text-slate-500">{formatFileSize(att.size)}</p>
                               </div>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-                              data-testid={`download-attachment-${att.id}`}
-                            >
-                              <Download className="w-4 h-4 mr-1" />
-                              {t(language, 'downloadAttachment')}
+                            <Button variant="ghost" size="sm" className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10" data-testid={`download-attachment-${att.id}`}>
+                              <Download className="w-4 h-4 mr-1" />{t(language, 'downloadAttachment')}
                             </Button>
                           </div>
                         ))}
@@ -454,38 +305,15 @@ export default function MessagesPage() {
                     </div>
                   )}
 
-                  {/* Draft Replies */}
                   {drafts.length > 0 && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="glass-subtle rounded-xl p-4 mb-6"
-                      data-testid="draft-replies"
-                    >
-                      <h4 className="text-sm font-medium text-slate-300 mb-3">
-                        {t(language, 'draftOptions')}
-                      </h4>
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-subtle rounded-xl p-4 mb-6" data-testid="draft-replies">
+                      <h4 className="text-sm font-medium text-slate-300 mb-3">{t(language, 'draftOptions')}</h4>
                       <div className="space-y-3">
                         {drafts.map((draft, index) => (
                           <div key={index} className="p-3 rounded-lg bg-slate-800/50">
                             <p className="text-sm text-slate-300 whitespace-pre-wrap mb-3">{draft}</p>
-                            <Button
-                              size="sm"
-                              onClick={() => copyDraft(draft, index)}
-                              className="bg-blue-600 hover:bg-blue-500 text-white"
-                              data-testid={`use-draft-${index}`}
-                            >
-                              {copiedDraft === index ? (
-                                <>
-                                  <Check className="w-4 h-4 mr-1" />
-                                  Copiado
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-4 h-4 mr-1" />
-                                  {t(language, 'useDraft')}
-                                </>
-                              )}
+                            <Button size="sm" onClick={() => copyDraft(draft, index)} className="bg-blue-600 hover:bg-blue-500 text-white" data-testid={`use-draft-${index}`}>
+                              {copiedDraft === index ? (<><Check className="w-4 h-4 mr-1" />Copiado</>) : (<><Copy className="w-4 h-4 mr-1" />{t(language, 'useDraft')}</>)}
                             </Button>
                           </div>
                         ))}
@@ -495,36 +323,15 @@ export default function MessagesPage() {
                 </motion.div>
               </ScrollArea>
 
-              {/* Action Bar with AI Card */}
               <div className="border-t border-slate-800 p-4">
                 <div className="flex items-center gap-3">
-                  {/* Action Buttons */}
-                  <Button
-                    onClick={handleSummarize}
-                    disabled={summaryLoading}
-                    variant="outline"
-                    className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-                    data-testid="summarize-btn"
-                  >
-                    {summaryLoading ? (
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                    ) : (
-                      <Sparkles className="w-4 h-4 mr-2" strokeWidth={1.5} />
-                    )}
+                  <Button onClick={handleSummarize} disabled={summaryLoading} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100" data-testid="summarize-btn">
+                    {summaryLoading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Sparkles className="w-4 h-4 mr-2" strokeWidth={1.5} />}
                     {t(language, 'aiSummarize')}
                   </Button>
-
-                  <Button
-                    onClick={() => setShowDraftForm(!showDraftForm)}
-                    variant="outline"
-                    className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-                    data-testid="draft-reply-btn"
-                  >
-                    <Send className="w-4 h-4 mr-2" strokeWidth={1.5} />
-                    {t(language, 'aiDraft')}
+                  <Button onClick={() => setShowDraftForm(!showDraftForm)} variant="outline" className="border-slate-700 text-slate-300 hover:bg-slate-800 hover:text-slate-100" data-testid="draft-reply-btn">
+                    <Send className="w-4 h-4 mr-2" strokeWidth={1.5} />{t(language, 'aiDraft')}
                   </Button>
-
-                  {/* AI Card - Right side */}
                   <div className="flex-1 ml-4">
                     <div className="glass-premium rounded-xl p-3 halo-card-ia ai-card flex items-center gap-3" data-testid="messages-ai-card">
                       <div className="w-8 h-8 rounded-lg bg-blue-500/20 border border-blue-500/30 flex items-center justify-center flex-shrink-0">
@@ -535,43 +342,14 @@ export default function MessagesPage() {
                   </div>
                 </div>
 
-                {/* Draft Form */}
                 <AnimatePresence>
                   {showDraftForm && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: 'auto' }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mt-4 overflow-hidden"
-                    >
+                    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} className="mt-4 overflow-hidden">
                       <div className="glass-subtle rounded-xl p-4" data-testid="draft-form">
-                        <label className="text-sm text-slate-400 mb-2 block">
-                          ¿Cómo quieres responder?
-                        </label>
-                        <Textarea
-                          value={draftInstructions}
-                          onChange={(e) => setDraftInstructions(e.target.value)}
-                          placeholder="Ej: Acepta la reunión, confirma asistencia y pregunta por la agenda..."
-                          className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 mb-3 min-h-[80px]"
-                          data-testid="draft-instructions-input"
-                        />
-                        <Button
-                          onClick={handleDraftReply}
-                          disabled={draftsLoading || !draftInstructions.trim()}
-                          className="bg-blue-600 hover:bg-blue-500 text-white"
-                          data-testid="generate-draft-btn"
-                        >
-                          {draftsLoading ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                              {t(language, 'generating')}
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="w-4 h-4 mr-2" />
-                              Generar borradores
-                            </>
-                          )}
+                        <label className="text-sm text-slate-400 mb-2 block">¿Cómo quieres responder?</label>
+                        <Textarea value={draftInstructions} onChange={(e) => setDraftInstructions(e.target.value)} placeholder="Ej: Acepta la reunión..." className="bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 mb-3 min-h-[80px]" data-testid="draft-instructions-input" />
+                        <Button onClick={handleDraftReply} disabled={draftsLoading || !draftInstructions.trim()} className="bg-blue-600 hover:bg-blue-500 text-white" data-testid="generate-draft-btn">
+                          {draftsLoading ? (<><Loader2 className="w-4 h-4 animate-spin mr-2" />{t(language, 'generating')}</>) : (<><Sparkles className="w-4 h-4 mr-2" />Generar borradores</>)}
                         </Button>
                       </div>
                     </motion.div>
@@ -593,18 +371,8 @@ export default function MessagesPage() {
   );
 }
 
-const FilterButton = ({ active, onClick, label, icon, highlight, testId }) => (
-  <button
-    onClick={onClick}
-    className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-      active
-        ? highlight
-          ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-          : 'bg-slate-700 text-slate-100'
-        : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-    }`}
-    data-testid={testId}
-  >
+const FilterBtn = ({ active, onClick, label, icon, highlight, testId }) => (
+  <button onClick={onClick} className={`px-3 py-1.5 rounded-lg text-sm font-medium ${active ? (highlight ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30' : 'bg-slate-700 text-slate-100') : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'}`} data-testid={testId}>
     {icon || label}
   </button>
 );
