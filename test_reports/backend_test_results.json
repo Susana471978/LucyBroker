@@ -1,0 +1,133 @@
+{
+  "timestamp": "2026-02-04T15:12:08.206874",
+  "total_tests": 25,
+  "passed_tests": 25,
+  "success_rate": 100.0,
+  "results": [
+    {
+      "test": "Root Endpoint",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Health Check",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "User Registration",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Current User",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "User Login",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Update Language to EN",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Update Language to ES",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get All Emails",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Filter Priority Emails",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Filter Follow-up Emails",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Filter Info Emails",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Filter Emails with Attachments",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Email Stats",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Get Individual Email",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "AI Chat - priority",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "AI Chat - attachments",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "AI Chat - summarize",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "AI Chat - draft",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "AI Chat - out_of_scope",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "AI Email Summarize",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "AI Draft Reply",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Invalid Endpoint",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Unauthorized Email Access",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "Invalid Email ID",
+      "success": true,
+      "details": ""
+    },
+    {
+      "test": "AI Summarize Invalid Email",
+      "success": true,
+      "details": ""
+    }
+  ]
+}
