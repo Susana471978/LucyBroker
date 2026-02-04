@@ -1,0 +1,168 @@
+{
+  "identity": {
+    "persona": "E1",
+    "mission": "Transform email from an infinite inbox into a decision panel. Reduce cognitive load. Prioritize clarity and calm.",
+    "tone": "Premium, Calm, Focused, Deep Space, Intelligent",
+    "style": "Dark Glassmorphism, Neural Network Aesthetics, Minimalist"
+  },
+  "theme": {
+    "mode": "dark",
+    "strategy": "Strict Dark Mode (No Light Mode)",
+    "background_style": "Neural Network Image with Heavy Dark Overlay"
+  },
+  "typography": {
+    "headings": {
+      "family": "Manrope, sans-serif",
+      "weights": ["600", "700"],
+      "usage": "Headings, KPIs, Major Actions",
+      "letterSpacing": "tracking-tight"
+    },
+    "body": {
+      "family": "Inter, sans-serif",
+      "weights": ["400", "500"],
+      "usage": "Email content, lists, metadata",
+      "letterSpacing": "tracking-normal"
+    }
+  },
+  "colors": {
+    "palette": {
+      "background": {
+        "base": "#020617",
+        "surface": "#0F172A",
+        "overlay": "rgba(2, 6, 23, 0.85)"
+      },
+      "primary": {
+        "main": "#3B82F6",
+        "hover": "#2563EB",
+        "active": "#1D4ED8"
+      },
+      "accent": {
+        "cyan": "#06B6D4",
+        "glow": "rgba(6, 182, 212, 0.15)"
+      },
+      "text": {
+        "primary": "#F8FAFC",
+        "secondary": "#94A3B8",
+        "muted": "#64748B"
+      },
+      "border": {
+        "subtle": "#1E293B",
+        "active": "#334155"
+      },
+      "status": {
+        "success": "#10B981",
+        "warning": "#F59E0B",
+        "error": "#EF4444"
+      }
+    },
+    "rules": [
+      "NO REDS allowed except for critical errors (and even then, keep it muted if possible).",
+      "Cyan usage must be strictly limited to 1-3% of the screen (active states, halos, key indicators).",
+      "Backgrounds must never be pure black (#000000) unless it's a specific deep void effect.",
+      "Use 'Tinted Greys' (Slate) to maintain the blue undertone."
+    ]
+  },
+  "visual_enhancers": {
+    "glassmorphism": {
+      "premium": "bg-slate-900/60 backdrop-blur-xl border border-white/10 shadow-2xl",
+      "subtle": "bg-slate-900/40 backdrop-blur-md border border-white/5"
+    },
+    "halos": {
+      "active": "shadow-[0_0_30px_-5px_rgba(6,182,212,0.3)]",
+      "card_ia": "shadow-[0_0_40px_-10px_rgba(59,130,246,0.25)] border-blue-500/20"
+    },
+    "gradients": {
+      "surface": "bg-gradient-to-b from-slate-800/50 to-slate-900/50",
+      "text_highlight": "bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-cyan-300"
+    }
+  },
+  "layout_strategy": {
+    "overview": {
+      "type": "Bento Grid",
+      "columns": "grid-cols-1 md:grid-cols-3 lg:grid-cols-4",
+      "gap": "gap-6",
+      "rules": "Max 3 priority items. 'Silence Mode' toggle prominent."
+    },
+    "messages": {
+      "type": "Split View",
+      "structure": "List (35%) | Detail/AI (65%)",
+      "rules": "Card-IA must be context-aware, floating or docked to the right of the reading pane."
+    }
+  },
+  "components": {
+    "Card-IA": {
+      "description": "The AI Assistant for Email. Not a chat. A proactive helper.",
+      "style": "Glassmorphism Premium + Blue Halo. Distinct from other cards.",
+      "features": ["Summarization", "Drafting", "Prioritization Explanation"]
+    },
+    "PriorityItem": {
+      "description": "High-level summary card for the top 3 emails.",
+      "style": "Bento Grid Item. High contrast. Clear action."
+    },
+    "Navigation": {
+      "style": "Vertical Sidebar (collapsed on mobile) or Top Bar (minimal). Glass effect."
+    }
+  },
+  "media": {
+    "images": [
+      {
+        "category": "background",
+        "url": "https://images.unsplash.com/photo-1750969185331-e03829f72c7d?crop=entropy&cs=srgb&fm=jpg&ixid=M3w3NDk1ODF8MHwxfHNlYXJjaHwxfHxibHVlJTIwY29uc3RlbGxhdGlvbiUyMGNvbm5lY3Rpb24lMjBub2RlcyUyMG5ldHdvcmslMjBiYWNrZ3JvdW5kJTIwZGFya3xlbnwwfHx8fDE3NzAyMTY3MjZ8MA&ixlib=rb-4.1.0&q=85",
+        "description": "Abstract blue lines and dots on black background. Use as global background with overlay.",
+        "usage": "Global App Background (fixed, cover)"
+      }
+    ],
+    "icons": {
+      "library": "lucide-react",
+      "style": "Stroke width 1.5px (thin, elegant)",
+      "color": "text-slate-400 group-hover:text-blue-400"
+    }
+  },
+  "accessibility": {
+    "contrast": "Ensure text is Slate-100 or Slate-200 on dark backgrounds.",
+    "focus_states": "Visible Cyan ring offset-2 ring-cyan-500/50",
+    "reduced_motion": "Respect prefers-reduced-motion for background animations."
+  },
+  "instructions_to_main_agent": {
+    "setup": [
+      "Install 'lucide-react' for icons.",
+      "Install 'framer-motion' for smooth transitions (if not present).",
+      "Configure Tailwind for 'class' based dark mode (already set).",
+      "Add 'Manrope' font from Google Fonts."
+    ],
+    "implementation_steps": [
+      "1. Set up the global layout with the Neural Network background and dark overlay.",
+      "2. Build the 'Glass' utility classes in Tailwind layer components.",
+      "3. Create the 'Overview' page with the Bento Grid layout.",
+      "4. Implement the 'Messages' view with the Split layout.",
+      "5. Build the 'Card-IA' component with the specific Halo effect.",
+      "6. Ensure all text is legible against the glass backgrounds."
+    ],
+    "critical_constraints": [
+      "DO NOT use Red unless absolutely necessary for a critical error.",
+      "DO NOT use generic 'Card' components without adding the custom glass/border styles.",
+      "Keep the 'Cyan' accent minimal (1-3%). It is for 'Life/Latency/Halo' effects only."
+    ]
+  },
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "You tend to converge toward generic, 'on distribution' outputs. In frontend design, this creates what users call the 'AI slop' aesthetic. Avoid this: make creative, distinctive frontends that surprise and delight.",
+    "Dark colors look good when used independently without gradients. DO NOT use dark colors as gradients",
+    "Don't make generic centered layouts, simplistic gradients, and uniform styling.",
+    "Create depth through layered design elements with z-index hierarchy",
+    "Use glass-morphism effects with backdrop filters (12-24px blur)",
+    "You MUST NOT apply universal transition. Eg: 'transition: all'. This results in breaking transforms. Always add transitions for specific interactive elements like button, input excluding transforms",
+    "You MUST NOT center align the app container, ie do not add '.App { text-align: center; }' in the css file. This disrupts the human natural reading flow of text",
+    "Always use modern button styles like pill-shaped, or sharp button with interaction animations & color relevant to the app style",
+    "NEVER: use AI assistant Emoji characters like 🤖🧠💭💡🔮🎯📚🎭🎬🎪🎉🎊🎁🎀🎂🍰🎈🎨🎰💰💵💳🏦💎🪙💸🤑📊📈📉💹🔢🏆🥇 etc for icons.",
+    "Every interaction needs micro-animations - hover states, transitions, parallax effects, and entrance animations. Static = dead.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Subtle grain textures, noise overlays, custom cursors, selection states, and loading animations: separates good from extraordinary.",
+    "Main agent relies on these image URLs. Missing categories (especially sponsor logos) = main agent will use placeholder text which is FORBIDDEN",
+    "Prioritize using pre-existing components from src/components/ui when applicable",
+    "Create new components that match the style and conventions of existing components when needed",
+    "Examine existing components to understand the project's component patterns before creating new ones",
+    "Components MUST use named exports (export const ComponentName = ...)",
+    "Pages MUST use default exports (export default function PageName() {...})",
+    "Use 'sonner' for toasts. Sonner component are located in '/app/src/components/ui/sonner.tsx'"
+  ]
+}
