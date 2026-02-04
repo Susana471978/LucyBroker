@@ -13,10 +13,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
-import { Button } from '../components/ui/button';
+} from './ui/dropdown-menu';
+import { Button } from './ui/button';
 
-export default function Layout({ children }) {
+const Layout = ({ children }) => {
   const { user, logout, language, updateLanguage } = useAuth();
   const location = useLocation();
 
