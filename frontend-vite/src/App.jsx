@@ -1,10 +1,32 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from '/vite.svg'
 import './App.css'
+import { getHealth } from './services/api'
 
 function App() {
   const [count, setCount] = useState(0)
+  const [backendStatus, setBackendStatus] = useState('ERROR')
+
+  useEffect(() => {
+    let isMounted = true
+
+    getHealth()
+      .then((ok) => {
+        if (isMounted) {
+          setBackendStatus(ok ? 'OK' : 'ERROR')
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setBackendStatus('ERROR')
+        }
+      })
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <>
@@ -21,6 +43,7 @@ function App() {
         <button onClick={() => setCount((count) => count + 1)}>
           count is {count}
         </button>
+        <p>Backend: {backendStatus}</p>
         <p>
           Edit <code>src/App.jsx</code> and save to test HMR
         </p>
