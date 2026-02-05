@@ -1,0 +1,26 @@
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timezone
+from typing import Optional
+
+
+class UTCFormatter(logging.Formatter):
+    def formatTime(self, record, datefmt=None):
+        dt = datetime.fromtimestamp(record.created, tz=timezone.utc)
+        return dt.strftime(datefmt or "%Y-%m-%dT%H:%M:%SZ")
+
+
+def configure_logging(level: int = logging.INFO) -> None:
+    handler = logging.StreamHandler()
+    formatter = UTCFormatter("[%(asctime)s] [%(name)s] [%(levelname)s] %(message)s")
+    handler.setFormatter(formatter)
+
+    root = logging.getLogger()
+    if not root.handlers:
+        root.addHandler(handler)
+    root.setLevel(level)
+
+
+def get_logger(name: Optional[str] = None) -> logging.Logger:
+    return logging.getLogger(name)
