@@ -24,3 +24,10 @@ def configure_logging(level: int = logging.INFO) -> None:
 
 def get_logger(name: Optional[str] = None) -> logging.Logger:
     return logging.getLogger(name)
+
+
+# Inicializar logging por defecto
+configure_logging()
+
+# Logger principal del sistema
+logger = get_logger("emailsystem")
