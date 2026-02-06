@@ -9,7 +9,7 @@ import { Input } from '../components/ui/input';
 import { motion } from 'framer-motion';
 import Layout from '../components/Layout';
 
-const API = `${process.env.REACT_APP_BACKEND_URL}/api`;
+const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
 const StatCard = ({ icon, label, value, highlight, onClick, testId }) => {
   let baseClass = 'glass-subtle rounded-xl p-4 text-left w-full ';
@@ -41,8 +41,12 @@ export default function OverviewPage() {
     try {
       const emailsRes = await axios.get(`${API}/emails`);
       const statsRes = await axios.get(`${API}/emails/stats/summary`);
-      setEmails(emailsRes.data);
-      setStats(statsRes.data);
+
+      const emailsPayload = emailsRes.data?.data || emailsRes.data?.legacy || emailsRes.data;
+      const statsPayload = statsRes.data?.data || statsRes.data?.legacy || statsRes.data;
+
+      setEmails(emailsPayload);
+      setStats(statsPayload);
     } catch (error) {
       console.error('Failed to fetch data:', error);
     } finally {
@@ -58,11 +62,12 @@ export default function OverviewPage() {
     setAiLoading(true);
     try {
       const response = await axios.post(`${API}/ai/chat`, { message: aiInput });
-      setAiResponse(response.data);
-      if (response.data.action && response.data.action.type === 'filter') {
+      const payload = response.data?.data || response.data;
+      setAiResponse(payload);
+      if (payload.action && payload.action.type === 'filter') {
         const params = new URLSearchParams();
-        if (response.data.action.payload.label) params.set('label', response.data.action.payload.label);
-        if (response.data.action.payload.has_attachments) params.set('attachments', 'true');
+        if (payload.action.payload.label) params.set('label', payload.action.payload.label);
+        if (payload.action.payload.has_attachments) params.set('attachments', 'true');
         navigate('/messages?' + params.toString());
       }
     } catch (error) {

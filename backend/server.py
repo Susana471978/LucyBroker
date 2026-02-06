@@ -11,17 +11,36 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from motor.motor_asyncio import AsyncIOMotorClient
 from dotenv import load_dotenv
+import uvicorn
 
 from backend.config import settings
+
+# ✅ IMPORTS DE MODELOS (CRÍTICO PARA AUTH)
+from backend.models import (
+    UserCreate,
+    UserLogin,
+    UserResponse,
+    TokenResponse,
+    EnrichedEmail,
+    ChatRequest,
+    SummarizeRequest,
+    DraftReplyRequest,
+)
+
+from backend.services.email_service import (
+    get_enriched_emails,
+    get_email_by_id,
+    get_email_stats,
+)
+from backend.services.rules_engine import calculate_priority
 
 from backend.utils.rate_limit import RateLimitMiddleware
 from backend.utils.csrf import OAuthCSRFMiddleware
 from backend.utils.logger import logger
 
-
-
 import bcrypt
 import jwt
+
 
 try:
     from emergentintegrations.llm.chat import LlmChat, UserMessage
@@ -43,9 +62,9 @@ ROOT_DIR = Path(__file__).resolve().parent
 load_dotenv(ROOT_DIR / '.env')
    
 # MongoDB connection
-mongo_url = os.environ['MONGO_URL']
+mongo_url = settings.mongo_url
 client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+db = client[settings.db_name]
 
 # JWT Config
 JWT_SECRET = os.environ.get('JWT_SECRET', 'default-secret-key')

@@ -4,9 +4,9 @@ from typing import List, Optional
 
 from emergentintegrations.llm.chat import LlmChat, UserMessage
 
-from backend.config import settings
-from backend.models import AIIntent, EmailEvent
-from backend.utils.logger import get_logger
+from config import settings
+from models import AIIntent, EmailEvent
+from utils.logger import get_logger
 
 
 class AIService:
