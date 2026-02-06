@@ -1,169 +1,169 @@
 import { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
-import { t } from '../i18n';
-import { Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
+import { Mail, Lock, ArrowRight, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+
 export default function AuthPage() {
-  const { login, register, language } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const { login } = useAuth();
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      if (isLogin) {
-        await login(email, password);
-      } else {
-        await register(email, password, name);
-      }
+      await login(email, password);
     } catch (err) {
-      setError(err.response?.data?.detail || t(language, 'invalidCredentials'));
+      setError(err.response?.data?.detail || 'Error al iniciar sesión');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="auth-shell relative">
+
       {/* Background */}
-      <div className="bg-neural" />
-      
+      <div
+        className="bg-neural pointer-events-none"
+        aria-hidden="true"
+      />
+
+      {/* Content */}
       <motion.div
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        transition={{ duration: 0.6 }}
+        className="auth-stack relative z-10"
       >
-        {/* Logo/Brand */}
-        <div className="text-center mb-8">
-          <motion.div
-            initial={{ scale: 0.9 }}
-            animate={{ scale: 1 }}
-            transition={{ duration: 0.3 }}
-            className="inline-flex items-center gap-3 mb-4"
-          >
-            <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-              <Mail className="w-6 h-6 text-blue-400" strokeWidth={1.5} />
-            </div>
-            <h1 className="text-2xl font-bold text-gradient">Email Control</h1>
-          </motion.div>
-          <p className="text-slate-400 text-sm">
-            {t(language, 'welcomeSubtitle')}
+        {/* Brand */}
+        <motion.div
+          initial={{ opacity: 0, y: -12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1, duration: 0.5 }}
+          className="auth-brand"
+        >
+          <div className="auth-brand-icon">
+            <Mail className="w-7 h-7 text-blue-100" strokeWidth={1.4} />
+          </div>
+
+          <h1>Email Control</h1>
+
+          <p>
+            Transforma tu bandeja en un panel de decisiones.
+            Reduce el ruido, prioriza acciones.
           </p>
-        </div>
+        </motion.div>
 
-        {/* Form Card */}
-        <div className="glass-premium rounded-2xl p-8">
-          <h2 className="text-xl font-semibold text-slate-100 mb-6">
-            {isLogin ? t(language, 'login') : t(language, 'register')}
-          </h2>
+        {/* Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+          className="auth-card"
+        >
+          <h2>Iniciar sesión</h2>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div className="space-y-2">
-                <label className="text-sm text-slate-400">{t(language, 'name')}</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" strokeWidth={1.5} />
-                  <Input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="pl-10 bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
-                    placeholder="John Doe"
-                    required={!isLogin}
-                    data-testid="register-name-input"
-                  />
-                </div>
-              </div>
-            )}
+          <form onSubmit={handleSubmit} className="auth-form">
 
-            <div className="space-y-2">
-              <label className="text-sm text-slate-400">{t(language, 'email')}</label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" strokeWidth={1.5} />
+            {/* Email */}
+            <div className="auth-field">
+              <label className="auth-field-label">
+                Correo electrónico
+              </label>
+
+              <div className="auth-input-wrapper">
+                <Mail
+                  className="auth-input-icon"
+                  strokeWidth={1.4}
+                />
+
                 <Input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
+                  onChange={(event) =>
+                    setEmail(event.target.value)
+                  }
                   placeholder="email@example.com"
+                  autoComplete="email"
                   required
+                  className="auth-input !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
                   data-testid="auth-email-input"
                 />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-sm text-slate-400">{t(language, 'password')}</label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-500" strokeWidth={1.5} />
+            {/* Password */}
+            <div className="auth-field">
+              <label className="auth-field-label">
+                Contraseña
+              </label>
+
+              <div className="auth-input-wrapper">
+                <Lock
+                  className="auth-input-icon"
+                  strokeWidth={1.4}
+                />
+
                 <Input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500 focus:border-blue-500 focus:ring-blue-500/20"
+                  onChange={(event) =>
+                    setPassword(event.target.value)
+                  }
                   placeholder="••••••••"
+                  autoComplete="current-password"
                   required
+                  className="auth-input !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
                   data-testid="auth-password-input"
                 />
               </div>
             </div>
 
+            {/* Error */}
             {error && (
               <motion.div
-                initial={{ opacity: 0, y: -10 }}
+                initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm"
+                className="auth-error"
                 data-testid="auth-error-message"
               >
                 {error}
               </motion.div>
             )}
 
+            {/* Submit */}
             <Button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-medium py-2.5 rounded-xl btn-glow"
+              className="auth-submit !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
               data-testid="auth-submit-btn"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
                 <>
-                  {isLogin ? t(language, 'login') : t(language, 'register')}
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  Iniciar sesión
+                  <ArrowRight className="w-4 h-4 ml-1" />
                 </>
               )}
             </Button>
+
           </form>
 
-          <div className="mt-6 text-center">
-            <button
-              type="button"
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError('');
-              }}
-              className="text-sm text-slate-400 hover:text-blue-400 transition-colors"
-              data-testid="auth-toggle-mode"
-            >
-              {isLogin ? t(language, 'noAccount') : t(language, 'hasAccount')}
-              <span className="ml-1 text-blue-400">
-                {isLogin ? t(language, 'register') : t(language, 'login')}
-              </span>
-            </button>
-          </div>
-        </div>
+          <p className="auth-secondary-link">
+            ¿No tienes cuenta? <span>Registrarse</span>
+          </p>
+
+        </motion.div>
       </motion.div>
     </div>
   );
