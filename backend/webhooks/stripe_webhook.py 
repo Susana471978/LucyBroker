@@ -1,0 +1,73 @@
+from __future__ import annotations
+
+import json
+import stripe
+from datetime import datetime, timezone
+from typing import Dict, Any
+
+from fastapi import APIRouter, Request, HTTPException
+
+from backend.config import settings
+from backend.utils.logger import logger
+
+
+router = APIRouter(prefix="/webhooks", tags=["stripe"])
+
+# ======================================================
+# STRIPE CONFIG
+# ======================================================
+
+if not settings.stripe_webhook_secret:
+    raise RuntimeError("STRIPE_WEBHOOK_SECRET no está configurada")
+
+stripe.api_key = settings.stripe_secret_key
+
+
+# ======================================================
+# STRIPE WEBHOOK ENDPOINT
+# ======================================================
+
+@router.post("/stripe")
+async def stripe_webhook(request: Request):
+    payload = await request.body()
+    sig_header = request.headers.get("stripe-signature")
+
+    if not sig_header:
+        raise HTTPException(status_code=400, detail="Missing Stripe signature")
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload=payload,
+            sig_header=sig_header,
+            secret=settings.stripe_webhook_secret,
+        )
+    except stripe.error.SignatureVerificationError:
+        logger.warning("Firma de webhook Stripe inválida")
+        raise HTTPException(status_code=400, detail="Invalid signature")
+    except Exception as exc:
+        logger.exception("Error procesando webhook Stripe")
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    # ==================================================
+    # EVENTOS IMPORTANTES (MVP)
+    # ==================================================
+
+    event_type = event["type"]
+    data = event["data"]["object"]
+
+    logger.info(
+        "Stripe webhook recibido",
+        extra={
+            "event_type": event_type,
+            "object_id": data.get("id"),
+            "created": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+
+    # Aquí más adelante:
+    # - subscription.created
+    # - checkout.session.completed
+    # - invoice.paid
+    # - customer.subscription.deleted
+
+    return {"status": "ok"}

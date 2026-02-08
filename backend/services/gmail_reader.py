@@ -1,50 +1,130 @@
-import json
-from pathlib import Path
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
+from __future__ import annotations
+
+from typing import List, Dict, Any, Optional
+from datetime import datetime, timezone
+import base64
+
+from backend.models import EmailEvent, EmailAttachment
+from backend.services.gmail_client import (
+    fetch_messages,
+    fetch_message_detail,
+)
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-TOKEN_FILE = BASE_DIR / "credentials" / "gmail_token.json"
+# ======================================================
+# HELPERS
+# ======================================================
 
-SCOPES = [
-    "https://www.googleapis.com/auth/gmail.readonly"
-]
-
-
-def get_gmail_service():
-
-    if not TOKEN_FILE.exists():
-        raise Exception("Gmail not connected")
-
-    with open(TOKEN_FILE) as f:
-        data = json.load(f)
-
-    creds = Credentials.from_authorized_user_info(data, SCOPES)
-
-    return build("gmail", "v1", credentials=creds)
+def _decode_body(data: Optional[str]) -> str:
+    if not data:
+        return ""
+    try:
+        return base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
 
 
-def fetch_messages(max_results=20):
-
-    service = get_gmail_service()
-
-    result = service.users().messages().list(
-        userId="me",
-        maxResults=max_results
-    ).execute()
-
-    messages = result.get("messages", [])
-
-    return messages
+def _parse_headers(headers: List[Dict[str, str]]) -> Dict[str, str]:
+    return {h["name"].lower(): h["value"] for h in headers}
 
 
-def fetch_message_detail(msg_id):
+def _extract_attachments(payload: Dict[str, Any]) -> List[EmailAttachment]:
+    attachments: List[EmailAttachment] = []
 
-    service = get_gmail_service()
+    parts = payload.get("parts", []) or []
+    for part in parts:
+        filename = part.get("filename")
+        body = part.get("body", {})
+        attachment_id = body.get("attachmentId")
 
-    return service.users().messages().get(
-        userId="me",
-        id=msg_id,
-        format="full"
-    ).execute()
+        if filename and attachment_id:
+            attachments.append(
+                EmailAttachment(
+                    id=attachment_id,
+                    name=filename,
+                    size=body.get("size", 0),
+                    mime_type=part.get("mimeType", "application/octet-stream"),
+                )
+            )
+
+    return attachments
+
+
+def _extract_body(payload: Dict[str, Any]) -> str:
+    if payload.get("body", {}).get("data"):
+        return _decode_body(payload["body"]["data"])
+
+    for part in payload.get("parts", []) or []:
+        if part.get("mimeType") == "text/plain":
+            return _decode_body(part.get("body", {}).get("data"))
+
+    return ""
+
+
+# ======================================================
+# DOMAIN READER
+# ======================================================
+
+def read_gmail_events(
+    user_id: str,
+    max_results: int = 25,
+    label_ids: Optional[List[str]] = None,
+) -> List[EmailEvent]:
+    """
+    Lee correos Gmail reales y los convierte a EmailEvent (dominio).
+    """
+
+    messages = fetch_messages(
+        user_id=user_id,
+        max_results=max_results,
+        label_ids=label_ids,
+    )
+
+    events: List[EmailEvent] = []
+
+    for msg in messages:
+        msg_id = msg.get("id")
+        if not msg_id:
+            continue
+
+        detail = fetch_message_detail(user_id=user_id, msg_id=msg_id)
+
+        payload = detail.get("payload", {})
+        headers = _parse_headers(payload.get("headers", []))
+
+        subject = headers.get("subject", "(Sin asunto)")
+        from_raw = headers.get("from", "")
+        date_raw = headers.get("date")
+
+        try:
+            date = (
+                datetime.fromtimestamp(
+                    int(detail.get("internalDate", 0)) / 1000,
+                    tz=timezone.utc,
+                ).isoformat()
+            )
+        except Exception:
+            date = datetime.now(timezone.utc).isoformat()
+
+        body = _extract_body(payload)
+        snippet = detail.get("snippet", "")
+
+        attachments = _extract_attachments(payload)
+
+        events.append(
+            EmailEvent(
+                id=detail.get("id"),
+                thread_id=detail.get("threadId"),
+                from_name=from_raw,
+                from_email=from_raw,
+                subject=subject,
+                date=date,
+                snippet=snippet,
+                body=body,
+                labels=detail.get("labelIds", []),
+                has_attachments=len(attachments) > 0,
+                attachments=attachments or None,
+            )
+        )
+
+    return events
