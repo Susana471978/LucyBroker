@@ -482,14 +482,24 @@ function EmailDetail({
           {/* BODY */}
 
           <div className="glass-subtle rounded-xl p-4 mb-6">
-            <div
-              className={
-                'text-slate-300 text-sm leading-relaxed whitespace-pre-wrap ' +
-                (!showFullBody ? 'line-clamp-6' : '')
-              }
-            >
-              {selectedEmail.email.body}
-            </div>
+            {selectedEmail.email.body && selectedEmail.email.body.includes('<') && selectedEmail.email.body.includes('>') ? (
+              <div
+                className={
+                  'text-slate-300 text-sm leading-relaxed ' +
+                  (!showFullBody ? 'line-clamp-6 overflow-hidden' : '')
+                }
+                dangerouslySetInnerHTML={{ __html: selectedEmail.email.body }}
+              />
+            ) : (
+              <div
+                className={
+                  'text-slate-300 text-sm leading-relaxed whitespace-pre-wrap ' +
+                  (!showFullBody ? 'line-clamp-6' : '')
+                }
+              >
+                {selectedEmail.email.body}
+              </div>
+            )}
 
             <Button
               variant="ghost"

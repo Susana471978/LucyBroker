@@ -6,6 +6,7 @@ Uses google_oauth.json from credentials/ and stores tokens in MongoDB.
 
 import os
 import json
+import base64
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -176,8 +177,7 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
                 detail = service.users().messages().get(
                     userId="me",
                     id=msg_id,
-                    format="metadata",
-                    metadataHeaders=["Subject", "From", "Date"],
+                    format="full",
                 ).execute()
 
                 headers = {}
@@ -194,6 +194,42 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
 
                 snippet = detail.get("snippet", "")
 
+                # --- Extract full body from payload ---
+                payload = detail.get("payload", {})
+                body_html = ""
+                body_plain = ""
+                has_attach = False
+
+                def _walk_parts(parts):
+                    nonlocal body_html, body_plain, has_attach
+                    for part in parts:
+                        mime = part.get("mimeType", "")
+                        data = part.get("body", {}).get("data")
+                        if part.get("filename") and part.get("body", {}).get("attachmentId"):
+                            has_attach = True
+                        if mime == "text/html" and data and not body_html:
+                            body_html = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                        elif mime == "text/plain" and data and not body_plain:
+                            body_plain = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
+                        if part.get("parts"):
+                            _walk_parts(part["parts"])
+
+                # Single-part message (no parts array)
+                top_mime = payload.get("mimeType", "")
+                top_data = payload.get("body", {}).get("data")
+                if top_data and "text/" in top_mime:
+                    decoded = base64.urlsafe_b64decode(top_data).decode("utf-8", errors="ignore")
+                    if top_mime == "text/html":
+                        body_html = decoded
+                    else:
+                        body_plain = decoded
+
+                # Multi-part message
+                if payload.get("parts"):
+                    _walk_parts(payload["parts"])
+
+                full_body = body_html or body_plain or snippet
+
                 email_event = EmailEvent(
                     id=detail["id"],
                     thread_id=detail.get("threadId", ""),
@@ -202,9 +238,9 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
                     subject=headers.get("subject", "(Sin asunto)"),
                     date=date_str,
                     snippet=snippet,
-                    body=snippet,
+                    body=full_body,
                     labels=detail.get("labelIds", []),
-                    has_attachments=False,
+                    has_attachments=has_attach,
                     attachments=[],
                 )
 
