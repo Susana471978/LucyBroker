@@ -20,11 +20,14 @@ SCOPES = [
 ]
 
 
+REDIRECT_URI = os.environ.get("GMAIL_REDIRECT_URI", "http://127.0.0.1:8000/api/gmail/callback")
+
+
 def get_flow():
     return Flow.from_client_secrets_file(
         str(CREDENTIALS_FILE),
         scopes=SCOPES,
-        redirect_uri="http://127.0.0.1:8000/api/auth/google/callback"
+        redirect_uri=REDIRECT_URI
     )
 
 

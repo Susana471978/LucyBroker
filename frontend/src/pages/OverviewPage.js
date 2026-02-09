@@ -11,7 +11,8 @@ import {
   Paperclip,
   Sparkles,
   Send,
-  Loader2
+  Loader2,
+  Link2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -59,6 +60,10 @@ export default function OverviewPage() {
   const [aiResponse, setAiResponse] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
+  const [gmailConnected, setGmailConnected] = useState(false);
+  const [gmailEmail, setGmailEmail] = useState('');
+  const [gmailLoading, setGmailLoading] = useState(true);
+
   /* ---------- DATA ---------- */
   const fetchData = useCallback(async () => {
     if (!token) return;
@@ -66,13 +71,19 @@ export default function OverviewPage() {
     try {
       const headers = { Authorization: `Bearer ${token}` };
 
-      const [emailsRes, statsRes] = await Promise.all([
-        axios.get(`${API}/emails`, { headers }),
-        axios.get(`${API}/emails/stats/summary`, { headers })
-      ]);
+      const emailsRes = await axios.get(`${API}/gmail/messages`, { headers });
 
-      setEmails(emailsRes.data?.data || []);
-      setStats(statsRes.data?.data || null);
+      const emailsData = emailsRes.data?.data || emailsRes.data || [];
+      setEmails(Array.isArray(emailsData) ? emailsData : []);
+
+      // Compute stats from fetched emails
+      const list = Array.isArray(emailsData) ? emailsData : [];
+      setStats({
+        total: list.length,
+        prioritarios: list.filter(e => e.priority?.priority_label === 'PRIORITARIO').length,
+        seguimiento: list.filter(e => e.priority?.priority_label === 'SEGUIMIENTO').length,
+        with_attachments: list.filter(e => e.email?.has_attachments).length,
+      });
     } catch (err) {
       console.error('Fetch error:', err);
     } finally {
@@ -83,6 +94,39 @@ export default function OverviewPage() {
   useEffect(() => {
     if (token) fetchData();
   }, [fetchData, token]);
+
+  /* ---------- GMAIL STATUS ---------- */
+  useEffect(() => {
+    if (!token) return;
+    const checkGmail = async () => {
+      try {
+        const res = await axios.get(`${API}/gmail/status`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const d = res.data?.data || res.data;
+        setGmailConnected(!!d.gmail_connected);
+        setGmailEmail(d.gmail_email || '');
+      } catch (err) {
+        console.error('Gmail status error:', err);
+      } finally {
+        setGmailLoading(false);
+      }
+    };
+    checkGmail();
+  }, [token]);
+
+  /* ---------- GMAIL CONNECT ---------- */
+  const handleGmailConnect = async () => {
+    try {
+      const res = await axios.get(`${API}/gmail/auth`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const url = res.data?.data?.auth_url || res.data?.auth_url;
+      if (url) window.location.href = url;
+    } catch (err) {
+      console.error('Gmail auth error:', err);
+    }
+  };
 
   /* ---------- IA ---------- */
   const handleAiSubmit = async (e) => {
@@ -134,6 +178,31 @@ export default function OverviewPage() {
             {t(language, 'welcomeSubtitle')}
           </p>
         </motion.div>
+
+        {/* GMAIL CONNECTION */}
+        {!gmailLoading && (
+          <div className="glass-subtle rounded-xl p-4 mb-8 flex items-center justify-between">
+            {gmailConnected ? (
+              <div className="flex items-center gap-3">
+                <CheckCircle className="w-5 h-5 text-emerald-400" />
+                <span className="text-slate-200 text-sm font-medium">
+                  Correo conectado: <span className="text-blue-400">{gmailEmail}</span>
+                </span>
+              </div>
+            ) : (
+              <>
+                <span className="text-slate-400 text-sm">Conecta tu correo para analizar tus emails</span>
+                <Button
+                  onClick={handleGmailConnect}
+                  className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2"
+                >
+                  <Link2 className="w-4 h-4" />
+                  Conectar mi correo
+                </Button>
+              </>
+            )}
+          </div>
+        )}
 
         {/* STATS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

@@ -34,6 +34,11 @@ from backend.services.stripe_service import create_checkout_session
 from backend.webhooks.stripe_webhook import router as stripe_router
 
 # =========================
+# GMAIL
+# =========================
+from backend.api.gmail import create_gmail_router
+
+# =========================
 # MODELOS
 # =========================
 from backend.models import (
@@ -138,6 +143,14 @@ async def get_current_user(
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
+
+
+# ======================================================
+# GMAIL OAUTH
+# ======================================================
+
+_gmail_router = create_gmail_router(db, get_current_user)
+api_router.include_router(_gmail_router)
 
 
 # ======================================================
