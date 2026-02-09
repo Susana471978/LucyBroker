@@ -85,3 +85,14 @@ frontend/node_modules/.cache/default-development/0.pack
 *.env.*
 
 backend/credentials/
+
+# Logs
+*.log
+backend.log
+frontend.log
+mongo.log
+
+# Emergent artifacts
+emergent/
+emergent.yml
+*.emergent
