@@ -36,12 +36,9 @@ const Layout = ({ children }) => {
       <div className="bg-neural" />
       <header className="glass-premium border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-24 py-2">
             <Link to="/" className="flex items-center gap-3" data-testid="logo-link">
-              <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-                <Mail className="w-5 h-5 text-blue-400" strokeWidth={1.5} />
-              </div>
-              <span className="text-lg font-semibold text-gradient hidden sm:block">Email Control</span>
+              <img src={require('../assets/logo/LogoEmail.png')} alt="Email Control" className="h-36 w-auto" />
             </Link>
 
             <nav className="flex items-center gap-1">

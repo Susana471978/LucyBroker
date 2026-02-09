@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -8,7 +9,8 @@ import { Input } from '../components/ui/input';
 
 export default function AuthPage() {
 
-  const { login, register } = useAuth();
+  const { login, register, logout, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -30,11 +32,17 @@ export default function AuthPage() {
 
     try {
 
+      if (isAuthenticated) {
+        logout();
+      }
+
       if (isRegister) {
         await register(email, password, name);
       } else {
         await login(email, password);
       }
+
+      navigate('/');
 
     } catch (err) {
 

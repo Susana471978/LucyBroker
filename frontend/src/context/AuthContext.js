@@ -91,7 +91,7 @@ export const AuthProvider = ({ children }) => {
       password,
     });
 
-    const payload = response.data?.data;
+    const payload = response.data?.data || response.data;
 
     if (!payload?.token || !payload?.user) {
       throw new Error('Invalid login response');
@@ -120,7 +120,7 @@ export const AuthProvider = ({ children }) => {
       name,
     });
 
-    const payload = response.data?.data;
+    const payload = response.data?.data || response.data;
 
     if (!payload?.token || !payload?.user) {
       throw new Error('Invalid register response');

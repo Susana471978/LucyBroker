@@ -5,6 +5,7 @@ import { Toaster } from "./components/ui/sonner";
 import AuthPage from "./pages/AuthPage";
 import OverviewPage from "./pages/OverviewPage";
 import MessagesPage from "./pages/MessagesPage";
+import LandingPage from "./pages/LandingPage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -55,13 +56,10 @@ const PublicRoute = ({ children }) => {
 const AppRoutes = () => {
   return (
     <Routes>
+      <Route path="/landing" element={<LandingPage />} />
       <Route
         path="/auth"
-        element={
-          <PublicRoute>
-            <AuthPage />
-          </PublicRoute>
-        }
+        element={<AuthPage />}
       />
       <Route
         path="/"

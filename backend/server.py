@@ -26,7 +26,6 @@ import jwt
 import stripe
 
 from backend.config import settings
-from backend.database import db
 
 # =========================
 # STRIPE
@@ -45,12 +44,7 @@ from backend.models import (
 )
 
 # =========================
-# ROUTERS
-# =========================
-from backend.routes.emails import router as emails_router
-
-# =========================
-# RESPONSES (ya lo tienes)
+# RESPONSES
 # =========================
 from backend.utils.response import build_response
 
@@ -72,6 +66,14 @@ CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ======================================================
+# DB (Mongo / Motor async)
+# ======================================================
+
+client = AsyncIOMotorClient(settings.mongo_url)
+db = client[settings.db_name]
+
+
+# ======================================================
 # APP
 # ======================================================
 
@@ -83,9 +85,6 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 # Stripe webhooks (NO van bajo api_router)
 app.include_router(stripe_router, prefix="/api")
-
-# Emails API
-api_router.include_router(emails_router)
 
 
 # ======================================================
@@ -268,7 +267,6 @@ async def billing_checkout(
         logger.exception("Checkout error")
         raise HTTPException(status_code=500, detail="Error interno creando checkout")
 
-    # OJO: tu frontend estaba buscando "url". Aquí devolvemos checkout_url.
     return build_response(
         request,
         data={"checkout_url": session.url, "session_id": session.id},
