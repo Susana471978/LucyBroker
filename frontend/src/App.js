@@ -46,7 +46,7 @@ const PublicRoute = ({ children }) => {
   }
   
   if (isAuthenticated) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app" replace />;
   }
   
   return children;
@@ -56,13 +56,10 @@ const PublicRoute = ({ children }) => {
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/landing" element={<LandingPage />} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/auth" element={<AuthPage />} />
       <Route
-        path="/auth"
-        element={<AuthPage />}
-      />
-      <Route
-        path="/"
+        path="/app"
         element={
           <ProtectedRoute>
             <OverviewPage />
@@ -70,13 +67,16 @@ const AppRoutes = () => {
         }
       />
       <Route
-        path="/messages"
+        path="/app/messages"
         element={
           <ProtectedRoute>
             <MessagesPage />
           </ProtectedRoute>
         }
       />
+      {/* Legacy redirect */}
+      <Route path="/landing" element={<Navigate to="/" replace />} />
+      <Route path="/messages" element={<Navigate to="/app/messages" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

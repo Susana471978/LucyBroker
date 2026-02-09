@@ -26,6 +26,9 @@ export const AuthProvider = ({ children }) => {
     localStorage.getItem('language') || 'es'
   );
 
+  // Trial state
+  const [trial, setTrial] = useState(null);
+
 
   // ---------- Logout ----------
   const logout = useCallback(() => {
@@ -36,7 +39,20 @@ export const AuthProvider = ({ children }) => {
 
     setToken(null);
     setUser(null);
+    setTrial(null);
 
+  }, []);
+
+
+  // ---------- Fetch Trial Status ----------
+  const fetchTrialStatus = useCallback(async () => {
+    try {
+      const response = await axios.get(`${API}/trial/status`);
+      const data = response.data?.data || response.data;
+      setTrial(data);
+    } catch (error) {
+      console.error('Failed to fetch trial status:', error);
+    }
   }, []);
 
 
@@ -55,6 +71,9 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       setLanguage(userData.language || 'es');
 
+      // Fetch trial status after user is loaded
+      await fetchTrialStatus();
+
     } catch (error) {
       console.error('Failed to fetch user:', error);
       logout();
@@ -63,7 +82,7 @@ export const AuthProvider = ({ children }) => {
       setLoading(false);
     }
 
-  }, [logout]);
+  }, [logout, fetchTrialStatus]);
 
 
   // ---------- Init Auth ----------
@@ -157,6 +176,31 @@ export const AuthProvider = ({ children }) => {
   };
 
 
+  // ---------- Trial Heartbeat ----------
+  useEffect(() => {
+    if (!token || !trial) return;
+    // Don't heartbeat if subscribed or trial expired
+    if (trial.subscription_active || trial.trial_expired) return;
+
+    const interval = setInterval(async () => {
+      try {
+        const response = await axios.post(`${API}/trial/heartbeat`);
+        const data = response.data?.data || response.data;
+        setTrial((prev) => ({
+          ...prev,
+          trial_remaining: data.trial_remaining,
+          trial_expired: data.trial_expired,
+          subscription_active: data.subscription_active,
+        }));
+      } catch (error) {
+        console.error('Trial heartbeat error:', error);
+      }
+    }, 60000); // every 60 seconds
+
+    return () => clearInterval(interval);
+  }, [token, trial]);
+
+
   return (
     <AuthContext.Provider
       value={{
@@ -164,11 +208,13 @@ export const AuthProvider = ({ children }) => {
         token,
         loading,
         language,
+        trial,
 
         login,
         register,
         logout,
         updateLanguage,
+        fetchTrialStatus,
 
         isAuthenticated: !!token,
       }}

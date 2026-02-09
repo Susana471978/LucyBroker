@@ -63,12 +63,16 @@ export default function MessagesPage() {
 
   const [selectedEmail, setSelectedEmail] = useState(null);
 
+  const urlFilter = searchParams.get('filter');
+
   const [filter, setFilter] = useState(
-    searchParams.get('label') || 'all'
+    urlFilter === 'priority' ? 'PRIORITARIO'
+    : urlFilter === 'followup' ? 'SEGUIMIENTO'
+    : searchParams.get('label') || 'all'
   );
 
   const [attachmentsOnly, setAttachmentsOnly] = useState(
-    searchParams.get('attachments') === 'true'
+    urlFilter === 'attachments' || searchParams.get('attachments') === 'true'
   );
 
   const [summary, setSummary] = useState(null);

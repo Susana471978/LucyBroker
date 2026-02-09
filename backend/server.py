@@ -159,6 +159,9 @@ async def register(request: Request, user_data: UserCreate):
         "language": "es",
         "plan": "demo",
         "subscription_active": False,
+        "trial_seconds_used": 0,
+        "trial_limit": 7200,
+        "trial_active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -224,6 +227,80 @@ async def get_me(
     ).model_dump()
 
     return build_response(request, data=legacy, legacy=legacy)
+
+
+# ======================================================
+# TRIAL
+# ======================================================
+
+@api_router.get("/trial/status")
+async def trial_status(
+    request: Request,
+    user: Dict[str, Any] = Depends(get_current_user),
+    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+):
+    # Users with active subscription bypass trial
+    if user.get("subscription_active"):
+        data = {
+            "trial_active": False,
+            "subscription_active": True,
+            "trial_seconds_used": 0,
+            "trial_limit": 0,
+            "trial_remaining": 0,
+            "trial_expired": False,
+        }
+        return build_response(request, data=data, legacy=data)
+
+    seconds_used = user.get("trial_seconds_used", 0)
+    limit = user.get("trial_limit", 7200)
+    remaining = max(0, limit - seconds_used)
+
+    data = {
+        "trial_active": user.get("trial_active", True),
+        "subscription_active": False,
+        "trial_seconds_used": seconds_used,
+        "trial_limit": limit,
+        "trial_remaining": remaining,
+        "trial_expired": remaining <= 0,
+    }
+    return build_response(request, data=data, legacy=data)
+
+
+@api_router.post("/trial/heartbeat")
+async def trial_heartbeat(
+    request: Request,
+    user: Dict[str, Any] = Depends(get_current_user),
+    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+):
+    """Frontend calls this periodically (e.g. every 60s) to track active usage."""
+    # Subscribed users: no-op
+    if user.get("subscription_active"):
+        return build_response(
+            request,
+            data={"trial_remaining": 0, "trial_expired": False, "subscription_active": True},
+            legacy={"trial_remaining": 0, "trial_expired": False, "subscription_active": True},
+        )
+
+    increment = 60  # seconds per heartbeat
+    seconds_used = user.get("trial_seconds_used", 0) + increment
+    limit = user.get("trial_limit", 7200)
+    remaining = max(0, limit - seconds_used)
+    expired = remaining <= 0
+
+    await db.users.update_one(
+        {"id": user["id"]},
+        {"$set": {
+            "trial_seconds_used": seconds_used,
+            "trial_active": not expired,
+        }},
+    )
+
+    data = {
+        "trial_remaining": remaining,
+        "trial_expired": expired,
+        "subscription_active": False,
+    }
+    return build_response(request, data=data, legacy=data)
 
 
 # ======================================================

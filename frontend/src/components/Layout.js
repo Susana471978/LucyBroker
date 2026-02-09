@@ -4,14 +4,15 @@ import { t } from '../i18n';
 import { LayoutDashboard, Mail, LogOut, Globe, ChevronDown } from 'lucide-react';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
 import { Button } from './ui/button';
+import { TrialBanner, TrialExpiredOverlay } from './TrialBanner';
 
 const Layout = ({ children }) => {
   const { user, logout, language, updateLanguage } = useAuth();
   const location = useLocation();
 
   const navItems = [
-    { path: '/', icon: LayoutDashboard, label: t(language, 'overview') },
-    { path: '/messages', icon: Mail, label: t(language, 'messages') },
+    { path: '/app', icon: LayoutDashboard, label: t(language, 'overview') },
+    { path: '/app/messages', icon: Mail, label: t(language, 'messages') },
   ];
 
   const languages = [
@@ -35,9 +36,10 @@ const Layout = ({ children }) => {
     <div className="min-h-screen">
       <div className="bg-neural" />
       <header className="glass-premium border-b border-white/5 sticky top-0 z-50">
+        <TrialBanner />
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-24 py-2">
-            <Link to="/" className="flex items-center gap-3" data-testid="logo-link">
+            <Link to="/app" className="flex items-center gap-3" data-testid="logo-link">
               <img src={require('../assets/logo/LogoEmail.png')} alt="Email Control" className="h-36 w-auto" />
             </Link>
 
@@ -93,7 +95,10 @@ const Layout = ({ children }) => {
         </div>
       </header>
 
-      <main className="relative">{children}</main>
+      <main className="relative">
+        {children}
+        <TrialExpiredOverlay />
+      </main>
     </div>
   );
 };

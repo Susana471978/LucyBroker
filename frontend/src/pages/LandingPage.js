@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import axios from 'axios';
 import {
@@ -62,7 +62,16 @@ const Benefit = ({ text }) => (
 export default function LandingPage() {
   const { token, isAuthenticated } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [checkoutLoading, setCheckoutLoading] = useState(false);
+
+  /* ── Scroll to hash anchor (e.g. #pricing) ── */
+  useEffect(() => {
+    if (location.hash) {
+      const el = document.querySelector(location.hash);
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [location.hash]);
 
   /* ── Stripe checkout (same flow as OverviewPage) ── */
   const startCheckout = async () => {
@@ -129,7 +138,7 @@ export default function LandingPage() {
               <>
                 <Button
                   variant="ghost"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/app')}
                   className="text-slate-300 hover:text-slate-100 gap-2 text-base font-medium"
                 >
                   <LayoutDashboard className="w-5 h-5" />
@@ -222,7 +231,7 @@ export default function LandingPage() {
           </p>
 
           <Button
-            onClick={() => navigate(isAuthenticated ? '/' : '/auth')}
+            onClick={() => navigate(isAuthenticated ? '/app' : '/auth')}
             className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-6 py-3 text-base font-semibold mx-auto"
           >
             Entrar en la demo
@@ -260,7 +269,7 @@ export default function LandingPage() {
       </section>
 
       {/* ─── PRECIO ─── */}
-      <section className="relative z-10 max-w-xl mx-auto px-6 py-20 text-center">
+      <section id="pricing" className="relative z-10 max-w-xl mx-auto px-6 py-20 text-center">
         <motion.div
           variants={fadeUp}
           initial="hidden"

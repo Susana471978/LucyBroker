@@ -42,7 +42,7 @@ export default function AuthPage() {
         await login(email, password);
       }
 
-      navigate('/');
+      navigate('/app');
 
     } catch (err) {
 

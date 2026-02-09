@@ -11,8 +11,7 @@ import {
   Paperclip,
   Sparkles,
   Send,
-  Loader2,
-  CreditCard
+  Loader2
 } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -23,7 +22,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api
 
 /* ---------- Stat Card ---------- */
 const StatCard = ({ icon, label, value, highlight, onClick }) => {
-  let baseClass = 'glass-subtle rounded-xl p-4 text-left w-full ';
+  let baseClass = 'glass-subtle rounded-xl p-4 text-left w-full cursor-pointer transition-shadow hover:shadow-lg hover:shadow-blue-500/5 ';
   if (highlight) baseClass += 'border-blue-500/30 halo-active';
 
   let iconClass = 'w-10 h-10 rounded-lg flex items-center justify-center mb-3 ';
@@ -59,8 +58,6 @@ export default function OverviewPage() {
   const [aiInput, setAiInput] = useState('');
   const [aiResponse, setAiResponse] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
-
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
 
   /* ---------- DATA ---------- */
   const fetchData = useCallback(async () => {
@@ -105,45 +102,13 @@ export default function OverviewPage() {
 
       if (payload?.action?.type === 'filter') {
         const params = new URLSearchParams(payload.action.payload);
-        navigate('/messages?' + params.toString());
+        navigate('/app/messages?' + params.toString());
       }
     } catch (err) {
       console.error('AI error:', err);
     } finally {
       setAiLoading(false);
       setAiInput('');
-    }
-  };
-
-  /* ---------- STRIPE CHECKOUT (FIXED) ---------- */
-  const startCheckout = async () => {
-    if (!token) {
-      alert('No hay sesión activa');
-      return;
-    }
-
-    setCheckoutLoading(true);
-    try {
-      const res = await axios.post(
-        `${API}/billing/checkout?plan=monthly`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      const checkoutUrl =
-        res.data?.data?.checkout_url ||
-        res.data?.checkout_url;
-
-      if (checkoutUrl) {
-        window.location.assign(checkoutUrl);
-      } else {
-        console.error('No checkout URL in response:', res.data);
-      }
-    } catch (err) {
-      console.error('Stripe checkout error:', err.response?.data || err);
-      alert('Error conectando con Stripe');
-    } finally {
-      setCheckoutLoading(false);
     }
   };
 
@@ -170,51 +135,34 @@ export default function OverviewPage() {
           </p>
         </motion.div>
 
-        {/* STRIPE BUTTON */}
-        <div className="mb-10">
-          <Button
-            onClick={startCheckout}
-            disabled={checkoutLoading}
-            className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2"
-          >
-            {checkoutLoading
-              ? <Loader2 className="w-4 h-4 animate-spin" />
-              : <CreditCard className="w-4 h-4" />
-            }
-            Activar suscripción
-          </Button>
-        </div>
-
         {/* STATS */}
-        {stats && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <StatCard
-              icon={<Inbox />}
-              label={t(language, 'allEmails')}
-              value={stats.total}
-              onClick={() => navigate('/messages')}
-            />
-            <StatCard
-              icon={<Mail />}
-              label={t(language, 'priority')}
-              value={stats.prioritarios}
-              highlight
-              onClick={() => navigate('/messages?label=PRIORITARIO')}
-            />
-            <StatCard
-              icon={<Clock />}
-              label={t(language, 'followUp')}
-              value={stats.seguimiento}
-              onClick={() => navigate('/messages?label=SEGUIMIENTO')}
-            />
-            <StatCard
-              icon={<Paperclip />}
-              label={t(language, 'attachments')}
-              value={stats.with_attachments}
-              onClick={() => navigate('/messages?attachments=true')}
-            />
-          </div>
-        )}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <StatCard
+            icon={<Inbox />}
+            label={t(language, 'allEmails')}
+            value={stats?.total ?? 0}
+            onClick={() => navigate('/app/messages?filter=all')}
+          />
+          <StatCard
+            icon={<Mail />}
+            label={t(language, 'priority')}
+            value={stats?.prioritarios ?? 0}
+            highlight
+            onClick={() => navigate('/app/messages?filter=priority')}
+          />
+          <StatCard
+            icon={<Clock />}
+            label={t(language, 'followUp')}
+            value={stats?.seguimiento ?? 0}
+            onClick={() => navigate('/app/messages?filter=followup')}
+          />
+          <StatCard
+            icon={<Paperclip />}
+            label={t(language, 'attachments')}
+            value={stats?.with_attachments ?? 0}
+            onClick={() => navigate('/app/messages?filter=attachments')}
+          />
+        </div>
 
         {/* IA CARD */}
         <div className="glass-premium rounded-2xl p-6 mb-8">
