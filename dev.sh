@@ -30,7 +30,7 @@ cd "$ROOT" || exit
 
 source .venv/bin/activate
 
-PYTHONPATH=. uvicorn backend.server:app --reload --port 8000 > backend.log 2>&1 &
+PYTHONPATH=. uvicorn backend.main:app --reload --port 8000 > backend.log 2>&1 &
 
 sleep 2
 

@@ -18,3 +18,14 @@ api.interceptors.request.use((config) => {
 });
 
 export default api;
+
+// -----------------------------
+// Asistente IA
+// -----------------------------
+export const sendAssistantMessage = async (text) => {
+    const response = await api.post("/assistant", {
+        text: text,
+    });
+
+    return response.data;
+};

@@ -60,7 +60,7 @@ const Benefit = ({ text }) => (
    LANDING PAGE
    ═══════════════════════════════════════ */
 export default function LandingPage() {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [checkoutLoading, setCheckoutLoading] = useState(false);

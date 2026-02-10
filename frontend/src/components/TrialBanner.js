@@ -95,11 +95,12 @@ export function TrialBanner() {
  * Shows message + subscribe CTA. Renders nothing if trial is active or user is subscribed.
  */
 export function TrialExpiredOverlay() {
-  const { trial, token } = useAuth();
+  const { trial, token, user } = useAuth();
   const navigate = useNavigate();
 
-  // Don't block if no trial data, user is subscribed, or trial is still active
+  // Don't block if no trial data, user is subscribed, admin, or trial is still active
   if (!trial || trial.subscription_active || !trial.trial_expired) return null;
+  if (user?.is_admin) return null;
 
   const handleSubscribe = () => {
     // Navigate to landing page pricing — single source of checkout

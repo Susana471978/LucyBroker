@@ -239,6 +239,9 @@ async def get_me(
         language=user.get("language", "es"),
     ).model_dump()
 
+    # Include admin flag so frontend can use it
+    legacy["is_admin"] = bool(user.get("is_admin", False))
+
     return build_response(request, data=legacy, legacy=legacy)
 
 
@@ -252,8 +255,8 @@ async def trial_status(
     user: Dict[str, Any] = Depends(get_current_user),
     _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ):
-    # Users with active subscription bypass trial
-    if user.get("subscription_active"):
+    # Admin users and subscribed users bypass trial
+    if user.get("is_admin") or user.get("subscription_active"):
         data = {
             "trial_active": False,
             "subscription_active": True,
@@ -286,8 +289,8 @@ async def trial_heartbeat(
     _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ):
     """Frontend calls this periodically (e.g. every 60s) to track active usage."""
-    # Subscribed users: no-op
-    if user.get("subscription_active"):
+    # Admin and subscribed users: no-op
+    if user.get("is_admin") or user.get("subscription_active"):
         return build_response(
             request,
             data={"trial_remaining": 0, "trial_expired": False, "subscription_active": True},
@@ -384,9 +387,20 @@ app.add_middleware(
     logger=logger,
 )
 
+# CORS: ampliado para que funcione también en dominios/subdominios en pruebas.
+# Puedes restringirlo luego en producción.
+cors_origins = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+]
+# Permitir FRONTEND_URL si está configurado
+frontend_url_env = os.environ.get("FRONTEND_URL")
+if frontend_url_env:
+    cors_origins.append(frontend_url_env)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -409,7 +423,7 @@ async def shutdown_db_client():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "backend.server:app",
+        "backend.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.env == "development",

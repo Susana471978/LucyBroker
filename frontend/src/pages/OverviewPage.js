@@ -23,10 +23,12 @@ const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api
 
 /* ---------- Stat Card ---------- */
 const StatCard = ({ icon, label, value, highlight, onClick }) => {
-  let baseClass = 'glass-subtle rounded-xl p-4 text-left w-full cursor-pointer transition-shadow hover:shadow-lg hover:shadow-blue-500/5 ';
+  let baseClass =
+    'glass-subtle rounded-xl p-4 text-left w-full cursor-pointer transition-shadow hover:shadow-lg hover:shadow-blue-500/5 ';
   if (highlight) baseClass += 'border-blue-500/30 halo-active';
 
-  let iconClass = 'w-10 h-10 rounded-lg flex items-center justify-center mb-3 ';
+  let iconClass =
+    'w-10 h-10 rounded-lg flex items-center justify-center mb-3 ';
   iconClass += highlight ? 'bg-blue-500/20' : 'bg-slate-700/50';
 
   return (
@@ -70,18 +72,20 @@ export default function OverviewPage() {
 
     try {
       const headers = { Authorization: `Bearer ${token}` };
-
       const emailsRes = await axios.get(`${API}/gmail/messages`, { headers });
-
       const emailsData = emailsRes.data?.data || emailsRes.data || [];
+
       setEmails(Array.isArray(emailsData) ? emailsData : []);
 
-      // Compute stats from fetched emails
       const list = Array.isArray(emailsData) ? emailsData : [];
       setStats({
         total: list.length,
-        prioritarios: list.filter(e => e.priority?.priority_label === 'PRIORITARIO').length,
-        seguimiento: list.filter(e => e.priority?.priority_label === 'SEGUIMIENTO').length,
+        prioritarios: list.filter(
+          e => e.priority?.priority_label === 'PRIORITARIO'
+        ).length,
+        seguimiento: list.filter(
+          e => e.priority?.priority_label === 'SEGUIMIENTO'
+        ).length,
         with_attachments: list.filter(e => e.email?.has_attachments).length,
       });
     } catch (err) {
@@ -98,6 +102,7 @@ export default function OverviewPage() {
   /* ---------- GMAIL STATUS ---------- */
   useEffect(() => {
     if (!token) return;
+
     const checkGmail = async () => {
       try {
         const res = await axios.get(`${API}/gmail/status`, {
@@ -112,6 +117,7 @@ export default function OverviewPage() {
         setGmailLoading(false);
       }
     };
+
     checkGmail();
   }, [token]);
 
@@ -128,28 +134,43 @@ export default function OverviewPage() {
     }
   };
 
-  /* ---------- IA ---------- */
+  /* ---------- IA (A2 FINAL) ---------- */
   const handleAiSubmit = async (e) => {
     e.preventDefault();
     if (!aiInput.trim() || !token) return;
 
     setAiLoading(true);
+
     try {
       const res = await axios.post(
-        `${API}/ai/chat`,
-        { message: aiInput },
-        { headers: { Authorization: `Bearer ${token}` } }
+        `${API}/assistant`,
+        { text: aiInput },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
       );
 
-      const payload = res.data?.data || res.data;
+      const payload = res.data;
       setAiResponse(payload);
 
-      if (payload?.action?.type === 'filter') {
-        const params = new URLSearchParams(payload.action.payload);
-        navigate('/app/messages?' + params.toString());
+      // 🔥 Ejecutar acciones devueltas por el asistente
+      if (payload?.actions?.length) {
+        payload.actions.forEach(action => {
+          if (action.type === 'navigate') {
+            const { path, filter } = action.payload;
+            const query = filter ? `?filter=${filter}` : '';
+            navigate(`${path}${query}`);
+          }
+        });
       }
+
     } catch (err) {
       console.error('AI error:', err);
+      setAiResponse({
+        assistant_text: 'Ha ocurrido un error al contactar con el asistente.',
+      });
     } finally {
       setAiLoading(false);
       setAiInput('');
@@ -186,12 +207,15 @@ export default function OverviewPage() {
               <div className="flex items-center gap-3">
                 <CheckCircle className="w-5 h-5 text-emerald-400" />
                 <span className="text-slate-200 text-sm font-medium">
-                  Correo conectado: <span className="text-blue-400">{gmailEmail}</span>
+                  Correo conectado:{' '}
+                  <span className="text-blue-400">{gmailEmail}</span>
                 </span>
               </div>
             ) : (
               <>
-                <span className="text-slate-400 text-sm">Conecta tu correo para analizar tus emails</span>
+                <span className="text-slate-400 text-sm">
+                  Conecta tu correo para analizar tus emails
+                </span>
                 <Button
                   onClick={handleGmailConnect}
                   className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2"
@@ -237,7 +261,9 @@ export default function OverviewPage() {
         <div className="glass-premium rounded-2xl p-6 mb-8">
           <div className="flex items-center gap-3 mb-4">
             <Sparkles className="text-blue-400" />
-            <h3 className="text-lg font-semibold text-slate-100">Asistente IA</h3>
+            <h3 className="text-lg font-semibold text-slate-100">
+              Asistente IA
+            </h3>
           </div>
 
           <form onSubmit={handleAiSubmit} className="flex gap-3">
@@ -251,7 +277,7 @@ export default function OverviewPage() {
             </Button>
           </form>
 
-          {aiResponse && (
+          {aiResponse?.assistant_text && (
             <div className="mt-4 text-slate-300">
               {aiResponse.assistant_text}
             </div>
@@ -262,7 +288,9 @@ export default function OverviewPage() {
         {!loading && priorityEmails.length === 0 && (
           <div className="glass-subtle rounded-2xl p-12 text-center">
             <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-4" />
-            <p className="text-slate-400">Nada requiere acción inmediata</p>
+            <p className="text-slate-400">
+              Nada requiere acción inmediata
+            </p>
           </div>
         )}
       </div>
