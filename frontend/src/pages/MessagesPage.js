@@ -29,7 +29,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/Layout';
 
 import { fetchEmails as fetchEmailsService } from '../services/mailService';
-import { summarizeEmail, generateDraft } from '../services/aiService';
+import { callAssistant } from '../services/aiService';
 
 /* ---------------- FILTER BUTTON ---------------- */
 
@@ -54,7 +54,7 @@ const FilterBtn = ({ active, onClick, label, icon, highlight, testId }) => {
 /* ---------------- MAIN PAGE ---------------- */
 
 export default function MessagesPage() {
-  const { language } = useAuth();
+  const { language, token } = useAuth();
 
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -157,16 +157,20 @@ export default function MessagesPage() {
   /* ---------------- AI ---------------- */
 
   const handleSummarize = async () => {
+    console.log("=== DEBUG SUMMARY ===");
+    console.log("TOKEN:", token);
+    console.log("selectedEmail:", selectedEmail?.email?.id);
     if (!selectedEmail) return;
-
     setSummaryLoading(true);
-
     try {
-      const summaryText = await summarizeEmail(
-        selectedEmail.email.id
-      );
-
-      setSummary(summaryText);
+      const userInputText = `Resumir correo: ${selectedEmail.email.subject || ''}\n${selectedEmail.email.body || ''}`;
+      const result = await callAssistant(userInputText, token);
+      if (result.assistant_text) {
+        setSummary(result.assistant_text);
+      }
+      if (result.actions) {
+        handleAssistantActions(result.actions);
+      }
     } catch (error) {
       console.error('Summarize error:', error);
     } finally {
@@ -175,17 +179,21 @@ export default function MessagesPage() {
   };
 
   const handleDraftReply = async () => {
+    console.log("=== DEBUG DRAFT ===");
+    console.log("TOKEN:", token);
+    console.log("draftInstructions:", draftInstructions);
+    console.log("selectedEmail:", selectedEmail?.email?.id);
     if (!selectedEmail || !draftInstructions.trim()) return;
-
     setDraftsLoading(true);
-
     try {
-      const draftsData = await generateDraft(
-        selectedEmail.email.id,
-        draftInstructions
-      );
-
-      setDrafts(draftsData);
+      const userInputText = `Redactar respuesta para: ${selectedEmail.email.subject || ''}\nInstrucciones: ${draftInstructions}`;
+      const result = await callAssistant(userInputText, token);
+      if (result.assistant_text) {
+        setDrafts([result.assistant_text]);
+      }
+      if (result.actions) {
+        handleAssistantActions(result.actions);
+      }
     } catch (error) {
       console.error('Draft error:', error);
     } finally {
