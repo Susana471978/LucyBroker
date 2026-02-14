@@ -1,3 +1,133 @@
+/* Gmail Primary Connect Button */
+.gmail-primary-btn {
+  background: #2563eb;
+  color: #fff;
+  border-radius: 8px;
+  border: none;
+  padding: 10px 22px;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(37,99,235,0.12);
+  transition: background 0.2s, box-shadow 0.2s;
+}
+.gmail-primary-btn:hover {
+  background: #3b82f6;
+  box-shadow: 0 4px 16px rgba(37,99,235,0.18);
+}
+.gmail-primary-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #2563eb55;
+}
+/* Modal Gestión de integración Gmail */
+.integration-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.integration-modal {
+  background: rgba(12,18,35,0.92);
+  border: 1px solid rgba(201,178,124,0.35);
+  border-radius: 16px;
+  padding: 28px;
+  width: 420px;
+  max-width: 90%;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+  color: #fff;
+}
+
+.integration-modal h3 {
+  color: #C9B27C;
+  margin-bottom: 16px;
+}
+
+.integration-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
+}
+
+.secondary-btn {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+
+.danger-btn {
+  background: transparent;
+  border: 1px solid rgba(201,178,124,0.4);
+  color: #C9B27C;
+  padding: 8px 16px;
+  border-radius: 8px;
+}
+/* Gmail Integration Card Custom Styles */
+.gmail-glass-card {
+  background: rgba(12, 18, 35, 0.65);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(201, 178, 124, 0.35);
+  box-shadow: 0 8px 30px rgba(0,0,0,0.35);
+  border-radius: 15px;
+}
+
+.gmail-champagne-btn {
+  color: #C9B27C;
+  background: transparent;
+  border: none;
+  padding: 0 18px;
+  font-weight: 600;
+  transition: color 0.2s, box-shadow 0.2s;
+}
+.gmail-champagne-btn:hover {
+  color: #EADFA7;
+  box-shadow: 0 0 8px 2px #EADFA7AA;
+}
+.gmail-champagne-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #C9B27C55;
+}
+
+.gmail-secondary-btn {
+  color: #64748B;
+  background: none;
+  padding: 0 10px;
+  border: none;
+  transition: color 0.2s;
+}
+.gmail-secondary-btn:hover {
+  color: #A0AEC0;
+}
+.gmail-secondary-btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #64748B55;
+}
+
+@media (max-width: 640px) {
+  .gmail-glass-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+    padding: 18px 10px;
+  }
+  .gmail-glass-card .flex {
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: flex-start;
+  }
+  .gmail-champagne-btn, .gmail-secondary-btn {
+    width: 100%;
+    margin: 0;
+    padding: 10px 0;
+    border-radius: 12px;
+    text-align: center;
+  }
+}
 /* App-specific styles */
 
 /* Ensure no center alignment breaks layout */

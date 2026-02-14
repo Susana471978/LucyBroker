@@ -1,5 +1,7 @@
 import { useEffect, useState, memo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import axios from "axios";
+
 
 
 const API =
@@ -8,6 +10,19 @@ const API =
         : "http://127.0.0.1:8000/api";
 
 function GmailIntegrationCard() {
+    const navigate = useNavigate();
+    const handleConnect = async () => {
+        try {
+            const response = await axios.get(`${API}/gmail/auth`, {
+                withCredentials: true
+            });
+            if (response?.data?.auth_url) {
+                window.location.href = response.data.auth_url;
+            }
+        } catch (error) {
+            console.error("Error iniciando conexión Gmail", error);
+        }
+    };
     // Hotfix: Ensure disconnect handler exists
     const handleDisconnectVisual = () => {
         setGmailConnected(false);
@@ -18,6 +33,7 @@ function GmailIntegrationCard() {
     const [ready, setReady] = useState(false);
     const stableRef = useRef({ connected: null, email: null });
     const [loading, setLoading] = useState(false);
+    const [showModal, setShowModal] = useState(false);
 
     // CHECK STATUS
     const checkStatus = async () => {
@@ -107,12 +123,13 @@ function GmailIntegrationCard() {
                                     background: "none",
                                     padding: "0 10px"
                                 }}
+                                onClick={() => navigate("/app/messages")}
                             >
                                 Ver mensajes
                             </button>
 
                             <button
-                                onClick={handleDisconnectVisual}
+                                onClick={() => setShowModal(true)}
                                 className="gmail-champagne-btn text-sm font-semibold transition"
                                 style={{
                                     color: "#C9B27C",
@@ -125,20 +142,41 @@ function GmailIntegrationCard() {
                                 onBlur={e => e.target.style.boxShadow = "none"}
                                 onMouseOver={e => e.target.style.color = "#EADFA7"}
                                 onMouseOut={e => e.target.style.color = "#C9B27C"}
+                                aria-haspopup="dialog"
+                                aria-expanded={showModal}
+                                aria-controls="integration-modal"
                             >
                                 Gestión de integración
                             </button>
                         </>
                     ) : (
                         <button
-                            onClick={connectGmail}
-                            className="text-sm text-blue-400 hover:text-blue-300 transition"
+                            onClick={handleConnect}
+                            className="gmail-primary-btn text-sm font-semibold transition"
                         >
-                            Conectar
+                            Activar integración segura
                         </button>
                     )}
                 </div>
             </div>
+
+            {/* Modal Gestión de integración */}
+            {showModal && (
+                <div className="integration-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="integration-modal-title">
+                    <div className="integration-modal" id="integration-modal" tabIndex={-1}>
+                        <h3 id="integration-modal-title">Gestión de integración Gmail</h3>
+                        <p><strong>Estado:</strong> {gmailConnected ? (gmailEmail || "Cuenta autorizada") : "No conectado"}</p>
+                        <div className="integration-modal-actions">
+                            <button className="secondary-btn" onClick={() => setShowModal(false)} autoFocus>
+                                Cerrar
+                            </button>
+                            <button className="danger-btn" onClick={handleDisconnectVisual}>
+                                Desvincular cuenta
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

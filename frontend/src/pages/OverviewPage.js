@@ -18,8 +18,12 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { motion } from 'framer-motion';
 import Layout from '../components/Layout';
+import GmailIntegrationCard from '../components/ui/GmailIntegrationCard';
 
-const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
+const API =
+  process.env.NODE_ENV === 'production'
+    ? '/api'
+    : 'http://127.0.0.1:8000/api';
 
 /* ---------- Stat Card ---------- */
 const StatCard = ({ icon, label, value, highlight, onClick }) => {
@@ -62,9 +66,6 @@ export default function OverviewPage() {
   const [aiResponse, setAiResponse] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
-  const [gmailConnected, setGmailConnected] = useState(false);
-  const [gmailEmail, setGmailEmail] = useState('');
-  const [gmailLoading, setGmailLoading] = useState(true);
 
   /* ---------- DATA ---------- */
   const fetchData = useCallback(async () => {
@@ -99,40 +100,7 @@ export default function OverviewPage() {
     if (token) fetchData();
   }, [fetchData, token]);
 
-  /* ---------- GMAIL STATUS ---------- */
-  useEffect(() => {
-    if (!token) return;
 
-    const checkGmail = async () => {
-      try {
-        const res = await axios.get(`${API}/gmail/status`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const d = res.data?.data || res.data;
-        setGmailConnected(!!d.gmail_connected);
-        setGmailEmail(d.gmail_email || '');
-      } catch (err) {
-        console.error('Gmail status error:', err);
-      } finally {
-        setGmailLoading(false);
-      }
-    };
-
-    checkGmail();
-  }, [token]);
-
-  /* ---------- GMAIL CONNECT ---------- */
-  const handleGmailConnect = async () => {
-    try {
-      const res = await axios.get(`${API}/gmail/auth`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const url = res.data?.data?.auth_url || res.data?.auth_url;
-      if (url) window.location.href = url;
-    } catch (err) {
-      console.error('Gmail auth error:', err);
-    }
-  };
 
   /* ---------- IA (A2 FINAL) ---------- */
   const handleAiSubmit = async (e) => {
@@ -200,33 +168,10 @@ export default function OverviewPage() {
           </p>
         </motion.div>
 
-        {/* GMAIL CONNECTION */}
-        {!gmailLoading && (
-          <div className="glass-subtle rounded-xl p-4 mb-8 flex items-center justify-between">
-            {gmailConnected ? (
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-emerald-400" />
-                <span className="text-slate-200 text-sm font-medium">
-                  Correo conectado:{' '}
-                  <span className="text-blue-400">{gmailEmail}</span>
-                </span>
-              </div>
-            ) : (
-              <>
-                <span className="text-slate-400 text-sm">
-                  Conecta tu correo para analizar tus emails
-                </span>
-                <Button
-                  onClick={handleGmailConnect}
-                  className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2"
-                >
-                  <Link2 className="w-4 h-4" />
-                  Conectar mi correo
-                </Button>
-              </>
-            )}
-          </div>
-        )}
+        {/* GMAIL CONNECTION - Premium Card */}
+        <div className="mb-8">
+          <GmailIntegrationCard />
+        </div>
 
         {/* STATS */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">

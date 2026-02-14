@@ -1,9 +1,12 @@
 import axios from 'axios';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000';
+const API =
+  process.env.NODE_ENV === 'production'
+    ? '/api'
+    : 'http://127.0.0.1:8000/api';
 
 const api = axios.create({
-    baseURL: `${BASE_URL}/api`,
+    baseURL: API,
     withCredentials: true,
     timeout: 15000,
 });
