@@ -3,7 +3,12 @@ import api from './apiClient';
 /**
  * Obtener emails con filtros
  */
-export async function fetchEmails({ label = 'all', attachments = false }) {
+export async function fetchEmails(options = {}) {
+    const {
+        label = 'all',
+        attachments = false
+    } = options;
+
     const params = {};
 
     if (label !== 'all') params.label = label;

@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const API =
@@ -23,21 +23,21 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
 
+  const navigate = useNavigate();
+
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem(TOKEN_KEY));
   const [loading, setLoading] = useState(true);
   const [language, setLanguage] = useState(
     localStorage.getItem('language') || 'es'
   );
-
-  // Trial state
   const [trial, setTrial] = useState(null);
-
 
   // ---------- Logout ----------
   const logout = useCallback(() => {
 
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('language');
 
     delete axios.defaults.headers.common['Authorization'];
 
@@ -45,8 +45,9 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setTrial(null);
 
-  }, []);
+    navigate('/auth', { replace: true });
 
+  }, [navigate]);
 
   // ---------- Fetch Trial Status ----------
   const fetchTrialStatus = useCallback(async () => {
@@ -59,13 +60,11 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
-
   // ---------- Fetch User ----------
   const fetchUser = useCallback(async () => {
 
     try {
       const response = await axios.get(`${API}/auth/me`);
-
       const userData = response.data?.data || response.data;
 
       if (!userData) {
@@ -75,36 +74,28 @@ export const AuthProvider = ({ children }) => {
       setUser(userData);
       setLanguage(userData.language || 'es');
 
-      // Fetch trial status after user is loaded
       await fetchTrialStatus();
 
     } catch (error) {
       console.error('Failed to fetch user:', error);
       logout();
-
     } finally {
       setLoading(false);
     }
 
   }, [logout, fetchTrialStatus]);
 
-
   // ---------- Init Auth ----------
   useEffect(() => {
 
     if (token) {
-
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchUser();
-
     } else {
-
       setLoading(false);
-
     }
 
   }, [token, fetchUser]);
-
 
   // ---------- Login ----------
   const login = async (email, password) => {
@@ -123,6 +114,7 @@ export const AuthProvider = ({ children }) => {
     const { token: newToken, user: userData } = payload;
 
     localStorage.setItem(TOKEN_KEY, newToken);
+    localStorage.setItem('language', userData.language || 'es');
 
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
@@ -132,7 +124,6 @@ export const AuthProvider = ({ children }) => {
 
     return userData;
   };
-
 
   // ---------- Register ----------
   const register = async (email, password, name) => {
@@ -152,17 +143,18 @@ export const AuthProvider = ({ children }) => {
     const { token: newToken, user: userData } = payload;
 
     localStorage.setItem(TOKEN_KEY, newToken);
+    localStorage.setItem('language', userData.language || 'es');
 
     axios.defaults.headers.common['Authorization'] = `Bearer ${newToken}`;
 
     setToken(newToken);
     setUser(userData);
+    setLanguage(userData.language || 'es');
 
     return userData;
   };
 
-
-  // ---------- Language ----------
+  // ---------- Update Language ----------
   const updateLanguage = async (lang) => {
 
     setLanguage(lang);
@@ -170,26 +162,24 @@ export const AuthProvider = ({ children }) => {
 
     if (token) {
       try {
-
         await axios.put(`${API}/auth/language?language=${lang}`);
-
       } catch (error) {
         console.error('Failed to update language:', error);
       }
     }
   };
 
-
   // ---------- Trial Heartbeat ----------
   useEffect(() => {
+
     if (!token || !trial) return;
-    // Don't heartbeat if subscribed or trial expired
     if (trial.subscription_active || trial.trial_expired) return;
 
     const interval = setInterval(async () => {
       try {
         const response = await axios.post(`${API}/trial/heartbeat`);
         const data = response.data?.data || response.data;
+
         setTrial((prev) => ({
           ...prev,
           trial_remaining: data.trial_remaining,
@@ -199,11 +189,11 @@ export const AuthProvider = ({ children }) => {
       } catch (error) {
         console.error('Trial heartbeat error:', error);
       }
-    }, 60000); // every 60 seconds
+    }, 60000);
 
     return () => clearInterval(interval);
-  }, [token, trial]);
 
+  }, [token, trial]);
 
   return (
     <AuthContext.Provider
@@ -213,13 +203,11 @@ export const AuthProvider = ({ children }) => {
         loading,
         language,
         trial,
-
         login,
         register,
         logout,
         updateLanguage,
         fetchTrialStatus,
-
         isAuthenticated: !!token,
       }}
     >

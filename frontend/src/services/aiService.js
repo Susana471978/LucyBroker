@@ -1,26 +1,18 @@
 import api from './apiClient';
 
-export async function callAssistant(text, token) {
-    try {
-        console.log("Calling assistant endpoint:", `${API}/assistant`);
-        console.log("Payload:", { text });
-        console.log("Auth header:", `Bearer ${token}`);
-        const response = await axios.post(
-            `${API}/assistant`,
-            { text },
-            {
-                headers: {
-                    Authorization: `Bearer ${token}`
-                }
-            }
-        );
-        return response.data;
-    } catch (error) {
-        console.error("Assistant error FULL:", error);
-        if (error.response) {
-            console.error("Response data:", error.response.data);
-            console.error("Status:", error.response.status);
-        }
-        throw error;
-    }
+export async function summarizeEmail(emailId) {
+    const res = await api.post('/ai/summarize', {
+        email_id: emailId,
+    });
+
+    return res.data?.data?.summary || res.data?.summary;
+}
+
+export async function generateDraft(emailId, instructions) {
+    const res = await api.post('/ai/draft-reply', {
+        email_id: emailId,
+        instructions,
+    });
+
+    return res.data?.data?.drafts || res.data?.drafts;
 }
