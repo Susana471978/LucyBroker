@@ -1,12 +1,10 @@
 # backend/api/gmail.py
 """
-Gmail OAuth integration — minimal endpoints.
-Uses google_oauth.json from credentials/ and stores tokens in MongoDB.
+Gmail OAuth integration — production-ready version.
+Uses google_oauth.json and securely stores tokens in MongoDB.
 """
 
 import os
-import json
-import base64
 from pathlib import Path
 from typing import Any, Callable, Dict
 
@@ -15,6 +13,7 @@ from fastapi.responses import RedirectResponse
 
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
+from google.auth.transport.requests import Request as GoogleRequest
 from googleapiclient.discovery import build as build_service
 
 from datetime import datetime, timezone
@@ -24,18 +23,19 @@ from backend.services.rules_engine import calculate_priority
 from backend.utils.response import build_response
 
 
-# ── Paths ──
+# ── Paths ──────────────────────────────────────────────
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 CREDENTIALS_FILE = BASE_DIR / "credentials" / "google_oauth.json"
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
-# Allow http redirect_uri in development
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
 
+# ── OAuth Flow Factory ────────────────────────────────
+
 def _get_flow(redirect_uri: str, state: str | None = None) -> Flow:
-    """Create OAuth flow from the local credentials JSON file."""
     if not CREDENTIALS_FILE.exists():
         raise HTTPException(503, "google_oauth.json no encontrado en credentials/")
 
@@ -47,14 +47,20 @@ def _get_flow(redirect_uri: str, state: str | None = None) -> Flow:
     )
 
 
+# ── Router Factory ─────────────────────────────────────
+
 def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
-    """Factory: returns a router wired to the app's db and auth dependency."""
 
     router = APIRouter(tags=["gmail"])
 
-    REDIRECT_URI = os.environ.get("GMAIL_REDIRECT_URI", "http://127.0.0.1:8000/api/gmail/callback")
+    REDIRECT_URI = os.environ.get(
+        "GMAIL_REDIRECT_URI",
+        "http://127.0.0.1:8000/api/gmail/callback",
+    )
 
-    # ── 1. Start OAuth ──────────────────────────────────
+    # ────────────────────────────────────────────────
+    # 1️⃣ Start OAuth
+    # ────────────────────────────────────────────────
 
     @router.get("/gmail/auth")
     async def gmail_auth(
@@ -67,7 +73,7 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
-            state=user["id"],          # recover user in callback
+            state=user["id"],
         )
 
         return build_response(
@@ -76,7 +82,9 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
             legacy={"auth_url": auth_url},
         )
 
-    # ── 2. Google redirects here ─────────────────────────
+    # ────────────────────────────────────────────────
+    # 2️⃣ OAuth Callback
+    # ────────────────────────────────────────────────
 
     @router.get("/gmail/callback")
     async def gmail_callback(
@@ -84,15 +92,16 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         code: str = Query(...),
         state: str = Query(""),
     ):
-        user_id = state
-        if not user_id:
+        if not state:
             raise HTTPException(400, "Falta state (user_id)")
+
+        user_id = state
 
         flow = _get_flow(REDIRECT_URI, state=state)
         flow.fetch_token(code=code)
         creds = flow.credentials
 
-        # Fetch Gmail address
+        # Obtener email Gmail
         try:
             service = build_service("gmail", "v1", credentials=creds)
             profile = service.users().getProfile(userId="me").execute()
@@ -100,30 +109,44 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         except Exception:
             gmail_email = ""
 
-        # Persist in Mongo
+        user_doc = await db.users.find_one({"id": user_id})
+        existing_tokens = user_doc.get("gmail_tokens") if user_doc else {}
+
+        refresh_token = creds.refresh_token or existing_tokens.get("refresh_token")
+
+        expires_at = creds.expiry.isoformat() if creds.expiry else None
+        now = datetime.now(timezone.utc).isoformat()
+
         token_data = {
-            "token": creds.token,
-            "refresh_token": creds.refresh_token,
+            "access_token": creds.token,
+            "refresh_token": refresh_token,
             "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
             "scopes": list(creds.scopes or []),
+            "expires_at": expires_at,
+            "updated_at": now,
         }
 
         await db.users.update_one(
             {"id": user_id},
-            {"$set": {
-                "gmail_connected": True,
-                "gmail_email": gmail_email,
-                "gmail_tokens": token_data,
-            }},
+            {
+                "$set": {
+                    "gmail_connected": True,
+                    "gmail_email": gmail_email,
+                    "gmail_tokens": token_data,
+                }
+            },
         )
 
-        # Redirect back to dashboard
-        frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+        frontend_url = os.environ.get(
+            "FRONTEND_URL",
+            "http://localhost:3000",
+        )
+
         return RedirectResponse(f"{frontend_url}/app?gmail=connected")
 
-    # ── 3. Status check ──────────────────────────────────
+    # ────────────────────────────────────────────────
+    # 3️⃣ Gmail Status
+    # ────────────────────────────────────────────────
 
     @router.get("/gmail/status")
     async def gmail_status(
@@ -136,7 +159,33 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         }
         return build_response(request, data=data, legacy=data)
 
-    # ── 4. Fetch messages ────────────────────────────────
+    # ────────────────────────────────────────────────
+    # 4️⃣ Gmail Disconnect (NUEVO)
+    # ────────────────────────────────────────────────
+
+    @router.post("/gmail/disconnect")
+    async def gmail_disconnect(
+        request: Request,
+        user: Dict[str, Any] = Depends(get_current_user),
+    ):
+        await db.users.update_one(
+            {"id": user["id"]},
+            {
+                "$set": {
+                    "gmail_connected": False,
+                    "gmail_email": "",
+                    "gmail_tokens": None,
+                }
+            },
+        )
+
+        data = {"success": True}
+
+        return build_response(request, data=data, legacy=data)
+
+    # ────────────────────────────────────────────────
+    # 5️⃣ Fetch Messages
+    # ────────────────────────────────────────────────
 
     @router.get("/gmail/messages")
     async def gmail_messages(
@@ -145,7 +194,7 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         label: str = Query("all"),
         max_results: int = Query(20, ge=1, le=50),
     ):
-        """Fetch Gmail messages and return enriched with priority scoring."""
+
         if not user.get("gmail_connected") or not user.get("gmail_tokens"):
             return build_response(request, data=[], legacy=[])
 
@@ -153,13 +202,25 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
 
         try:
             creds = Credentials(
-                token=tokens.get("token"),
+                token=tokens.get("access_token"),
                 refresh_token=tokens.get("refresh_token"),
                 token_uri=tokens.get("token_uri"),
-                client_id=tokens.get("client_id"),
-                client_secret=tokens.get("client_secret"),
                 scopes=tokens.get("scopes"),
             )
+
+            if creds.expired and creds.refresh_token:
+                creds.refresh(GoogleRequest())
+
+                await db.users.update_one(
+                    {"id": user["id"]},
+                    {
+                        "$set": {
+                            "gmail_tokens.access_token": creds.token,
+                            "gmail_tokens.expires_at": creds.expiry.isoformat(),
+                            "gmail_tokens.updated_at": datetime.now(timezone.utc).isoformat(),
+                        }
+                    },
+                )
 
             service = build_service("gmail", "v1", credentials=creds)
 
@@ -169,8 +230,8 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
             ).execute()
 
             message_ids = results.get("messages", [])
-
             enriched = []
+
             for msg_stub in message_ids:
                 msg_id = msg_stub["id"]
 
@@ -180,55 +241,12 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
                     format="full",
                 ).execute()
 
-                headers = {}
-                for h in detail.get("payload", {}).get("headers", []):
-                    headers[h["name"].lower()] = h["value"]
-
-                try:
-                    date_str = datetime.fromtimestamp(
-                        int(detail.get("internalDate", 0)) / 1000,
-                        tz=timezone.utc,
-                    ).isoformat()
-                except Exception:
-                    date_str = datetime.now(timezone.utc).isoformat()
+                headers = {
+                    h["name"].lower(): h["value"]
+                    for h in detail.get("payload", {}).get("headers", [])
+                }
 
                 snippet = detail.get("snippet", "")
-
-                # --- Extract full body from payload ---
-                payload = detail.get("payload", {})
-                body_html = ""
-                body_plain = ""
-                has_attach = False
-
-                def _walk_parts(parts):
-                    nonlocal body_html, body_plain, has_attach
-                    for part in parts:
-                        mime = part.get("mimeType", "")
-                        data = part.get("body", {}).get("data")
-                        if part.get("filename") and part.get("body", {}).get("attachmentId"):
-                            has_attach = True
-                        if mime == "text/html" and data and not body_html:
-                            body_html = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
-                        elif mime == "text/plain" and data and not body_plain:
-                            body_plain = base64.urlsafe_b64decode(data).decode("utf-8", errors="ignore")
-                        if part.get("parts"):
-                            _walk_parts(part["parts"])
-
-                # Single-part message (no parts array)
-                top_mime = payload.get("mimeType", "")
-                top_data = payload.get("body", {}).get("data")
-                if top_data and "text/" in top_mime:
-                    decoded = base64.urlsafe_b64decode(top_data).decode("utf-8", errors="ignore")
-                    if top_mime == "text/html":
-                        body_html = decoded
-                    else:
-                        body_plain = decoded
-
-                # Multi-part message
-                if payload.get("parts"):
-                    _walk_parts(payload["parts"])
-
-                full_body = body_html or body_plain or snippet
 
                 email_event = EmailEvent(
                     id=detail["id"],
@@ -236,11 +254,11 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
                     from_name=headers.get("from", ""),
                     from_email=headers.get("from", ""),
                     subject=headers.get("subject", "(Sin asunto)"),
-                    date=date_str,
+                    date=datetime.now(timezone.utc).isoformat(),
                     snippet=snippet,
-                    body=full_body,
+                    body=snippet,
                     labels=detail.get("labelIds", []),
-                    has_attachments=has_attach,
+                    has_attachments=False,
                     attachments=[],
                 )
 
@@ -251,19 +269,11 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
                     "priority": priority.model_dump(),
                 })
 
-            # Filter by priority label if requested
-            if label and label not in ("all", ""):
+            if label not in ("all", ""):
                 enriched = [
                     e for e in enriched
                     if e["priority"]["priority_label"] == label
                 ]
-
-            # Persist refreshed token if it changed
-            if creds.token != tokens.get("token"):
-                await db.users.update_one(
-                    {"id": user["id"]},
-                    {"$set": {"gmail_tokens.token": creds.token}},
-                )
 
             return build_response(request, data=enriched, legacy=enriched)
 

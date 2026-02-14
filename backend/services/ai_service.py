@@ -1,18 +1,21 @@
 from __future__ import annotations
 
 from typing import List, Optional
+import re
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
-
-from config import settings
 from models import AIIntent, EmailEvent
 from utils.logger import get_logger
+from services.local_llm_service import LocalLLMService
 
 
 class AIService:
     def __init__(self):
-        self.api_key = settings.emergent_llm_key
         self.logger = get_logger(self.__class__.__name__)
+        self.local_llm = LocalLLMService()
+
+    # ======================================================
+    # INTENT ENGINE (NO LLM)
+    # ======================================================
 
     async def process_intent(self, message: str, context: Optional[str] = None) -> AIIntent:
         message_lower = message.lower()
@@ -74,30 +77,12 @@ class AIService:
             )
 
         out_of_scope_keywords = [
-            "clima",
-            "weather",
-            "historia",
-            "history",
-            "cocina",
-            "recipe",
-            "chiste",
-            "joke",
-            "música",
-            "music",
-            "película",
-            "movie",
-            "juego",
-            "game",
-            "deporte",
-            "sport",
-            "año",
-            "year",
-            "quien",
-            "who",
-            "qué es",
-            "what is",
-            "cómo funciona",
-            "how does",
+            "clima", "weather", "historia", "history",
+            "cocina", "recipe", "chiste", "joke",
+            "música", "music", "película", "movie",
+            "juego", "game", "deporte", "sport",
+            "año", "year", "quien", "who",
+            "qué es", "what is", "cómo funciona", "how does",
         ]
 
         if any(kw in message_lower for kw in out_of_scope_keywords):
@@ -113,84 +98,140 @@ class AIService:
 
         return AIIntent(
             assistant_text=(
-                "Puedo ayudarte a: ver correos prioritarios, filtrar por adjuntos, resumir mensajes o redactar respuestas. "
-                "¿Qué necesitas?"
+                "Puedo ayudarte a: ver correos prioritarios, filtrar por adjuntos, resumir mensajes "
+                "o redactar respuestas. ¿Qué necesitas?"
             ),
             intent="HELP",
             ui_state="default",
             action={"type": "none", "payload": {}},
         )
 
+    # ======================================================
+    # SUMMARIZE EMAIL (LLM LOCAL + POST-PROCESADO ROBUSTO)
+    # ======================================================
+
     async def summarize_email(self, email: EmailEvent) -> str:
-        if not self.api_key:
-            self.logger.warning("EMERGENT_LLM_KEY not configured; using snippet fallback")
-            return f"Resumen: {email.snippet}"
-
         try:
-            chat = LlmChat(
-                api_key=self.api_key,
-                session_id=f"summary-{email.id}",
-                system_message=(
-                    "Eres un asistente especializado en resumir correos electrónicos de forma concisa y clara. "
-                    "Tu objetivo es extraer los puntos clave en máximo 3 oraciones. "
-                    "Responde siempre en español."
-                ),
-            ).with_model("openai", "gpt-5.2")
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        "Eres un asistente empresarial. "
+                        "Resume el correo en exactamente 2 frases formales, claras y profesionales. "
+                        "No añadas encabezados, plantillas ni texto adicional."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        f"Correo:\n\n"
+                        f"De: {email.from_name} <{email.from_email}>\n"
+                        f"Asunto: {email.subject}\n\n"
+                        f"{email.body}\n\n"
+                        f"Resumen:"
+                    ),
+                },
+            ]
 
-            user_message = UserMessage(
-                text=(
-                    "Resume este correo en máximo 3 oraciones claras:\n\n"
-                    f"De: {email.from_name} <{email.from_email}>\n"
-                    f"Asunto: {email.subject}\n"
-                    f"Contenido:\n{email.body}\n\n"
-                    "Resume los puntos clave y acciones requeridas."
-                )
+            raw_text = await self.local_llm.chat(
+                messages,
+                max_tokens=150,
+                temperature=0.05,
             )
 
-            response = await chat.send_message(user_message)
-            return response
+            # -------------------------
+            # POST-PROCESADO LIMPIO
+            # -------------------------
+
+            cleaned = raw_text.strip()
+
+            # Eliminar bloques tipo plantilla
+            cleaned = cleaned.split("Fraze")[0]
+            cleaned = cleaned.split("Frase")[0]
+            cleaned = cleaned.split("Subject:")[0]
+
+            # Eliminar saltos de línea
+            cleaned = cleaned.replace("\n", " ").strip()
+
+            # Correcciones básicas frecuentes
+            cleaned = cleaned.replace("Agradezamos", "Agradecemos")
+
+            # Quitar espacios duplicados
+            cleaned = re.sub(r"\s+", " ", cleaned)
+
+            # Limitar a 2 frases reales
+            sentences = re.split(r"\.\s+", cleaned)
+            sentences = [s.strip() for s in sentences if s.strip()]
+
+            final = ". ".join(sentences[:2])
+
+            if final and not final.endswith("."):
+                final += "."
+
+            return final
+
         except Exception as exc:
             self.logger.error("Error summarizing email: %s", exc)
             return f"Resumen: {email.snippet}"
 
-    async def draft_reply(self, email: EmailEvent, instructions: str, tone: str = "professional") -> List[str]:
-        if not self.api_key:
-            self.logger.warning("EMERGENT_LLM_KEY not configured; using fallback")
-            return [
-                f"Estimado/a {email.from_name},\n\nGracias por su mensaje. {instructions}\n\nSaludos cordiales."
+    # ======================================================
+    # DRAFT REPLY (LLM LOCAL + LIMPIEZA)
+    # ======================================================
+
+    async def draft_reply(
+        self,
+        email: EmailEvent,
+        instructions: str,
+        tone: str = "professional",
+    ) -> List[str]:
+        try:
+            messages = [
+                {
+                    "role": "system",
+                    "content": (
+                        f"Eres un asistente que redacta respuestas de correo electrónico. "
+                        f"Tono: {tone}. "
+                        "Genera exactamente 2 versiones completas, profesionales y listas para enviar. "
+                        "Responde únicamente con el texto de las respuestas."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Redacta 2 opciones de respuesta para este correo.\n\n"
+                        f"CORREO ORIGINAL:\n"
+                        f"De: {email.from_name} <{email.from_email}>\n"
+                        f"Asunto: {email.subject}\n\n"
+                        f"{email.body}\n\n"
+                        f"INSTRUCCIONES DEL USUARIO:\n{instructions}\n\n"
+                        "Separa ambas versiones usando únicamente '---'."
+                    ),
+                },
             ]
 
-        try:
-            chat = LlmChat(
-                api_key=self.api_key,
-                session_id=f"draft-{email.id}",
-                system_message=(
-                    "Eres un asistente que redacta respuestas de correo electrónico. "
-                    f"Tono: {tone}. "
-                    "Genera respuestas claras, concisas y profesionales. "
-                    "Responde siempre en español."
-                ),
-            ).with_model("openai", "gpt-5.2")
-
-            user_message = UserMessage(
-                text=(
-                    "Redacta 2 opciones de respuesta para este correo:\n\n"
-                    "CORREO ORIGINAL:\n"
-                    f"De: {email.from_name} <{email.from_email}>\n"
-                    f"Asunto: {email.subject}\n"
-                    f"Contenido:\n{email.body}\n\n"
-                    "INSTRUCCIONES DEL USUARIO:\n"
-                    f"{instructions}\n\n"
-                    "Genera 2 versiones diferentes de respuesta, separadas por '---'. "
-                    "Cada respuesta debe ser completa y lista para enviar."
-                )
+            response = await self.local_llm.chat(
+                messages,
+                max_tokens=350,
+                temperature=0.3,
             )
 
-            response = await chat.send_message(user_message)
+            # Limpieza básica
+            response = response.strip()
+            response = response.replace("\n\n\n", "\n\n")
+
             drafts = response.split("---")
-            return [d.strip() for d in drafts if d.strip()][:2]
+            drafts = [d.strip() for d in drafts if d.strip()]
+
+            return drafts[:2] if drafts else [
+                f"Estimado/a {email.from_name},\n\n"
+                f"Gracias por su mensaje. {instructions}\n\n"
+                f"Saludos cordiales."
+            ]
+
         except Exception as exc:
             self.logger.error("Error drafting reply: %s", exc)
             return [
-                f"Estimado/a {email.from_name},\n\nGracias por su mensaje. {instructions}\n\nSaludos cordiales."
+                f"Estimado/a {email.from_name},\n\n"
+                f"Gracias por su mensaje. {instructions}\n\n"
+                f"Saludos cordiales."
             ]
