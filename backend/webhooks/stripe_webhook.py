@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Request, HTTPException
 import stripe
 
-from backend.config import settings
+from backend.core.settings import settings
 from backend.utils.logger import logger
 
 router = APIRouter(prefix="/webhooks/stripe", tags=["stripe"])

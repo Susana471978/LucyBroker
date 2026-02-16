@@ -2,19 +2,23 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from emergentintegrations.llm.chat import LlmChat, UserMessage
-
-from config import settings
-from models import AIIntent, EmailEvent
-from utils.logger import get_logger
+from backend.core.settings import settings
+from backend.models import AIIntent, EmailEvent
+from backend.utils.logger import get_logger
+from backend.services.executive_client import update_executive_session
 
 
 class AIService:
     def __init__(self):
-        self.api_key = settings.emergent_llm_key
+        # Ya no usamos API externa
+        self.api_key = None
         self.logger = get_logger(self.__class__.__name__)
 
-    async def process_intent(self, message: str, context: Optional[str] = None) -> AIIntent:
+    async def process_intent(
+        self,
+        message: str,
+        context: Optional[str] = None,
+    ) -> AIIntent:
         message_lower = message.lower()
 
         if any(kw in message_lower for kw in ["prioritario", "importante", "urgente", "priority", "urgent"]):
@@ -73,92 +77,103 @@ class AIService:
                 action={"type": "filter", "payload": {"label": "INFO"}},
             )
 
-        out_of_scope_keywords = [
-            "clima",
-            "weather",
-            "historia",
-            "history",
-            "cocina",
-            "recipe",
-            "chiste",
-            "joke",
-            "música",
-            "music",
-            "película",
-            "movie",
-            "juego",
-            "game",
-            "deporte",
-            "sport",
-            "año",
-            "year",
-            "quien",
-            "who",
-            "qué es",
-            "what is",
-            "cómo funciona",
-            "how does",
-        ]
-
-        if any(kw in message_lower for kw in out_of_scope_keywords):
-            return AIIntent(
-                assistant_text=(
-                    "Estoy diseñada para ayudarte con correos: priorizar, resumir y redactar respuestas. "
-                    "Indícame qué mensajes quieres ver o qué respuesta necesitas."
-                ),
-                intent="OUT_OF_SCOPE",
-                ui_state="default",
-                action={"type": "none", "payload": {}},
-            )
-
         return AIIntent(
             assistant_text=(
-                "Puedo ayudarte a: ver correos prioritarios, filtrar por adjuntos, resumir mensajes o redactar respuestas. "
-                "¿Qué necesitas?"
+                "Puedo ayudarte a: ver correos prioritarios, filtrar por adjuntos, "
+                "resumir mensajes o redactar respuestas. ¿Qué necesitas?"
             ),
             intent="HELP",
             ui_state="default",
             action={"type": "none", "payload": {}},
         )
 
-    async def summarize_email(self, email: EmailEvent) -> str:
-        if not self.api_key:
-            self.logger.warning("EMERGENT_LLM_KEY not configured; using snippet fallback")
-            return f"Resumen: {email.snippet}"
+    # =====================================================
+    # SUMMARIZE EMAIL
+    # =====================================================
+
+    async def summarize_email(
+        self,
+        email: EmailEvent,
+        user_id: str,
+    ) -> str:
+        """
+        Genera un resumen simple del correo y sincroniza memoria viva en Executive Engine.
+        Actualmente funciona en modo determinístico (sin LLM externo).
+        """
 
         try:
-            chat = LlmChat(
-                api_key=self.api_key,
-                session_id=f"summary-{email.id}",
-                system_message=(
-                    "Eres un asistente especializado en resumir correos electrónicos de forma concisa y clara. "
-                    "Tu objetivo es extraer los puntos clave en máximo 3 oraciones. "
-                    "Responde siempre en español."
-                ),
-            ).with_model("openai", "gpt-5.2")
+            # --- Resumen determinístico simple ---
+            base_text = email.body or email.snippet or ""
+            base_text = base_text.strip()
 
-            user_message = UserMessage(
-                text=(
-                    "Resume este correo en máximo 3 oraciones claras:\n\n"
-                    f"De: {email.from_name} <{email.from_email}>\n"
-                    f"Asunto: {email.subject}\n"
-                    f"Contenido:\n{email.body}\n\n"
-                    "Resume los puntos clave y acciones requeridas."
-                )
-            )
+            if not base_text:
+                summary = "No se pudo generar un resumen porque el correo no contiene contenido legible."
+            else:
+                # Tomamos las primeras 3 frases o primeras 500 chars como resumen controlado
+                sentences = base_text.split(".")
+                summary = ". ".join(sentences[:3]).strip()
 
-            response = await chat.send_message(user_message)
-            return response
+                if not summary.endswith("."):
+                    summary += "."
+
+                if len(summary) > 500:
+                    summary = summary[:500].rsplit(" ", 1)[0] + "..."
+
         except Exception as exc:
             self.logger.error("Error summarizing email: %s", exc)
-            return f"Resumen: {email.snippet}"
+            summary = f"Resumen: {email.snippet}"
 
-    async def draft_reply(self, email: EmailEvent, instructions: str, tone: str = "professional") -> List[str]:
+        # 🔵 Actualizar memoria viva en Executive
+        try:
+            await update_executive_session(
+                user_id=user_id,
+                fields={
+                    "current_email_id": email.id,
+                    "last_action": "summarize",
+                    "last_draft_content": summary,
+                },
+            )
+        except Exception as e:
+            self.logger.warning("Executive memory update failed: %s", e)
+
+        return summary
+    
+
+    # =====================================================
+    # DRAFT REPLY
+    # =====================================================
+
+    async def draft_reply(
+        self,
+        user_id: str,
+        email: EmailEvent,
+        instructions: str,
+        tone: str = "professional",
+    ) -> List[str]:
+
+        fallback_response = [
+            f"Estimado/a {email.from_name},\n\n"
+            f"Gracias por su mensaje. {instructions}\n\n"
+            "Saludos cordiales."
+        ]
+
         if not self.api_key:
             self.logger.warning("EMERGENT_LLM_KEY not configured; using fallback")
-            return [
-                f"Estimado/a {email.from_name},\n\nGracias por su mensaje. {instructions}\n\nSaludos cordiales."
-            ]
+
+            try:
+                await update_executive_session(
+                    user_id=user_id,
+                    fields={
+                        "last_draft_content": fallback_response[0],
+                        "tone_preference": tone,
+                        "last_action": "draft_reply",
+                        "current_email_id": email.id,
+                    },
+                )
+            except Exception as e:
+                self.logger.warning("Executive update failed (fallback): %s", e)
+
+            return fallback_response
 
         try:
             chat = LlmChat(
@@ -187,10 +202,23 @@ class AIService:
             )
 
             response = await chat.send_message(user_message)
-            drafts = response.split("---")
-            return [d.strip() for d in drafts if d.strip()][:2]
+            drafts = [d.strip() for d in response.split("---") if d.strip()][:2]
+
+            try:
+                await update_executive_session(
+                    user_id=user_id,
+                    fields={
+                        "last_draft_content": drafts[0] if drafts else "",
+                        "tone_preference": tone,
+                        "last_action": "draft_reply",
+                        "current_email_id": email.id,
+                    },
+                )
+            except Exception as e:
+                self.logger.warning("Executive update failed: %s", e)
+
+            return drafts if drafts else fallback_response
+
         except Exception as exc:
             self.logger.error("Error drafting reply: %s", exc)
-            return [
-                f"Estimado/a {email.from_name},\n\nGracias por su mensaje. {instructions}\n\nSaludos cordiales."
-            ]
+            return fallback_response

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
@@ -25,7 +27,11 @@ import bcrypt
 import jwt
 import stripe
 
-from backend.config import settings
+from backend.core.settings import settings
+from backend.services.executive_client import restore_executive_session
+from backend.api.ai import router as ai_router
+from backend.core.dependencies import get_current_user
+from backend.core.database import db
 
 # =========================
 # STRIPE
@@ -38,6 +44,10 @@ from backend.webhooks.stripe_webhook import router as stripe_router
 # =========================
 from backend.api.gmail import create_gmail_router
 
+# =========================
+# AI
+# =========================
+from backend.api.ai import router as ai_router
 # =========================
 # MODELOS
 # =========================
@@ -70,12 +80,20 @@ CREDENTIALS_DIR = ROOT_DIR / "credentials"
 CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
 
 
+
 # ======================================================
 # DB (Mongo / Motor async)
 # ======================================================
 
-client = AsyncIOMotorClient(settings.mongo_url)
-db = client[settings.db_name]
+print("MONGO_URL:", settings.mongo_url)
+print("MONGO_DB:", settings.mongo_db)
+
+print("EXEC_ENGINE_URL:", settings.exec_engine_url)
+print("EXEC_INTERNAL_API_KEY:", settings.exec_internal_api_key)
+
+print("GMAIL_CLIENT_ID:", settings.gmail_client_id)
+print("GMAIL_REDIRECT_URI:", settings.gmail_redirect_uri)
+
 
 
 # ======================================================
@@ -152,6 +170,7 @@ async def get_current_user(
 _gmail_router = create_gmail_router(db, get_current_user)
 api_router.include_router(_gmail_router)
 
+api_router.include_router(ai_router)
 
 # ======================================================
 # AUTH ROUTES
@@ -208,6 +227,12 @@ async def login(request: Request, credentials: UserLogin):
 
     token = create_token(user["id"], user["email"])
 
+    # 🔵 Restaurar sesión executive automáticamente
+    try:
+        await restore_executive_session(user["id"])
+    except Exception:
+        logger.exception("Executive session restore failed")
+
     legacy = TokenResponse(
         token=token,
         user=UserResponse(
@@ -217,6 +242,19 @@ async def login(request: Request, credentials: UserLogin):
             language=user.get("language", "es"),
         ),
     ).model_dump()
+
+    return build_response(
+        request,
+        data=legacy,
+        legacy=legacy,
+        meta={"user_id": user["id"]},
+    )
+
+    try:
+        executive_session = await restore_executive_session(user["id"])
+        legacy["executive_session"] = executive_session
+    except Exception:
+        logger.exception("Executive Engine restore failed during login")
 
     return build_response(
         request,

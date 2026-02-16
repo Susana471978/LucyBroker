@@ -3,7 +3,7 @@ from __future__ import annotations
 import stripe
 from typing import Optional
 
-from backend.config import settings
+from backend.core.settings import settings
 
 
 # ======================================================

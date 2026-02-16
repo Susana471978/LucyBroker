@@ -1,9 +1,11 @@
 from .server import app
 from backend.services.gmail_auth import router as gmail_router
-from backend.services.assistant import router as assistant_router  # 👈 nuevo
+from backend.services.assistant import router as assistant_router
+from backend.services.executive import router as executive_router  # 👈 nuevo
+from backend.core.settings import settings
 
-# Registrar rutas
 app.include_router(gmail_router, prefix="/api")
-app.include_router(assistant_router, prefix="/api")  # 👈 clave
+app.include_router(assistant_router, prefix="/api")
+app.include_router(executive_router, prefix="/api")  # 👈 nuevo
 
 __all__ = ["app"]
