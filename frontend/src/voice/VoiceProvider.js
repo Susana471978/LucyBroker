@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useVoiceEngine } from "./useVoiceEngine";
-import VoiceFloatingPanel from "./VoiceFloatingPanel";
 
 /**
  * Context para exponer el motor si algún día queremos usarlo externamente
@@ -16,18 +15,12 @@ export const useVoice = () => {
 
 export default function VoiceProvider({ children }) {
     const navigate = useNavigate();
-
     const voiceEngine = useVoiceEngine();
 
-    const {
-        setUIContext,
-    } = voiceEngine;
+    const { setUIContext } = voiceEngine;
 
     /**
-     * Aquí inyectamos las funciones reales del sistema.
-     * IMPORTANTE:
-     * De momento solo conectamos navegación.
-     * Los filtros y openMessage los conectaremos cuando integremos en Overview/Messages.
+     * Inyectamos navegación al motor
      */
     useEffect(() => {
         setUIContext({
@@ -42,8 +35,6 @@ export default function VoiceProvider({ children }) {
     return (
         <VoiceContext.Provider value={voiceEngine}>
             {children}
-            <VoiceFloatingPanel />
         </VoiceContext.Provider>
     );
 }
-

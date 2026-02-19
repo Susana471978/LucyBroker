@@ -10,7 +10,8 @@ import {
   Clock,
   Paperclip,
   Sparkles,
-  Link2
+  Link2,
+  Mic
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -60,7 +61,7 @@ export default function OverviewPage() {
 
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailEmail, setGmailEmail] = useState('');
-  const [gmailLoading, setGmailLoading] = useState(true);
+  const [gmailLoading, setGmailLoading] = useState(false);
 
   /* ---------- FETCH EMAILS ---------- */
   const fetchData = useCallback(async () => {
@@ -216,36 +217,61 @@ export default function OverviewPage() {
 
         {/* STATS CARDS */}
         {!loading && stats && gmailConnected && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
-            <StatCard
-              icon={<Inbox className="w-5 h-5" />}
-              label="Total Emails"
-              value={stats.total}
-              highlight
-              onClick={() => navigate('/messages')}
-            />
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+              <StatCard
+                icon={<Inbox className="w-5 h-5" />}
+                label="Total Emails"
+                value={stats.total}
+                highlight
+                onClick={() => navigate('/messages')}
+              />
 
-            <StatCard
-              icon={<Sparkles className="w-5 h-5" />}
-              label="Prioritarios"
-              value={stats.prioritarios}
-              onClick={() => navigate('/messages?filter=PRIORITARIO')}
-            />
+              <StatCard
+                icon={<Sparkles className="w-5 h-5" />}
+                label="Prioritarios"
+                value={stats.prioritarios}
+                onClick={() => navigate('/messages?filter=PRIORITARIO')}
+              />
 
-            <StatCard
-              icon={<Clock className="w-5 h-5" />}
-              label="Seguimiento"
-              value={stats.seguimiento}
-              onClick={() => navigate('/messages?filter=SEGUIMIENTO')}
-            />
+              <StatCard
+                icon={<Clock className="w-5 h-5" />}
+                label="Seguimiento"
+                value={stats.seguimiento}
+                onClick={() => navigate('/messages?filter=SEGUIMIENTO')}
+              />
 
-            <StatCard
-              icon={<Paperclip className="w-5 h-5" />}
-              label="Con Adjuntos"
-              value={stats.with_attachments}
-              onClick={() => navigate('/messages?filter=attachments')}
-            />
-          </div>
+              <StatCard
+                icon={<Paperclip className="w-5 h-5" />}
+                label="Con Adjuntos"
+                value={stats.with_attachments}
+                onClick={() => navigate('/messages?filter=attachments')}
+              />
+            </div>
+
+            {/* EXECUTIVE CARD */}
+            <div className="glass-premium rounded-2xl p-6 border border-blue-500/20">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                    SyntexIA Executive
+                  </h3>
+                  <p className="text-sm text-slate-400 leading-relaxed max-w-md">
+                    Controla tu bandeja mediante comandos de voz.
+                    Filtra mensajes, navega entre correos y ejecuta acciones
+                    sin interrumpir tu flujo de trabajo.
+                  </p>
+                </div>
+
+                <Button
+                  className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-5 py-2.5"
+                >
+                  <Mic className="w-4 h-4" />
+                  Activar Executive
+                </Button>
+              </div>
+            </div>
+          </>
         )}
 
       </div>

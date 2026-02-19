@@ -532,3 +532,40 @@ code {
   overflow-x: auto;
   display: block;
 }
+
+/* ============================= */
+/* Executive Voice Button System */
+/* ============================= */
+
+.executive-button {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1.4rem;
+  border-radius: 9999px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  color: white;
+  background: linear-gradient(135deg, #2563EB, #3B82F6 60%, #1D4ED8);
+  box-shadow: 0 10px 35px rgba(37, 99, 235, 0.35);
+  transition: all 0.3s ease;
+}
+
+.executive-button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 18px 50px rgba(37, 99, 235, 0.55);
+}
+
+.executive-button-active {
+  animation: executivePulse 2.2s ease-in-out infinite;
+}
+
+.executive-button-active::after {
+  content: "";
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  background: radial-gradient(circle at center, rgba(59, 130, 246, 0.35), transparent 70%);
+  z-index: -1;
+}
