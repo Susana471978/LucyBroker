@@ -1,6 +1,7 @@
 // src/voice/useVoiceEngine.js
 
 import { useState, useRef, useCallback } from "react";
+import { executeVoiceActions } from "./voiceCommandRouter";
 
 const STATES = {
     IDLE: "IDLE",
@@ -20,12 +21,17 @@ export function useVoiceEngine() {
     const silenceTimerRef = useRef(null);
     const isRequestInFlight = useRef(false);
     const activeSessionToken = useRef(null);
+    const uiContextRef = useRef(null);
+
+    /* -------------------- CONTEXT SETTER -------------------- */
+
+    const setUIContext = (context) => {
+        uiContextRef.current = context;
+    };
 
     /* -------------------- UTIL -------------------- */
 
-    const generateSessionToken = () => {
-        return Date.now().toString();
-    };
+    const generateSessionToken = () => Date.now().toString();
 
     const clearSilenceTimer = () => {
         if (silenceTimerRef.current) {
@@ -65,7 +71,7 @@ export function useVoiceEngine() {
         recognition.onresult = (event) => {
             let interimTranscript = "";
 
-            for (let i = event.resultIndex; i < event.results.length; ++i) {
+            for (let i = event.resultIndex; i < event.results.length; i++) {
                 const result = event.results[i];
                 if (result.isFinal) {
                     finalTranscript += result[0].transcript;
@@ -88,8 +94,13 @@ export function useVoiceEngine() {
         };
 
         recognition.onend = () => {
+            // Reinicio controlado solo si seguimos escuchando
             if (voiceState === STATES.LISTENING) {
-                recognition.start();
+                try {
+                    recognition.start();
+                } catch (e) {
+                    // Evitar crash si el navegador bloquea restart
+                }
             }
         };
 
@@ -118,9 +129,7 @@ export function useVoiceEngine() {
             try {
                 const response = await fetch("/api/assistant", {
                     method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
+                    headers: { "Content-Type": "application/json" },
                     credentials: "include",
                     body: JSON.stringify({
                         message: finalText,
@@ -131,9 +140,22 @@ export function useVoiceEngine() {
                 const data = await response.json();
 
                 setLastInteraction(data.assistant_text || "");
-                speak(data.assistant_text || "");
 
-                setVoiceState(STATES.IDLE);
+                // Ejecutar acciones whitelist
+                if (
+                    Array.isArray(data.actions) &&
+                    data.actions.length > 0 &&
+                    uiContextRef.current
+                ) {
+                    executeVoiceActions(data.actions, uiContextRef.current);
+                }
+
+                // TTS
+                if (ttsEnabled && data.assistant_text) {
+                    speak(data.assistant_text);
+                } else {
+                    setVoiceState(STATES.IDLE);
+                }
             } catch (err) {
                 console.error("Voice assistant error:", err);
                 setVoiceState(STATES.ERROR);
@@ -141,15 +163,16 @@ export function useVoiceEngine() {
                 isRequestInFlight.current = false;
             }
         },
-        []
+        [ttsEnabled]
     );
 
     /* -------------------- TTS -------------------- */
 
     const speak = (text) => {
-        if (!ttsEnabled || !text) return;
-
-        if (!window.speechSynthesis) return;
+        if (!ttsEnabled || !text || !window.speechSynthesis) {
+            setVoiceState(STATES.IDLE);
+            return;
+        }
 
         setVoiceState(STATES.SPEAKING);
 
@@ -170,6 +193,8 @@ export function useVoiceEngine() {
         }
         setVoiceState(STATES.IDLE);
     };
+
+    /* -------------------- CANCEL -------------------- */
 
     const cancel = () => {
         clearSilenceTimer();
@@ -192,6 +217,7 @@ export function useVoiceEngine() {
         startListening,
         cancel,
         interruptSpeech,
+        setUIContext,
         STATES,
     };
 }
