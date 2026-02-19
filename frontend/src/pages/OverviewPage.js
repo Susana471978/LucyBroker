@@ -3,28 +3,28 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
 import axios from 'axios';
+
 import {
-  Mail,
   Inbox,
   CheckCircle,
   Clock,
   Paperclip,
   Sparkles,
-  Send,
-  Loader2,
   Link2
 } from 'lucide-react';
+
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 import { motion } from 'framer-motion';
 import Layout from '../components/Layout';
+
+import { disconnectGmail } from '../services/mailService';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
 /* ---------- Stat Card ---------- */
 const StatCard = ({ icon, label, value, highlight, onClick }) => {
   let baseClass =
-    'glass-subtle rounded-xl p-4 text-left w-full cursor-pointer transition-shadow hover:shadow-lg hover:shadow-blue-500/5 ';
+    'glass-subtle rounded-xl p-4 text-left w-full cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10 ';
   if (highlight) baseClass += 'border-blue-500/30 halo-active';
 
   let iconClass =
@@ -58,15 +58,11 @@ export default function OverviewPage() {
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [aiInput, setAiInput] = useState('');
-  const [aiResponse, setAiResponse] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
-
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailEmail, setGmailEmail] = useState('');
   const [gmailLoading, setGmailLoading] = useState(true);
 
-  /* ---------- DATA ---------- */
+  /* ---------- FETCH EMAILS ---------- */
   const fetchData = useCallback(async () => {
     if (!token) return;
 
@@ -74,10 +70,10 @@ export default function OverviewPage() {
       const headers = { Authorization: `Bearer ${token}` };
       const emailsRes = await axios.get(`${API}/gmail/messages`, { headers });
       const emailsData = emailsRes.data?.data || emailsRes.data || [];
-
-      setEmails(Array.isArray(emailsData) ? emailsData : []);
-
       const list = Array.isArray(emailsData) ? emailsData : [];
+
+      setEmails(list);
+
       setStats({
         total: list.length,
         prioritarios: list.filter(
@@ -86,10 +82,15 @@ export default function OverviewPage() {
         seguimiento: list.filter(
           e => e.priority?.priority_label === 'SEGUIMIENTO'
         ).length,
-        with_attachments: list.filter(e => e.email?.has_attachments).length,
+        with_attachments: list.filter(
+          e => e.email?.has_attachments
+        ).length,
       });
+
     } catch (err) {
       console.error('Fetch error:', err);
+      setEmails([]);
+      setStats(null);
     } finally {
       setLoading(false);
     }
@@ -108,9 +109,11 @@ export default function OverviewPage() {
         const res = await axios.get(`${API}/gmail/status`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
         const d = res.data?.data || res.data;
         setGmailConnected(!!d.gmail_connected);
         setGmailEmail(d.gmail_email || '');
+
       } catch (err) {
         console.error('Gmail status error:', err);
       } finally {
@@ -127,89 +130,72 @@ export default function OverviewPage() {
       const res = await axios.get(`${API}/gmail/auth`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
       const url = res.data?.data?.auth_url || res.data?.auth_url;
-      if (url) window.location.href = url;
-    } catch (err) {
-      console.error('Gmail auth error:', err);
-    }
-  };
 
-  /* ---------- IA (A2 FINAL) ---------- */
-  const handleAiSubmit = async (e) => {
-    e.preventDefault();
-    if (!aiInput.trim() || !token) return;
-
-    setAiLoading(true);
-
-    try {
-      const res = await axios.post(
-        `${API}/assistant`,
-        { text: aiInput },
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const payload = res.data;
-      setAiResponse(payload);
-
-      // 🔥 Ejecutar acciones devueltas por el asistente
-      if (payload?.actions?.length) {
-        payload.actions.forEach(action => {
-          if (action.type === 'navigate') {
-            const { path, filter } = action.payload;
-            const query = filter ? `?filter=${filter}` : '';
-            navigate(`${path}${query}`);
-          }
-        });
+      if (url) {
+        window.location.href = url;
       }
 
     } catch (err) {
-      console.error('AI error:', err);
-      setAiResponse({
-        assistant_text: 'Ha ocurrido un error al contactar con el asistente.',
-      });
-    } finally {
-      setAiLoading(false);
-      setAiInput('');
+      console.error("Gmail connect error:", err);
     }
   };
 
-  /* ---------- PRIORITY ---------- */
-  const priorityEmails = emails
-    .filter((e) => e.priority?.priority_label === 'PRIORITARIO')
-    .slice(0, 3);
+  /* ---------- GMAIL DISCONNECT ---------- */
+  const handleDisconnect = async () => {
+    try {
+      await disconnectGmail();
+
+      setGmailConnected(false);
+      setGmailEmail('');
+      setEmails([]);
+      setStats({
+        total: 0,
+        prioritarios: 0,
+        seguimiento: 0,
+        with_attachments: 0,
+      });
+
+    } catch (err) {
+      console.error("Disconnect error", err);
+    }
+  };
 
   return (
     <Layout>
       <div className="max-w-6xl mx-auto px-6 py-8">
 
         {/* HERO */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-10"
-        >
-          <h1 className="text-4xl sm:text-5xl font-bold text-slate-100 mb-4">
+        <div className="mb-10">
+          <h1 className="text-4xl font-bold text-slate-100 mb-4">
             {t(language, 'welcomeTitle')}
           </h1>
           <p className="text-lg text-slate-400 max-w-2xl">
             {t(language, 'welcomeSubtitle')}
           </p>
-        </motion.div>
+        </div>
 
         {/* GMAIL CONNECTION */}
         {!gmailLoading && (
           <div className="glass-subtle rounded-xl p-4 mb-8 flex items-center justify-between">
             {gmailConnected ? (
-              <div className="flex items-center gap-3">
-                <CheckCircle className="w-5 h-5 text-emerald-400" />
-                <span className="text-slate-200 text-sm font-medium">
-                  Correo conectado:{' '}
-                  <span className="text-blue-400">{gmailEmail}</span>
-                </span>
+              <div className="flex items-center justify-between w-full">
+                <div className="flex items-center gap-3">
+                  <CheckCircle className="w-5 h-5 text-emerald-400" />
+                  <span className="text-slate-200 text-sm font-medium">
+                    Correo conectado:{' '}
+                    <span className="text-blue-400">{gmailEmail}</span>
+                  </span>
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnect}
+                >
+                  Desconectar
+                </Button>
               </div>
             ) : (
               <>
@@ -228,71 +214,40 @@ export default function OverviewPage() {
           </div>
         )}
 
-        {/* STATS */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-          <StatCard
-            icon={<Inbox />}
-            label={t(language, 'allEmails')}
-            value={stats?.total ?? 0}
-            onClick={() => navigate('/app/messages?filter=all')}
-          />
-          <StatCard
-            icon={<Mail />}
-            label={t(language, 'priority')}
-            value={stats?.prioritarios ?? 0}
-            highlight
-            onClick={() => navigate('/app/messages?filter=priority')}
-          />
-          <StatCard
-            icon={<Clock />}
-            label={t(language, 'followUp')}
-            value={stats?.seguimiento ?? 0}
-            onClick={() => navigate('/app/messages?filter=followup')}
-          />
-          <StatCard
-            icon={<Paperclip />}
-            label={t(language, 'attachments')}
-            value={stats?.with_attachments ?? 0}
-            onClick={() => navigate('/app/messages?filter=attachments')}
-          />
-        </div>
-
-        {/* IA CARD */}
-        <div className="glass-premium rounded-2xl p-6 mb-8">
-          <div className="flex items-center gap-3 mb-4">
-            <Sparkles className="text-blue-400" />
-            <h3 className="text-lg font-semibold text-slate-100">
-              Asistente IA
-            </h3>
-          </div>
-
-          <form onSubmit={handleAiSubmit} className="flex gap-3">
-            <Input
-              value={aiInput}
-              onChange={(e) => setAiInput(e.target.value)}
-              placeholder="Escribe qué necesitas…"
+        {/* STATS CARDS */}
+        {!loading && stats && gmailConnected && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            <StatCard
+              icon={<Inbox className="w-5 h-5" />}
+              label="Total Emails"
+              value={stats.total}
+              highlight
+              onClick={() => navigate('/messages')}
             />
-            <Button type="submit" disabled={aiLoading}>
-              {aiLoading ? <Loader2 className="animate-spin" /> : <Send />}
-            </Button>
-          </form>
 
-          {aiResponse?.assistant_text && (
-            <div className="mt-4 text-slate-300">
-              {aiResponse.assistant_text}
-            </div>
-          )}
-        </div>
+            <StatCard
+              icon={<Sparkles className="w-5 h-5" />}
+              label="Prioritarios"
+              value={stats.prioritarios}
+              onClick={() => navigate('/messages?filter=PRIORITARIO')}
+            />
 
-        {/* SILENCE MODE */}
-        {!loading && priorityEmails.length === 0 && (
-          <div className="glass-subtle rounded-2xl p-12 text-center">
-            <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-4" />
-            <p className="text-slate-400">
-              Nada requiere acción inmediata
-            </p>
+            <StatCard
+              icon={<Clock className="w-5 h-5" />}
+              label="Seguimiento"
+              value={stats.seguimiento}
+              onClick={() => navigate('/messages?filter=SEGUIMIENTO')}
+            />
+
+            <StatCard
+              icon={<Paperclip className="w-5 h-5" />}
+              label="Con Adjuntos"
+              value={stats.with_attachments}
+              onClick={() => navigate('/messages?filter=attachments')}
+            />
           </div>
         )}
+
       </div>
     </Layout>
   );

@@ -1,15 +1,42 @@
 import api from './apiClient';
 
-/**
- * Obtener emails con filtros
- */
-export async function fetchEmails({ label = 'all', attachments = false }) {
-    const params = {};
+/* ===========================
+   FETCH EMAILS
+=========================== */
+export async function fetchEmails(params = {}) {
+    const res = await api.get('/gmail/messages', { params });
 
-    if (label !== 'all') params.label = label;
-    if (attachments) params.has_attachments = true;
+    if (res.data?.data && Array.isArray(res.data.data)) {
+        return res.data.data;
+    }
 
-    const response = await api.get('/gmail/messages', { params });
+    if (Array.isArray(res.data)) {
+        return res.data;
+    }
 
-    return response.data?.data || response.data?.legacy || response.data;
+    return [];
+}
+
+/* ===========================
+   GMAIL STATUS
+=========================== */
+export async function getGmailStatus() {
+    const res = await api.get('/gmail/status');
+    return res.data?.data || res.data;
+}
+
+/* ===========================
+   GMAIL CONNECT
+=========================== */
+export async function connectGmail() {
+    const res = await api.get('/gmail/auth');
+    return res.data?.data?.auth_url || res.data?.auth_url;
+}
+
+/* ===========================
+   GMAIL DISCONNECT
+=========================== */
+export async function disconnectGmail() {
+    const res = await api.post('/gmail/disconnect');
+    return res.data?.data || res.data;
 }

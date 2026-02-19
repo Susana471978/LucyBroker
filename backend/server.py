@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import os
-from dotenv import load_dotenv
-load_dotenv()
+import inspect
 import uuid
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any
 from pathlib import Path
+
+from dotenv import load_dotenv
+load_dotenv()
 
 from fastapi import (
     FastAPI,
@@ -20,18 +22,18 @@ from fastapi import (
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
 
-from motor.motor_asyncio import AsyncIOMotorClient
 import uvicorn
-
 import bcrypt
 import jwt
 import stripe
 
 from backend.core.settings import settings
 from backend.services.executive_client import restore_executive_session
+
+# =========================
+# AI
+# =========================
 from backend.api.ai import router as ai_router
-from backend.core.dependencies import get_current_user
-from backend.core.database import db
 
 # =========================
 # STRIPE
@@ -45,9 +47,10 @@ from backend.webhooks.stripe_webhook import router as stripe_router
 from backend.api.gmail import create_gmail_router
 
 # =========================
-# AI
+# DB
 # =========================
-from backend.api.ai import router as ai_router
+from backend.core.database import db
+
 # =========================
 # MODELOS
 # =========================
@@ -80,9 +83,8 @@ CREDENTIALS_DIR = ROOT_DIR / "credentials"
 CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
 
 
-
 # ======================================================
-# DB (Mongo / Motor async)
+# DEBUG (opcional)
 # ======================================================
 
 print("MONGO_URL:", settings.mongo_url)
@@ -94,6 +96,27 @@ print("EXEC_INTERNAL_API_KEY:", settings.exec_internal_api_key)
 print("GMAIL_CLIENT_ID:", settings.gmail_client_id)
 print("GMAIL_REDIRECT_URI:", settings.gmail_redirect_uri)
 
+
+# ======================================================
+# HELPERS DB (COMPAT Motor async / PyMongo sync)
+# ======================================================
+
+async def _maybe_await(result):
+    if inspect.isawaitable(result):
+        return await result
+    return result
+
+
+async def db_find_one(collection, *args, **kwargs):
+    return await _maybe_await(collection.find_one(*args, **kwargs))
+
+
+async def db_insert_one(collection, *args, **kwargs):
+    return await _maybe_await(collection.insert_one(*args, **kwargs))
+
+
+async def db_update_one(collection, *args, **kwargs):
+    return await _maybe_await(collection.update_one(*args, **kwargs))
 
 
 # ======================================================
@@ -138,6 +161,11 @@ def create_token(user_id: str, email: str) -> str:
 async def get_current_user(
     authorization: Optional[str] = Header(None),
 ) -> Dict[str, Any]:
+    """
+    IMPORTANTE:
+    - Funciona con Motor (async) y con PyMongo (sync).
+    - Evita falsos 401 "Token inválido" cuando el problema era 'await' sobre PyMongo.
+    """
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Token requerido")
 
@@ -149,17 +177,26 @@ async def get_current_user(
             settings.jwt_secret,
             algorithms=[settings.jwt_algorithm],
         )
-        user = await db.users.find_one(
+
+        user = await db_find_one(
+            db.users,
             {"id": payload["user_id"]},
             {"_id": 0},
         )
+
         if not user:
             raise HTTPException(status_code=401, detail="Usuario no encontrado")
+
         return user
 
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Token inválido")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Auth error (DB/unknown)")
         raise HTTPException(status_code=401, detail="Token inválido")
 
 
@@ -170,7 +207,9 @@ async def get_current_user(
 _gmail_router = create_gmail_router(db, get_current_user)
 api_router.include_router(_gmail_router)
 
+# AI router
 api_router.include_router(ai_router)
+
 
 # ======================================================
 # AUTH ROUTES
@@ -178,7 +217,7 @@ api_router.include_router(ai_router)
 
 @api_router.post("/auth/register")
 async def register(request: Request, user_data: UserCreate):
-    existing = await db.users.find_one({"email": user_data.email})
+    existing = await db_find_one(db.users, {"email": user_data.email}, {"_id": 0})
     if existing:
         raise HTTPException(status_code=400, detail="El email ya está registrado")
 
@@ -197,7 +236,7 @@ async def register(request: Request, user_data: UserCreate):
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
 
-    await db.users.insert_one(user_doc)
+    await db_insert_one(db.users, user_doc)
 
     token = create_token(user_id, user_data.email)
 
@@ -220,18 +259,12 @@ async def register(request: Request, user_data: UserCreate):
 
 @api_router.post("/auth/login")
 async def login(request: Request, credentials: UserLogin):
-    user = await db.users.find_one({"email": credentials.email}, {"_id": 0})
+    user = await db_find_one(db.users, {"email": credentials.email}, {"_id": 0})
 
     if not user or not verify_password(credentials.password, user["password"]):
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
     token = create_token(user["id"], user["email"])
-
-    # 🔵 Restaurar sesión executive automáticamente
-    try:
-        await restore_executive_session(user["id"])
-    except Exception:
-        logger.exception("Executive session restore failed")
 
     legacy = TokenResponse(
         token=token,
@@ -243,13 +276,7 @@ async def login(request: Request, credentials: UserLogin):
         ),
     ).model_dump()
 
-    return build_response(
-        request,
-        data=legacy,
-        legacy=legacy,
-        meta={"user_id": user["id"]},
-    )
-
+    # Restaurar sesión executive automáticamente (no rompe login si falla)
     try:
         executive_session = await restore_executive_session(user["id"])
         legacy["executive_session"] = executive_session
@@ -277,7 +304,6 @@ async def get_me(
         language=user.get("language", "es"),
     ).model_dump()
 
-    # Include admin flag so frontend can use it
     legacy["is_admin"] = bool(user.get("is_admin", False))
 
     return build_response(request, data=legacy, legacy=legacy)
@@ -293,7 +319,6 @@ async def trial_status(
     user: Dict[str, Any] = Depends(get_current_user),
     _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ):
-    # Admin users and subscribed users bypass trial
     if user.get("is_admin") or user.get("subscription_active"):
         data = {
             "trial_active": False,
@@ -326,8 +351,6 @@ async def trial_heartbeat(
     user: Dict[str, Any] = Depends(get_current_user),
     _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ):
-    """Frontend calls this periodically (e.g. every 60s) to track active usage."""
-    # Admin and subscribed users: no-op
     if user.get("is_admin") or user.get("subscription_active"):
         return build_response(
             request,
@@ -335,13 +358,14 @@ async def trial_heartbeat(
             legacy={"trial_remaining": 0, "trial_expired": False, "subscription_active": True},
         )
 
-    increment = 60  # seconds per heartbeat
+    increment = 60
     seconds_used = user.get("trial_seconds_used", 0) + increment
     limit = user.get("trial_limit", 7200)
     remaining = max(0, limit - seconds_used)
     expired = remaining <= 0
 
-    await db.users.update_one(
+    await db_update_one(
+        db.users,
         {"id": user["id"]},
         {"$set": {
             "trial_seconds_used": seconds_used,
@@ -381,7 +405,7 @@ async def billing_checkout(
     if not price_id:
         raise HTTPException(status_code=503, detail="Stripe price_id no configurado")
 
-    frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+    frontend_url = os.environ.get("FRONTEND_URL", settings.frontend_url)
 
     try:
         session = create_checkout_session(
@@ -425,20 +449,18 @@ app.add_middleware(
     logger=logger,
 )
 
-# CORS: ampliado para que funcione también en dominios/subdominios en pruebas.
-# Puedes restringirlo luego en producción.
+# CORS
 cors_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 ]
-# Permitir FRONTEND_URL si está configurado
-frontend_url_env = os.environ.get("FRONTEND_URL")
+frontend_url_env = os.environ.get("FRONTEND_URL") or getattr(settings, "frontend_url", None)
 if frontend_url_env:
     cors_origins.append(frontend_url_env)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins,
+    allow_origins=list(dict.fromkeys(cors_origins)),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -456,7 +478,12 @@ async def startup_state():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    client.close()
+    # Motor: db.client exists; PyMongo: client usually reachable too.
+    try:
+        if hasattr(db, "client") and db.client:
+            db.client.close()
+    except Exception:
+        logger.exception("Error closing DB client")
 
 
 if __name__ == "__main__":

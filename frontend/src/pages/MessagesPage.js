@@ -21,7 +21,7 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ScrollArea } from '../components/ui/scroll-area';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import Layout from '../components/Layout';
 
 import { fetchEmails as fetchEmailsService } from '../services/mailService';
@@ -67,8 +67,6 @@ export default function MessagesPage() {
   const [draftsLoading, setDraftsLoading] = useState(false);
 
   const [draftInstructions, setDraftInstructions] = useState('');
-  const [showDraftForm, setShowDraftForm] = useState(false);
-  const [showFullBody, setShowFullBody] = useState(false);
 
   /* ---------------- FETCH EMAILS ---------------- */
 
@@ -76,14 +74,26 @@ export default function MessagesPage() {
     setLoading(true);
 
     try {
-      const data = await fetchEmailsService({
+      const response = await fetchEmailsService({
         label: filter,
         attachments: attachmentsOnly,
       });
 
-      setEmails(data);
+      // 🔒 Blindaje total contra estructuras raras
+      let normalized = [];
+
+      if (Array.isArray(response)) {
+        normalized = response;
+      } else if (Array.isArray(response?.data)) {
+        normalized = response.data;
+      } else if (Array.isArray(response?.emails)) {
+        normalized = response.emails;
+      }
+
+      setEmails(normalized);
     } catch (error) {
       console.error('Failed to fetch emails:', error);
+      setEmails([]);
     } finally {
       setLoading(false);
     }
@@ -105,14 +115,12 @@ export default function MessagesPage() {
     setSelectedEmail(email);
     setSummary(null);
     setDrafts([]);
-    setShowFullBody(false);
-    setShowDraftForm(false);
   };
 
   /* ---------------- AI ---------------- */
 
   const handleSummarize = async () => {
-    if (!selectedEmail) return;
+    if (!selectedEmail?.email?.id) return;
 
     setSummaryLoading(true);
 
@@ -129,7 +137,7 @@ export default function MessagesPage() {
   };
 
   const handleDraftReply = async () => {
-    if (!selectedEmail || !draftInstructions.trim()) return;
+    if (!selectedEmail?.email?.id || !draftInstructions.trim()) return;
 
     setDraftsLoading(true);
 
@@ -139,7 +147,7 @@ export default function MessagesPage() {
         draftInstructions
       );
 
-      setDrafts(draftsData);
+      setDrafts(Array.isArray(draftsData) ? draftsData : []);
     } catch (error) {
       console.error('Draft error:', error);
     } finally {
@@ -166,7 +174,6 @@ export default function MessagesPage() {
       <div className="flex h-[calc(100vh-80px)]">
 
         {/* LEFT PANEL */}
-
         <div className="w-full md:w-[35%] border-r border-slate-800 flex flex-col">
           <div className="p-4 border-b border-slate-800 flex gap-2">
             <FilterBtn
@@ -192,33 +199,39 @@ export default function MessagesPage() {
                 {t(language, 'noResults')}
               </div>
             ) : (
-              emails.map((item) => (
-                <button
-                  key={item.email.id}
-                  onClick={() => handleSelectEmail(item)}
-                  className="w-full p-4 text-left hover:bg-slate-800/50"
-                >
-                  <div className="flex gap-3">
-                    {getPriorityIcon(item.priority.priority_label)}
-                    <div>
-                      <p className="text-slate-200">
-                        {item.email.subject}
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        {item.email.snippet}
-                      </p>
+              emails.map((item) => {
+                const email = item?.email;
+                const priority = item?.priority?.priority_label;
+
+                if (!email?.id) return null;
+
+                return (
+                  <button
+                    key={email.id}
+                    onClick={() => handleSelectEmail(item)}
+                    className="w-full p-4 text-left hover:bg-slate-800/50"
+                  >
+                    <div className="flex gap-3">
+                      {getPriorityIcon(priority)}
+                      <div>
+                        <p className="text-slate-200">
+                          {email.subject || '(Sin asunto)'}
+                        </p>
+                        <p className="text-xs text-slate-500">
+                          {email.snippet || ''}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </button>
-              ))
+                  </button>
+                );
+              })
             )}
           </ScrollArea>
         </div>
 
         {/* RIGHT PANEL */}
-
         <div className="hidden md:flex md:w-[65%] flex-col">
-          {selectedEmail ? (
+          {selectedEmail?.email ? (
             <ScrollArea className="flex-1 p-6">
               <motion.div
                 initial={{ opacity: 0 }}
@@ -228,11 +241,11 @@ export default function MessagesPage() {
                   {selectedEmail.email.subject}
                 </h2>
 
-                <div className="glass-subtle rounded-xl p-4 mb-6">
+                <div className="rounded-xl p-6 overflow-auto max-h-[75vh] mb-6 bg-slate-900/70 backdrop-blur-xl border border-slate-700">
                   <div
-                    className="text-slate-300 text-sm whitespace-pre-wrap"
+                    className="email-content text-slate-200"
                     dangerouslySetInnerHTML={{
-                      __html: selectedEmail.email.body,
+                      __html: selectedEmail.email.body || '',
                     }}
                   />
                 </div>

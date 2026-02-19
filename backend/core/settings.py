@@ -1,8 +1,20 @@
 # backend/core/settings.py
 
-from pydantic import BaseModel
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Optional, List
+
+from pydantic import BaseModel, Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from typing import Optional
+
+
+# ======================================================
+# PATHS
+# ======================================================
+
+ROOT_DIR = Path(__file__).resolve().parents[2]
+ENV_FILE = ROOT_DIR / ".env"
 
 
 # ======================================================
@@ -35,47 +47,85 @@ class GmailSettings(BaseModel):
 class AppSettings(BaseSettings):
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=str(ENV_FILE),
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
+        case_sensitive=False,
     )
 
     # ===== Core =====
-    env: str = "development"
-    frontend_url: str = "http://localhost:3000"
-    backend_url: str = "http://127.0.0.1:8000"
+    env: str = Field(default="development", validation_alias="ENV")
+    frontend_url: str = Field(default="http://localhost:3000", validation_alias="FRONTEND_URL")
+    backend_url: str = Field(default="http://127.0.0.1:8000", validation_alias="BACKEND_URL")
 
     # ===== Security =====
-    jwt_secret: str = "change_me"
-    jwt_algorithm: str = "HS256"
+    jwt_secret: str = Field(
+        default="change_me",
+        validation_alias=AliasChoices("JWT_SECRET", "SECRET_KEY"),
+    )
+
+    jwt_algorithm: str = Field(
+        default="HS256",
+        validation_alias=AliasChoices("JWT_ALGORITHM", "ALGORITHM"),
+    )
+
+    # ===== Rate Limiting (🔥 esto faltaba)
+    rate_limit_requests: int = Field(
+        default=100,
+        validation_alias="RATE_LIMIT_REQUESTS"
+    )
+
+    rate_limit_window_seconds: int = Field(
+        default=60,
+        validation_alias="RATE_LIMIT_WINDOW_SECONDS"
+    )
 
     # ===== Mongo =====
-    mongo_url: str
-    mongo_db: str = "email_control_system"
+    mongo_url: str = Field(..., validation_alias="MONGO_URL")
 
+    mongo_db: str = Field(
+        default="email_control_system",
+        validation_alias=AliasChoices("MONGO_DB", "DB_NAME"),
+    )
 
     # ===== Stripe =====
-    stripe_secret_key: Optional[str] = None
-    stripe_webhook_secret: Optional[str] = None
-    stripe_price_monthly: Optional[str] = None
-    stripe_price_yearly: Optional[str] = None
+    stripe_secret_key: Optional[str] = Field(default=None, validation_alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: Optional[str] = Field(default=None, validation_alias="STRIPE_WEBHOOK_SECRET")
+    stripe_price_monthly: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_MONTHLY")
+    stripe_price_yearly: Optional[str] = Field(default=None, validation_alias="STRIPE_PRICE_YEARLY")
 
     # ===== Gmail =====
-    gmail_client_id: Optional[str] = None
-    gmail_client_secret: Optional[str] = None
-    gmail_redirect_uri: Optional[str] = None
+    gmail_client_id: Optional[str] = Field(default=None, validation_alias="GMAIL_CLIENT_ID")
+    gmail_client_secret: Optional[str] = Field(default=None, validation_alias="GMAIL_CLIENT_SECRET")
+    gmail_redirect_uri: Optional[str] = Field(default=None, validation_alias="GMAIL_REDIRECT_URI")
 
     # ===== Executive Engine =====
-    exec_engine_url: Optional[str] = None
-    exec_internal_api_key: Optional[str] = None
+    exec_engine_url: Optional[str] = Field(default=None, validation_alias="EXEC_ENGINE_URL")
+    exec_internal_api_key: Optional[str] = Field(default=None, validation_alias="EXEC_INTERNAL_API_KEY")
+
+    # ===== CORS =====
+    cors_origins: Optional[str] = Field(default=None, validation_alias="CORS_ORIGINS")
 
     # ===== CSRF =====
-    csrf_header_name: str = "X-CSRF-Token"
-    csrf_cookie_name: str = "csrf_token"
+    csrf_enabled: bool = Field(
+        default=False,
+        validation_alias="CSRF_ENABLED"
+    )
 
-    # ===== Rate limit =====
-    rate_limit_requests: int = 100
-    rate_limit_window_seconds: int = 60
+    csrf_header_name: str = Field(
+        default="X-CSRF-Token",
+        validation_alias="CSRF_HEADER_NAME"
+    )
+
+    csrf_cookie_name: str = Field(
+        default="csrf_token",
+        validation_alias="CSRF_COOKIE_NAME"
+    )
+
+    csrf_secret: str = Field(
+        default="change_me_csrf_secret",
+        validation_alias="CSRF_SECRET"
+    )
 
     # ======================================================
     # HELPERS
@@ -109,6 +159,10 @@ class AppSettings(BaseSettings):
             redirect_uri=self.gmail_redirect_uri,
         )
 
+    def cors_list(self) -> List[str]:
+        if not self.cors_origins:
+            return []
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
 
-# Instancia global
+
 settings = AppSettings()
