@@ -1,6 +1,9 @@
 import { useState, useRef, useCallback } from "react";
 import { executeVoiceActions } from "./voiceCommandRouter";
 
+const API =
+    `${process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8000"}/api`;
+
 const STATES = {
     IDLE: "IDLE",
     LISTENING: "LISTENING",
@@ -33,7 +36,7 @@ export function useVoiceEngine() {
 
     const startSilenceTimer = useCallback((callback) => {
         clearSilenceTimer();
-        silenceTimerRef.current = setTimeout(callback, 1800);
+        silenceTimerRef.current = setTimeout(callback, 1500);
     }, [clearSilenceTimer]);
 
     const speak = useCallback(
@@ -77,20 +80,28 @@ export function useVoiceEngine() {
             try {
                 const token = localStorage.getItem("auth_token");
 
-                const response = await fetch("/api/assistant", {
+                console.log("[Executive] Sending to backend:", finalText);
+
+                const response = await fetch(`${API}/assistant`, {
                     method: "POST",
                     headers: {
                         "Content-Type": "application/json",
                         ...(token ? { Authorization: `Bearer ${token}` } : {}),
                     },
                     body: JSON.stringify({
-                        message: finalText,
-                        input_mode: "voice",
+                        text: finalText,
                     }),
                 });
 
+                if (!response.ok) {
+                    console.error("Backend error:", response.status);
+                    setVoiceState(STATES.ERROR);
+                    return;
+                }
 
                 const data = await response.json();
+
+                console.log("[Executive] Response:", data);
 
                 setLastInteraction(data.assistant_text || "");
 
@@ -124,6 +135,7 @@ export function useVoiceEngine() {
             window.SpeechRecognition || window.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
+            console.error("SpeechRecognition not supported");
             setVoiceState(STATES.ERROR);
             return;
         }
@@ -158,16 +170,9 @@ export function useVoiceEngine() {
             });
         };
 
-        recognition.onerror = () => {
+        recognition.onerror = (event) => {
+            console.error("Speech recognition error:", event.error);
             setVoiceState(STATES.ERROR);
-        };
-
-        recognition.onend = () => {
-            if (voiceState === STATES.LISTENING) {
-                try {
-                    recognition.start();
-                } catch (e) { }
-            }
         };
 
         recognition.start();

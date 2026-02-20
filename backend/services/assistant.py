@@ -6,9 +6,8 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from backend.services.gmail_reader import read_gmail_events
-from backend.models import EmailEvent
 from backend.server import get_current_user
+from backend.api.gmail import fetch_enriched_messages
 
 
 router = APIRouter(prefix="/assistant", tags=["Assistant"])
@@ -19,7 +18,8 @@ router = APIRouter(prefix="/assistant", tags=["Assistant"])
 # =========================
 
 class AssistantMessage(BaseModel):
-    text: str
+    text: Optional[str] = None
+    message: Optional[str] = None
 
 
 class AssistantAction(BaseModel):
@@ -35,103 +35,6 @@ class AssistantResponse(BaseModel):
 
 
 # =========================
-# HELPERS
-# =========================
-
-def build_executive_summary(events: List[EmailEvent]) -> Dict[str, Any]:
-    total = len(events)
-
-    prioritarios = [
-        e for e in events if "IMPORTANT" in (e.labels or [])
-    ]
-    seguimiento = [
-        e for e in events if "STARRED" in (e.labels or [])
-    ]
-    adjuntos = [
-        e for e in events if e.has_attachments
-    ]
-
-    summary_text = []
-
-    if total == 0:
-        summary_text.append(
-            "No tienes correos recientes. Todo está bajo control."
-        )
-    else:
-        summary_text.extend([
-            f"Tienes {total} correos recientes.",
-            f"{len(prioritarios)} son prioritarios.",
-            f"{len(seguimiento)} requieren seguimiento.",
-            f"{len(adjuntos)} contienen archivos adjuntos.",
-        ])
-
-        if len(prioritarios) == 0:
-            summary_text.append(
-                "No hay nada crítico pendiente ahora mismo."
-            )
-        else:
-            summary_text.append(
-                "Hay correos importantes que requieren tu atención."
-            )
-
-    return {
-        "text": " ".join(summary_text),
-        "counts": {
-            "total": total,
-            "prioritarios": len(prioritarios),
-            "seguimiento": len(seguimiento),
-            "adjuntos": len(adjuntos),
-        }
-    }
-
-
-def detect_actions(user_text: str, counts: Dict[str, int]) -> List[AssistantAction]:
-    """
-    Fase A2: propone acciones ejecutivas simples
-    """
-    text = user_text.lower()
-    actions: List[AssistantAction] = []
-
-    if "prioritario" in text or "importante" in text:
-        if counts.get("prioritarios", 0) > 0:
-            actions.append(
-                AssistantAction(
-                    type="navigate",
-                    payload={
-                        "path": "/app/messages",
-                        "filter": "priority",
-                    }
-                )
-            )
-
-    if "adjunto" in text or "archivo" in text:
-        if counts.get("adjuntos", 0) > 0:
-            actions.append(
-                AssistantAction(
-                    type="navigate",
-                    payload={
-                        "path": "/app/messages",
-                        "filter": "attachments",
-                    }
-                )
-            )
-
-    if "seguimiento" in text or "pendiente" in text:
-        if counts.get("seguimiento", 0) > 0:
-            actions.append(
-                AssistantAction(
-                    type="navigate",
-                    payload={
-                        "path": "/app/messages",
-                        "filter": "followup",
-                    }
-                )
-            )
-
-    return actions
-
-
-# =========================
 # ENDPOINT
 # =========================
 
@@ -141,28 +44,79 @@ async def assistant_endpoint(
     user: Dict[str, Any] = Depends(get_current_user),
 ):
     try:
-        user_id = user["id"]
-    except KeyError:
-        raise HTTPException(status_code=401, detail="Usuario no válido")
+        user_text = payload.text or payload.message
 
-    # 1. Leer correos reales desde Gmail
-    events = read_gmail_events(
-        user_id=user_id,
-        max_results=25,
-    )
+        if not user_text:
+            raise HTTPException(status_code=400, detail="Mensaje vacío")
 
-    # 2. Resumen ejecutivo
-    summary = build_executive_summary(events)
+        # 🔥 MISMA FUNCIÓN QUE USA EL DASHBOARD
+        items = await fetch_enriched_messages(user, max_results=25)
 
-    # 3. Detectar acciones
-    actions = detect_actions(
-        user_text=payload.text,
-        counts=summary["counts"],
-    )
+        total = len(items)
 
-    return AssistantResponse(
-        assistant_text=summary["text"],
-        actions=actions or None,
-        status="ok",
-        timestamp=datetime.utcnow().isoformat(),
-    )
+        prioritarios = [
+            i for i in items
+            if i["priority"]["priority_label"] == "PRIORITARIO"
+        ]
+
+        seguimiento = [
+            i for i in items
+            if i["priority"]["priority_label"] == "SEGUIMIENTO"
+        ]
+
+        adjuntos = [
+            i for i in items
+            if i["email"].get("has_attachments", False)
+        ]
+
+        counts = {
+            "total": total,
+            "prioritarios": len(prioritarios),
+            "seguimiento": len(seguimiento),
+            "adjuntos": len(adjuntos),
+        }
+
+        text_lower = user_text.lower()
+
+        if "prioritario" in text_lower or "importante" in text_lower:
+            if counts["prioritarios"] > 0:
+                assistant_text = f"Tienes {counts['prioritarios']} correos prioritarios."
+            else:
+                assistant_text = "No tienes correos prioritarios."
+
+        elif "seguimiento" in text_lower or "pendiente" in text_lower:
+            if counts["seguimiento"] > 0:
+                assistant_text = f"Tienes {counts['seguimiento']} correos en seguimiento."
+            else:
+                assistant_text = "No tienes correos en seguimiento."
+
+        elif "adjunto" in text_lower or "archivo" in text_lower:
+            if counts["adjuntos"] > 0:
+                assistant_text = f"Tienes {counts['adjuntos']} correos con adjuntos."
+            else:
+                assistant_text = "No tienes correos con adjuntos."
+
+        else:
+            assistant_text = (
+                f"Tienes {total} correos. "
+                f"{counts['prioritarios']} prioritarios. "
+                f"{counts['seguimiento']} en seguimiento. "
+                f"{counts['adjuntos']} con adjuntos."
+            )
+
+        return AssistantResponse(
+            assistant_text=assistant_text,
+            actions=None,
+            status="ok",
+            timestamp=datetime.utcnow().isoformat(),
+        )
+
+    except Exception as e:
+        print("Assistant error:", e)
+
+        return AssistantResponse(
+            assistant_text="No he podido analizar tu bandeja en este momento.",
+            actions=None,
+            status="error",
+            timestamp=datetime.utcnow().isoformat(),
+        )

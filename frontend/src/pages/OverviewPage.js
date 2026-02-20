@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useVoice } from '../voice/VoiceProvider';
 import { t } from '../i18n';
 import axios from 'axios';
 
@@ -54,6 +55,7 @@ const StatCard = ({ icon, label, value, highlight, onClick }) => {
 export default function OverviewPage() {
   const { language, token } = useAuth();
   const navigate = useNavigate();
+  const { voiceState, startListening, cancel, STATES } = useVoice();
 
   const [emails, setEmails] = useState([]);
   const [stats, setStats] = useState(null);
@@ -62,6 +64,28 @@ export default function OverviewPage() {
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailEmail, setGmailEmail] = useState('');
   const [gmailLoading, setGmailLoading] = useState(false);
+
+  /* ---------- VOICE STATE ---------- */
+  const isIdle = voiceState === STATES.IDLE;
+  const isListening = voiceState === STATES.LISTENING;
+  const isProcessing = voiceState === STATES.PROCESSING;
+  const isSpeaking = voiceState === STATES.SPEAKING;
+
+  const executiveLabel = isIdle
+    ? "Activar Executive"
+    : isListening
+      ? "Escuchando… (clic para cancelar)"
+      : isProcessing
+        ? "Procesando…"
+        : isSpeaking
+          ? "Hablando… (clic para cancelar)"
+          : "Activar Executive";
+
+  const handleExecutiveClick = () => {
+    console.log("[Executive] click, state:", voiceState);
+    if (isIdle) startListening();
+    else cancel();
+  };
 
   /* ---------- FETCH EMAILS ---------- */
   const fetchData = useCallback(async () => {
@@ -167,7 +191,6 @@ export default function OverviewPage() {
     <Layout>
       <div className="max-w-6xl mx-auto px-6 py-8">
 
-        {/* HERO */}
         <div className="mb-10">
           <h1 className="text-4xl font-bold text-slate-100 mb-4">
             {t(language, 'welcomeTitle')}
@@ -177,7 +200,6 @@ export default function OverviewPage() {
           </p>
         </div>
 
-        {/* GMAIL CONNECTION */}
         {!gmailLoading && (
           <div className="glass-subtle rounded-xl p-4 mb-8 flex items-center justify-between">
             {gmailConnected ? (
@@ -215,7 +237,6 @@ export default function OverviewPage() {
           </div>
         )}
 
-        {/* STATS CARDS */}
         {!loading && stats && gmailConnected && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
@@ -249,7 +270,6 @@ export default function OverviewPage() {
               />
             </div>
 
-            {/* EXECUTIVE CARD */}
             <div className="glass-premium rounded-2xl p-6 border border-blue-500/20">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                 <div>
@@ -264,16 +284,17 @@ export default function OverviewPage() {
                 </div>
 
                 <Button
+                  onClick={handleExecutiveClick}
+                  disabled={isProcessing}
                   className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-5 py-2.5"
                 >
                   <Mic className="w-4 h-4" />
-                  Activar Executive
+                  {executiveLabel}
                 </Button>
               </div>
             </div>
           </>
         )}
-
       </div>
     </Layout>
   );

@@ -66,7 +66,7 @@ def _extract_body(payload: Dict[str, Any]) -> str:
 # ======================================================
 
 def read_gmail_events(
-    user_id: str,
+    user: Dict[str, Any],
     max_results: int = 25,
     label_ids: Optional[List[str]] = None,
 ) -> List[EmailEvent]:
@@ -74,11 +74,15 @@ def read_gmail_events(
     Lee correos Gmail reales y los convierte a EmailEvent (dominio).
     """
 
-    messages = fetch_messages(
-        user_id=user_id,
-        max_results=max_results,
-        label_ids=label_ids,
-    )
+    try:
+        messages = fetch_messages(
+            user=user,
+            max_results=max_results,
+            label_ids=label_ids,
+        )
+    except Exception as e:
+        print(f"Gmail read error: {str(e)}")
+        return []
 
     events: List[EmailEvent] = []
 
@@ -87,28 +91,31 @@ def read_gmail_events(
         if not msg_id:
             continue
 
-        detail = fetch_message_detail(user_id=user_id, msg_id=msg_id)
+        try:
+            detail = fetch_message_detail(
+                user=user,
+                msg_id=msg_id,
+            )
+        except Exception as e:
+            print(f"Gmail detail error: {str(e)}")
+            continue
 
         payload = detail.get("payload", {})
         headers = _parse_headers(payload.get("headers", []))
 
         subject = headers.get("subject", "(Sin asunto)")
         from_raw = headers.get("from", "")
-        date_raw = headers.get("date")
 
         try:
-            date = (
-                datetime.fromtimestamp(
-                    int(detail.get("internalDate", 0)) / 1000,
-                    tz=timezone.utc,
-                ).isoformat()
-            )
+            date = datetime.fromtimestamp(
+                int(detail.get("internalDate", 0)) / 1000,
+                tz=timezone.utc,
+            ).isoformat()
         except Exception:
             date = datetime.now(timezone.utc).isoformat()
 
         body = _extract_body(payload)
         snippet = detail.get("snippet", "")
-
         attachments = _extract_attachments(payload)
 
         events.append(
@@ -121,9 +128,9 @@ def read_gmail_events(
                 date=date,
                 snippet=snippet,
                 body=body,
-                labels=detail.get("labelIds", []),
+                labels=detail.get("labelIds") or [],
                 has_attachments=len(attachments) > 0,
-                attachments=attachments or None,
+                attachments=attachments,  # 🔥 NUNCA None
             )
         )
 
