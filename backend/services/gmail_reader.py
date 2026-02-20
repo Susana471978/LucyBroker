@@ -5,10 +5,9 @@ from datetime import datetime, timezone
 import base64
 
 from backend.models import EmailEvent, EmailAttachment
-from backend.services.gmail_client import (
-    fetch_messages,
-    fetch_message_detail,
-)
+'''
+ELIMINADO: Este archivo ya no debe usarse. Toda la lógica debe migrar a fetch_enriched_messages en backend/api/gmail.py
+'''
 
 
 # ======================================================

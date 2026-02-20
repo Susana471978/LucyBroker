@@ -49,26 +49,13 @@ async def assistant_endpoint(
         if not user_text:
             raise HTTPException(status_code=400, detail="Mensaje vacío")
 
-        # 🔥 MISMA FUNCIÓN QUE USA EL DASHBOARD
-        items = await fetch_enriched_messages(user, max_results=25)
 
+        # 🔥 ÚNICA FUENTE DE VERDAD: fetch_enriched_messages
+        items = await fetch_enriched_messages(user, max_results=20)
         total = len(items)
-
-        prioritarios = [
-            i for i in items
-            if i["priority"]["priority_label"] == "PRIORITARIO"
-        ]
-
-        seguimiento = [
-            i for i in items
-            if i["priority"]["priority_label"] == "SEGUIMIENTO"
-        ]
-
-        adjuntos = [
-            i for i in items
-            if i["email"].get("has_attachments", False)
-        ]
-
+        prioritarios = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"]
+        seguimiento = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"]
+        adjuntos = [i for i in items if i["email"].get("has_attachments", False)]
         counts = {
             "total": total,
             "prioritarios": len(prioritarios),

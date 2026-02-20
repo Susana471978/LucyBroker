@@ -8,8 +8,7 @@ from backend.models import EmailAttachment, EmailEvent, EnrichedEmail
 from backend.services.rules_engine import calculate_priority
 from backend.utils.crypto import is_encrypted_token_valid
 
-# Gmail client
-from backend.services.gmail_client import get_gmail_service
+
 
 
 # =====================================================
