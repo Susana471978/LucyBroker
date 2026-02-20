@@ -65,6 +65,11 @@ export default function OverviewPage() {
   const [gmailEmail, setGmailEmail] = useState('');
   const [gmailLoading, setGmailLoading] = useState(false);
 
+  // Executive híbrido
+  const [executiveInput, setExecutiveInput] = useState('');
+  const [executiveResponse, setExecutiveResponse] = useState(null);
+  const [executiveLoading, setExecutiveLoading] = useState(false);
+
   /* ---------- VOICE STATE ---------- */
   const isIdle = voiceState === STATES.IDLE;
   const isListening = voiceState === STATES.LISTENING;
@@ -82,9 +87,34 @@ export default function OverviewPage() {
           : "Activar Executive";
 
   const handleExecutiveClick = () => {
-    console.log("[Executive] click, state:", voiceState);
     if (isIdle) startListening();
     else cancel();
+  };
+
+  /* ---------- SEND TEXT COMMAND ---------- */
+  const sendTextCommand = async () => {
+    if (!executiveInput.trim()) return;
+
+    try {
+      setExecutiveLoading(true);
+
+      const res = await axios.post(
+        `${API}/assistant`,
+        { text: executiveInput },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      const data = res.data?.data || res.data;
+      setExecutiveResponse(data.assistant_text);
+      setExecutiveInput('');
+
+    } catch (err) {
+      console.error("Executive text error:", err);
+    } finally {
+      setExecutiveLoading(false);
+    }
   };
 
   /* ---------- FETCH EMAILS ---------- */
@@ -158,9 +188,7 @@ export default function OverviewPage() {
 
       const url = res.data?.data?.auth_url || res.data?.auth_url;
 
-      if (url) {
-        window.location.href = url;
-      }
+      if (url) window.location.href = url;
 
     } catch (err) {
       console.error("Gmail connect error:", err);
@@ -270,29 +298,62 @@ export default function OverviewPage() {
               />
             </div>
 
+            {/* EXECUTIVE HÍBRIDO */}
             <div className="glass-premium rounded-2xl p-6 border border-blue-500/20">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                <div>
-                  <h3 className="text-lg font-semibold text-slate-100 mb-2">
-                    SyntexIA Executive
-                  </h3>
-                  <p className="text-sm text-slate-400 leading-relaxed max-w-md">
-                    Controla tu bandeja mediante comandos de voz.
-                    Filtra mensajes, navega entre correos y ejecuta acciones
-                    sin interrumpir tu flujo de trabajo.
-                  </p>
+              <div className="flex flex-col gap-6">
+
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+                  <div>
+                    <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                      SyntexIA Executive
+                    </h3>
+                    <p className="text-sm text-slate-400 leading-relaxed max-w-md">
+                      Controla tu bandeja mediante voz o texto.
+                      Filtra mensajes, navega entre correos y ejecuta acciones
+                      sin interrumpir tu flujo de trabajo.
+                    </p>
+                  </div>
+
+                  <Button
+                    onClick={handleExecutiveClick}
+                    disabled={isProcessing}
+                    className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-5 py-2.5"
+                  >
+                    <Mic className="w-4 h-4" />
+                    {executiveLabel}
+                  </Button>
                 </div>
 
-                <Button
-                  onClick={handleExecutiveClick}
-                  disabled={isProcessing}
-                  className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-5 py-2.5"
-                >
-                  <Mic className="w-4 h-4" />
-                  {executiveLabel}
-                </Button>
+                <div className="flex gap-3">
+                  <input
+                    type="text"
+                    value={executiveInput}
+                    onChange={(e) => setExecutiveInput(e.target.value)}
+                    placeholder="Escribe un comando..."
+                    className="flex-1 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-2 text-slate-200 focus:outline-none focus:border-blue-500"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') sendTextCommand();
+                    }}
+                  />
+
+                  <Button
+                    onClick={sendTextCommand}
+                    disabled={executiveLoading}
+                    className="bg-slate-700 hover:bg-slate-600 text-white"
+                  >
+                    {executiveLoading ? "..." : "Enviar"}
+                  </Button>
+                </div>
+
+                {executiveResponse && (
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-slate-200 text-sm">
+                    {executiveResponse}
+                  </div>
+                )}
+
               </div>
             </div>
+
           </>
         )}
       </div>

@@ -29,6 +29,7 @@ import stripe
 
 from backend.core.settings import settings
 from backend.services.executive_client import restore_executive_session
+from backend.services.executive_memory import ensure_ttl_index
 
 # =========================
 # AI
@@ -474,6 +475,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_state():
     app.state.started_at = datetime.now(timezone.utc)
+
+    # 🔵 Inicializar índice TTL para memoria Executive
+    try:
+        await ensure_ttl_index(db)
+        logger.info("Executive memory TTL index ensured")
+    except Exception:
+        logger.exception("Error ensuring Executive TTL index")
+
 
 
 @app.on_event("shutdown")
