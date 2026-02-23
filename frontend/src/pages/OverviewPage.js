@@ -1,3 +1,4 @@
+import { Volume2, VolumeX } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -55,12 +56,14 @@ const StatCard = ({ icon, label, value, highlight, onClick }) => {
 export default function OverviewPage() {
   const { language, token } = useAuth();
   const navigate = useNavigate();
+
   const {
     voiceState,
     startListening,
     cancel,
     speak,
     ttsEnabled,
+    setTtsEnabled, // ✅ AÑADIDO (necesario para el toggle)
     STATES
   } = useVoice();
 
@@ -77,7 +80,7 @@ export default function OverviewPage() {
   const [executiveResponse, setExecutiveResponse] = useState(null);
   const [executiveLoading, setExecutiveLoading] = useState(false);
 
-  // ✅ (NUEVO) control interno para auto-lectura (no afecta al render)
+  // ✅ control interno para auto-lectura (no afecta al render)
   const lastInputModeRef = useRef(null);
   const lastSpokenRef = useRef(null);
 
@@ -106,7 +109,7 @@ export default function OverviewPage() {
   const sendTextCommand = async () => {
     if (!executiveInput.trim()) return;
 
-    // ✅ (NUEVO) marcamos que el input fue texto
+    // ✅ marcamos que el input fue texto
     lastInputModeRef.current = "text";
 
     try {
@@ -123,7 +126,6 @@ export default function OverviewPage() {
       const data = res.data?.data || res.data;
       setExecutiveResponse(data.assistant_text);
       setExecutiveInput('');
-
     } catch (err) {
       console.error("Executive text error:", err);
     } finally {
@@ -131,7 +133,7 @@ export default function OverviewPage() {
     }
   };
 
-  /* ---------- (NUEVO) AUTO TTS PARA RESPUESTA DE TEXTO (FASE A) ---------- */
+  /* ---------- AUTO TTS PARA RESPUESTA DE TEXTO (FASE A) ---------- */
   useEffect(() => {
     if (!executiveResponse) return;
 
@@ -144,7 +146,7 @@ export default function OverviewPage() {
     // TTS activo
     if (!ttsEnabled) return;
 
-    // Dedupe (evita doble lectura por re-render)
+    // Dedupe
     if (executiveResponse === lastSpokenRef.current) return;
 
     // Speak con el mismo motor del VoiceProvider
@@ -351,14 +353,30 @@ export default function OverviewPage() {
                     </p>
                   </div>
 
-                  <Button
-                    onClick={handleExecutiveClick}
-                    disabled={isProcessing}
-                    className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-5 py-2.5"
-                  >
-                    <Mic className="w-4 h-4" />
-                    {executiveLabel}
-                  </Button>
+                  {/* ✅ SOLO AÑADIMOS EL TOGGLE AQUÍ, SIN TOCAR NADA MÁS */}
+                  <div className="flex items-center gap-3">
+                    <Button
+                      variant="outline"
+                      onClick={() => setTtsEnabled(prev => !prev)}
+                      className="border-slate-600 text-slate-300 hover:bg-slate-700 px-3"
+                      title={ttsEnabled ? "Desactivar voz" : "Activar voz"}
+                    >
+                      {ttsEnabled ? (
+                        <Volume2 className="w-4 h-4" />
+                      ) : (
+                        <VolumeX className="w-4 h-4" />
+                      )}
+                    </Button>
+
+                    <Button
+                      onClick={handleExecutiveClick}
+                      disabled={isProcessing}
+                      className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-5 py-2.5"
+                    >
+                      <Mic className="w-4 h-4" />
+                      {executiveLabel}
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="flex gap-3">
@@ -390,7 +408,6 @@ export default function OverviewPage() {
 
               </div>
             </div>
-
           </>
         )}
       </div>

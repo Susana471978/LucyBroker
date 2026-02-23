@@ -1,6 +1,7 @@
 # backend/api/gmail.py
 
 import os
+import base64
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
@@ -36,6 +37,77 @@ def _get_flow(redirect_uri: str, state: str | None = None) -> Flow:
 
 
 # =========================================================
+# ✅ EXTRAER BODY COMPLETO (HTML/TEXTO) SIN ROMPER NADA
+# =========================================================
+
+def _decode_gmail_body(data: str) -> str:
+    if not data:
+        return ""
+    try:
+        return base64.urlsafe_b64decode(data.encode("utf-8")).decode("utf-8", errors="ignore")
+    except Exception:
+        return ""
+
+
+def _extract_body_from_payload(payload: Dict[str, Any]) -> str:
+    """
+    Intenta extraer el body completo del payload Gmail.
+    Prioridad: text/html, luego text/plain.
+    Soporta payload anidado (multipart) de forma recursiva.
+    """
+
+    if not payload:
+        return ""
+
+    # 1) Si el payload tiene body directo
+    body_data = (payload.get("body") or {}).get("data")
+    mime = payload.get("mimeType", "")
+
+    # Si ya es texto/html o texto plano directo
+    if body_data and mime in ("text/html", "text/plain"):
+        return _decode_gmail_body(body_data)
+
+    # 2) Si es multipart, buscamos primero HTML, luego texto plano, recursivo
+    parts = payload.get("parts") or []
+    if parts:
+        # Buscar HTML primero
+        for part in parts:
+            part_mime = part.get("mimeType", "")
+            part_body_data = (part.get("body") or {}).get("data")
+            if part_mime == "text/html" and part_body_data:
+                return _decode_gmail_body(part_body_data)
+
+        # Si no hay HTML directo, buscar HTML recursivo en subpartes
+        for part in parts:
+            part_mime = part.get("mimeType", "")
+            if part_mime.startswith("multipart/"):
+                found = _extract_body_from_payload(part)
+                if found:
+                    return found
+
+        # Buscar texto plano directo
+        for part in parts:
+            part_mime = part.get("mimeType", "")
+            part_body_data = (part.get("body") or {}).get("data")
+            if part_mime == "text/plain" and part_body_data:
+                return _decode_gmail_body(part_body_data)
+
+        # Buscar texto plano recursivo
+        for part in parts:
+            part_mime = part.get("mimeType", "")
+            if part_mime.startswith("multipart/"):
+                found = _extract_body_from_payload(part)
+                if found:
+                    return found
+
+    # 3) Fallback: si hay body data sin mime compatible
+    if body_data:
+        return _decode_gmail_body(body_data)
+
+    return ""
+
+
+# =========================================================
 # 🔹 FUNCIÓN REUTILIZABLE (CLAVE PARA SINCRONIZAR ASSISTANT)
 # =========================================================
 
@@ -66,7 +138,6 @@ async def fetch_enriched_messages(
         maxResults=max_results,
     ).execute()
 
-
     message_ids = results.get("messages", [])
     enriched = []
 
@@ -86,6 +157,14 @@ async def fetch_enriched_messages(
 
         snippet = detail.get("snippet", "")
 
+        # ✅ body completo (para UI)
+        payload = detail.get("payload", {}) or {}
+        full_body = _extract_body_from_payload(payload) or ""
+
+        # -------------------------------------------------
+        # 🔒 MANTENEMOS ESTABLE: EmailEvent.body = snippet
+        # (reglas/prioridad siguen igual que antes)
+        # -------------------------------------------------
         email_event = EmailEvent(
             id=detail["id"],
             thread_id=detail.get("threadId", ""),
@@ -94,7 +173,7 @@ async def fetch_enriched_messages(
             subject=headers.get("subject", "(Sin asunto)"),
             date=datetime.now(timezone.utc).isoformat(),
             snippet=snippet,
-            body=snippet,
+            body=snippet,  # 👈 NO CAMBIAMOS ESTO (ESTABLE)
             labels=detail.get("labelIds", []),
             has_attachments=False,
             attachments=[],
@@ -102,8 +181,16 @@ async def fetch_enriched_messages(
 
         priority = calculate_priority(email_event)
 
+        # -------------------------------------------------
+        # ✅ SOLO PARA RESPUESTA AL FRONTEND:
+        # Sobrescribimos email.body con full_body
+        # sin tocar el objeto usado por reglas.
+        # -------------------------------------------------
+        email_dict = email_event.model_dump()
+        email_dict["body"] = full_body or snippet
+
         enriched.append({
-            "email": email_event.model_dump(),
+            "email": email_dict,
             "priority": priority.model_dump(),
         })
 

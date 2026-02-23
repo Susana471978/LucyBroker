@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import List, Optional
 
-from backend.core.settings import settings
 from backend.models import AIIntent, EmailEvent
 from backend.utils.logger import get_logger
 from backend.services.executive_client import update_executive_session
@@ -10,15 +9,20 @@ from backend.services.executive_client import update_executive_session
 
 class AIService:
     def __init__(self):
-        # Ya no usamos API externa
+        # Modo local determinístico
         self.api_key = None
         self.logger = get_logger(self.__class__.__name__)
+
+    # =====================================================
+    # INTENT PROCESSING
+    # =====================================================
 
     async def process_intent(
         self,
         message: str,
         context: Optional[str] = None,
     ) -> AIIntent:
+
         message_lower = message.lower()
 
         if any(kw in message_lower for kw in ["prioritario", "importante", "urgente", "priority", "urgent"]):
@@ -88,7 +92,7 @@ class AIService:
         )
 
     # =====================================================
-    # SUMMARIZE EMAIL
+    # SUMMARIZE EMAIL (Determinístico)
     # =====================================================
 
     async def summarize_email(
@@ -96,20 +100,13 @@ class AIService:
         email: EmailEvent,
         user_id: str,
     ) -> str:
-        """
-        Genera un resumen simple del correo y sincroniza memoria viva en Executive Engine.
-        Actualmente funciona en modo determinístico (sin LLM externo).
-        """
 
         try:
-            # --- Resumen determinístico simple ---
-            base_text = email.body or email.snippet or ""
-            base_text = base_text.strip()
+            base_text = (email.body or email.snippet or "").strip()
 
             if not base_text:
                 summary = "No se pudo generar un resumen porque el correo no contiene contenido legible."
             else:
-                # Tomamos las primeras 3 frases o primeras 500 chars como resumen controlado
                 sentences = base_text.split(".")
                 summary = ". ".join(sentences[:3]).strip()
 
@@ -123,7 +120,6 @@ class AIService:
             self.logger.error("Error summarizing email: %s", exc)
             summary = f"Resumen: {email.snippet}"
 
-        # 🔵 Actualizar memoria viva en Executive
         try:
             await update_executive_session(
                 user_id=user_id,
@@ -137,10 +133,9 @@ class AIService:
             self.logger.warning("Executive memory update failed: %s", e)
 
         return summary
-    
 
     # =====================================================
-    # DRAFT REPLY
+    # DRAFT REPLY (Determinístico Seguro)
     # =====================================================
 
     async def draft_reply(
@@ -151,74 +146,43 @@ class AIService:
         tone: str = "professional",
     ) -> List[str]:
 
-        fallback_response = [
-            f"Estimado/a {email.from_name},\n\n"
-            f"Gracias por su mensaje. {instructions}\n\n"
-            "Saludos cordiales."
-        ]
-
-        if not self.api_key:
-            self.logger.warning("EMERGENT_LLM_KEY not configured; using fallback")
-
-            try:
-                await update_executive_session(
-                    user_id=user_id,
-                    fields={
-                        "last_draft_content": fallback_response[0],
-                        "tone_preference": tone,
-                        "last_action": "draft_reply",
-                        "current_email_id": email.id,
-                    },
-                )
-            except Exception as e:
-                self.logger.warning("Executive update failed (fallback): %s", e)
-
-            return fallback_response
-
         try:
-            chat = LlmChat(
-                api_key=self.api_key,
-                session_id=f"draft-{email.id}",
-                system_message=(
-                    "Eres un asistente que redacta respuestas de correo electrónico. "
-                    f"Tono: {tone}. "
-                    "Genera respuestas claras, concisas y profesionales. "
-                    "Responde siempre en español."
-                ),
-            ).with_model("openai", "gpt-5.2")
+            greeting = f"Estimado/a {email.from_name}," if email.from_name else "Hola,"
 
-            user_message = UserMessage(
-                text=(
-                    "Redacta 2 opciones de respuesta para este correo:\n\n"
-                    "CORREO ORIGINAL:\n"
-                    f"De: {email.from_name} <{email.from_email}>\n"
-                    f"Asunto: {email.subject}\n"
-                    f"Contenido:\n{email.body}\n\n"
-                    "INSTRUCCIONES DEL USUARIO:\n"
-                    f"{instructions}\n\n"
-                    "Genera 2 versiones diferentes de respuesta, separadas por '---'. "
-                    "Cada respuesta debe ser completa y lista para enviar."
-                )
+            body_instruction = instructions.strip() if instructions else "Gracias por tu mensaje."
+
+            if tone == "formal":
+                closing = "Quedo atento/a a tu respuesta.\n\nSaludos cordiales."
+            elif tone == "friendly":
+                closing = "Quedo pendiente.\n\nUn saludo."
+            else:
+                closing = "Quedo a tu disposición.\n\nSaludos."
+
+            draft = (
+                f"{greeting}\n\n"
+                f"{body_instruction}\n\n"
+                f"{closing}"
             )
 
-            response = await chat.send_message(user_message)
-            drafts = [d.strip() for d in response.split("---") if d.strip()][:2]
-
-            try:
-                await update_executive_session(
-                    user_id=user_id,
-                    fields={
-                        "last_draft_content": drafts[0] if drafts else "",
-                        "tone_preference": tone,
-                        "last_action": "draft_reply",
-                        "current_email_id": email.id,
-                    },
-                )
-            except Exception as e:
-                self.logger.warning("Executive update failed: %s", e)
-
-            return drafts if drafts else fallback_response
-
         except Exception as exc:
-            self.logger.error("Error drafting reply: %s", exc)
-            return fallback_response
+            self.logger.error("Error generating draft: %s", exc)
+            draft = (
+                f"Hola,\n\n"
+                f"{instructions}\n\n"
+                "Saludos."
+            )
+
+        try:
+            await update_executive_session(
+                user_id=user_id,
+                fields={
+                    "last_draft_content": draft,
+                    "tone_preference": tone,
+                    "last_action": "draft_reply",
+                    "current_email_id": email.id,
+                },
+            )
+        except Exception as e:
+            self.logger.warning("Executive update failed: %s", e)
+
+        return [draft]

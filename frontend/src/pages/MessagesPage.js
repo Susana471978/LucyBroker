@@ -67,6 +67,7 @@ export default function MessagesPage() {
   const [draftsLoading, setDraftsLoading] = useState(false);
 
   const [draftInstructions, setDraftInstructions] = useState('');
+  const [showReplyBox, setShowReplyBox] = useState(false);
 
   /* ---------------- FETCH EMAILS ---------------- */
 
@@ -79,21 +80,18 @@ export default function MessagesPage() {
         attachments: attachmentsOnly,
       });
 
-      // 🔒 Blindaje total contra estructuras raras
       let normalized = [];
 
-      if (Array.isArray(response)) {
-        normalized = response;
-      } else if (Array.isArray(response?.data)) {
-        normalized = response.data;
-      } else if (Array.isArray(response?.emails)) {
-        normalized = response.emails;
+      if (Array.isArray(response)) normalized = response;
+      else if (Array.isArray(response?.data)) normalized = response.data;
+      else if (Array.isArray(response?.emails)) normalized = response.emails;
+
+      if (Array.isArray(normalized)) {
+        setEmails(normalized);
       }
 
-      setEmails(normalized);
     } catch (error) {
       console.error('Failed to fetch emails:', error);
-      setEmails([]);
     } finally {
       setLoading(false);
     }
@@ -115,6 +113,8 @@ export default function MessagesPage() {
     setSelectedEmail(email);
     setSummary(null);
     setDrafts([]);
+    setDraftInstructions('');
+    setShowReplyBox(false);
   };
 
   /* ---------------- AI ---------------- */
@@ -233,13 +233,32 @@ export default function MessagesPage() {
         <div className="hidden md:flex md:w-[65%] flex-col">
           {selectedEmail?.email ? (
             <ScrollArea className="flex-1 p-6">
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                 <h2 className="text-xl text-slate-100 mb-4">
                   {selectedEmail.email.subject}
                 </h2>
+
+                {/* BOTONES */}
+                <div className="flex gap-3 mb-6">
+                  <Button
+                    onClick={handleSummarize}
+                    disabled={summaryLoading}
+                    className="bg-slate-700 hover:bg-slate-600 text-white flex items-center gap-2"
+                  >
+                    {summaryLoading
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <Sparkles className="w-4 h-4" />}
+                    Resumir
+                  </Button>
+
+                  <Button
+                    onClick={() => setShowReplyBox(prev => !prev)}
+                    className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2"
+                  >
+                    <Send className="w-4 h-4" />
+                    Responder
+                  </Button>
+                </div>
 
                 <div className="rounded-xl p-6 overflow-auto max-h-[75vh] mb-6 bg-slate-900/70 backdrop-blur-xl border border-slate-700">
                   <div
@@ -255,6 +274,36 @@ export default function MessagesPage() {
                     <p className="text-slate-400">{summary}</p>
                   </div>
                 )}
+
+                {showReplyBox && (
+                  <div className="glass-subtle rounded-xl p-4">
+                    <Textarea
+                      value={draftInstructions}
+                      onChange={(e) => setDraftInstructions(e.target.value)}
+                      placeholder="Escribe las instrucciones para generar la respuesta..."
+                      className="mb-4"
+                    />
+
+                    <Button
+                      onClick={handleDraftReply}
+                      disabled={draftsLoading}
+                      className="bg-blue-600 hover:bg-blue-500 text-white"
+                    >
+                      {draftsLoading ? "Generando..." : "Generar respuesta"}
+                    </Button>
+
+                    {drafts.length > 0 && (
+                      <div className="mt-4 space-y-4">
+                        {drafts.map((draft, index) => (
+                          <div key={index} className="bg-slate-800 p-4 rounded-lg text-slate-200 whitespace-pre-wrap">
+                            {draft}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
               </motion.div>
             </ScrollArea>
           ) : (

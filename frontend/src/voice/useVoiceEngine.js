@@ -23,9 +23,13 @@ export function useVoiceEngine() {
     const isRequestInFlight = useRef(false);
     const uiContextRef = useRef(null);
 
+    /* ================= UI CONTEXT ================= */
+
     const setUIContext = useCallback((context) => {
         uiContextRef.current = context;
     }, []);
+
+    /* ================= SILENCE TIMER ================= */
 
     const clearSilenceTimer = useCallback(() => {
         if (silenceTimerRef.current) {
@@ -34,10 +38,15 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    const startSilenceTimer = useCallback((callback) => {
-        clearSilenceTimer();
-        silenceTimerRef.current = setTimeout(callback, 1500);
-    }, [clearSilenceTimer]);
+    const startSilenceTimer = useCallback(
+        (callback) => {
+            clearSilenceTimer();
+            silenceTimerRef.current = setTimeout(callback, 1500);
+        },
+        [clearSilenceTimer]
+    );
+
+    /* ================= TTS ================= */
 
     const speak = useCallback(
         (text) => {
@@ -45,6 +54,9 @@ export function useVoiceEngine() {
                 setVoiceState(STATES.IDLE);
                 return;
             }
+
+            // Evita solapamientos
+            window.speechSynthesis.cancel();
 
             setVoiceState(STATES.SPEAKING);
 
@@ -55,11 +67,16 @@ export function useVoiceEngine() {
                 setVoiceState(STATES.IDLE);
             };
 
-            window.speechSynthesis.cancel();
+            utterance.onerror = () => {
+                setVoiceState(STATES.ERROR);
+            };
+
             window.speechSynthesis.speak(utterance);
         },
         [ttsEnabled]
     );
+
+    /* ================= STOP LISTENING ================= */
 
     const stopListening = useCallback(
         async (finalText) => {
@@ -69,7 +86,7 @@ export function useVoiceEngine() {
                 recognitionRef.current.stop();
             }
 
-            if (!finalText || isRequestInFlight.current) {
+            if (!finalText?.trim() || isRequestInFlight.current) {
                 setVoiceState(STATES.IDLE);
                 return;
             }
@@ -79,8 +96,6 @@ export function useVoiceEngine() {
 
             try {
                 const token = localStorage.getItem("auth_token");
-
-                console.log("[Executive] Sending to backend:", finalText);
 
                 const response = await fetch(`${API}/assistant`, {
                     method: "POST",
@@ -94,16 +109,16 @@ export function useVoiceEngine() {
                 });
 
                 if (!response.ok) {
-                    console.error("Backend error:", response.status);
                     setVoiceState(STATES.ERROR);
                     return;
                 }
 
                 const data = await response.json();
 
-                console.log("[Executive] Response:", data);
+                const assistantText = data?.assistant_text || "";
 
-                setLastInteraction(data.assistant_text || "");
+                setLastInteraction(assistantText);
+                setTranscript("");
 
                 if (
                     Array.isArray(data.actions) &&
@@ -113,11 +128,12 @@ export function useVoiceEngine() {
                     executeVoiceActions(data.actions, uiContextRef.current);
                 }
 
-                if (ttsEnabled && data.assistant_text) {
-                    speak(data.assistant_text);
+                if (ttsEnabled && assistantText) {
+                    speak(assistantText);
                 } else {
                     setVoiceState(STATES.IDLE);
                 }
+
             } catch (err) {
                 console.error("Voice assistant error:", err);
                 setVoiceState(STATES.ERROR);
@@ -128,6 +144,8 @@ export function useVoiceEngine() {
         [clearSilenceTimer, speak, ttsEnabled]
     );
 
+    /* ================= START LISTENING ================= */
+
     const startListening = useCallback(() => {
         if (voiceState !== STATES.IDLE) return;
 
@@ -135,7 +153,6 @@ export function useVoiceEngine() {
             window.SpeechRecognition || window.webkitSpeechRecognition;
 
         if (!SpeechRecognition) {
-            console.error("SpeechRecognition not supported");
             setVoiceState(STATES.ERROR);
             return;
         }
@@ -154,6 +171,7 @@ export function useVoiceEngine() {
 
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const result = event.results[i];
+
                 if (result.isFinal) {
                     finalTranscript += result[0].transcript;
                 } else {
@@ -170,14 +188,22 @@ export function useVoiceEngine() {
             });
         };
 
-        recognition.onerror = (event) => {
-            console.error("Speech recognition error:", event.error);
+        recognition.onerror = () => {
             setVoiceState(STATES.ERROR);
+        };
+
+        recognition.onend = () => {
+            // Si se corta sin procesar nada
+            if (!isRequestInFlight.current) {
+                setVoiceState(STATES.IDLE);
+            }
         };
 
         recognition.start();
         setVoiceState(STATES.LISTENING);
     }, [voiceState, startSilenceTimer, stopListening]);
+
+    /* ================= CANCEL ================= */
 
     const cancel = useCallback(() => {
         clearSilenceTimer();
@@ -194,6 +220,8 @@ export function useVoiceEngine() {
         setVoiceState(STATES.IDLE);
     }, [clearSilenceTimer]);
 
+    /* ================= RETURN ================= */
+
     return {
         voiceState,
         transcript,
@@ -203,7 +231,7 @@ export function useVoiceEngine() {
         startListening,
         cancel,
         setUIContext,
-        speak,               // 👈 añadido
+        speak,
         STATES,
     };
 }

@@ -53,7 +53,6 @@ async def assistant_endpoint(
 
         text_lower = user_text.lower()
 
-        # 🔥 ÚNICA FUENTE DE VERDAD
         items = await fetch_enriched_messages(user, max_results=20)
         total = len(items)
 
@@ -79,16 +78,41 @@ async def assistant_endpoint(
             "adjuntos": len(adjuntos),
         }
 
+        actions: Optional[List[AssistantAction]] = None
+
         # =========================
-        # RESPUESTA
+        # INTENCIÓN RESPONDER
         # =========================
 
-        if "prioritario" in text_lower or "importante" in text_lower:
+        if any(k in text_lower for k in ["responder", "reply", "contestar", "redactar", "borrador"]):
+
+            assistant_text = "Selecciona el correo al que deseas responder."
+
+            actions = [
+                AssistantAction(
+                    type="reply_mode",
+                    payload={
+                        "enabled": True
+                    }
+                )
+            ]
+
+            last_focus = "REPLY"
+
+        # =========================
+        # PRIORITARIOS
+        # =========================
+
+        elif "prioritario" in text_lower or "importante" in text_lower:
             last_focus = "PRIORITARIO"
             if counts["prioritarios"] > 0:
                 assistant_text = f"Tienes {counts['prioritarios']} correos prioritarios."
             else:
                 assistant_text = "No tienes correos prioritarios."
+
+        # =========================
+        # SEGUIMIENTO
+        # =========================
 
         elif "seguimiento" in text_lower or "pendiente" in text_lower:
             last_focus = "SEGUIMIENTO"
@@ -97,12 +121,20 @@ async def assistant_endpoint(
             else:
                 assistant_text = "No tienes correos en seguimiento."
 
+        # =========================
+        # ADJUNTOS
+        # =========================
+
         elif "adjunto" in text_lower or "archivo" in text_lower:
             last_focus = "ADJUNTOS"
             if counts["adjuntos"] > 0:
                 assistant_text = f"Tienes {counts['adjuntos']} correos con adjuntos."
             else:
                 assistant_text = "No tienes correos con adjuntos."
+
+        # =========================
+        # DEFAULT
+        # =========================
 
         else:
             last_focus = "ALL"
@@ -114,7 +146,7 @@ async def assistant_endpoint(
             )
 
         # =========================
-        # 🔵 GUARDAR MEMORIA 24H
+        # MEMORIA
         # =========================
 
         try:
@@ -132,7 +164,7 @@ async def assistant_endpoint(
 
         return AssistantResponse(
             assistant_text=assistant_text,
-            actions=None,
+            actions=actions,
             status="ok",
             timestamp=datetime.utcnow().isoformat(),
         )
