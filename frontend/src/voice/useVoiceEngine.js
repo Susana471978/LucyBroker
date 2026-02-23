@@ -203,6 +203,7 @@ export function useVoiceEngine() {
         startListening,
         cancel,
         setUIContext,
+        speak,               // 👈 añadido
         STATES,
     };
 }

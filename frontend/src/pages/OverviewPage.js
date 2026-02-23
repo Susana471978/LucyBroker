@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../voice/VoiceProvider';
@@ -55,7 +55,14 @@ const StatCard = ({ icon, label, value, highlight, onClick }) => {
 export default function OverviewPage() {
   const { language, token } = useAuth();
   const navigate = useNavigate();
-  const { voiceState, startListening, cancel, STATES } = useVoice();
+  const {
+    voiceState,
+    startListening,
+    cancel,
+    speak,
+    ttsEnabled,
+    STATES
+  } = useVoice();
 
   const [emails, setEmails] = useState([]);
   const [stats, setStats] = useState(null);
@@ -69,6 +76,10 @@ export default function OverviewPage() {
   const [executiveInput, setExecutiveInput] = useState('');
   const [executiveResponse, setExecutiveResponse] = useState(null);
   const [executiveLoading, setExecutiveLoading] = useState(false);
+
+  // ✅ (NUEVO) control interno para auto-lectura (no afecta al render)
+  const lastInputModeRef = useRef(null);
+  const lastSpokenRef = useRef(null);
 
   /* ---------- VOICE STATE ---------- */
   const isIdle = voiceState === STATES.IDLE;
@@ -95,6 +106,9 @@ export default function OverviewPage() {
   const sendTextCommand = async () => {
     if (!executiveInput.trim()) return;
 
+    // ✅ (NUEVO) marcamos que el input fue texto
+    lastInputModeRef.current = "text";
+
     try {
       setExecutiveLoading(true);
 
@@ -116,6 +130,29 @@ export default function OverviewPage() {
       setExecutiveLoading(false);
     }
   };
+
+  /* ---------- (NUEVO) AUTO TTS PARA RESPUESTA DE TEXTO (FASE A) ---------- */
+  useEffect(() => {
+    if (!executiveResponse) return;
+
+    // Solo si el último input fue texto
+    if (lastInputModeRef.current !== "text") return;
+
+    // No interferir con voz/listening/processing/speaking
+    if (voiceState !== STATES.IDLE) return;
+
+    // TTS activo
+    if (!ttsEnabled) return;
+
+    // Dedupe (evita doble lectura por re-render)
+    if (executiveResponse === lastSpokenRef.current) return;
+
+    // Speak con el mismo motor del VoiceProvider
+    if (typeof speak === 'function') {
+      speak(executiveResponse);
+      lastSpokenRef.current = executiveResponse;
+    }
+  }, [executiveResponse, voiceState, ttsEnabled, speak, STATES]);
 
   /* ---------- FETCH EMAILS ---------- */
   const fetchData = useCallback(async () => {
