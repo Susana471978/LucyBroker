@@ -48,33 +48,77 @@ export function useVoiceEngine() {
 
     /* ================= TTS ================= */
 
-    const speak = useCallback(
-        (text) => {
-            if (!ttsEnabled || !text || !window.speechSynthesis) {
-                setVoiceState(STATES.IDLE);
-                return;
-            }
+    const getPreferredVoice = () => {
+        if (!window.speechSynthesis) return null;
 
-            // Evita solapamientos
+        const voices = window.speechSynthesis.getVoices();
+
+        if (!voices || voices.length === 0) return null;
+
+        // Preferimos voz femenina española si existe
+        const spanishFemale =
+            voices.find(
+                (v) =>
+                    v.lang?.startsWith("es") &&
+                    (
+                        v.name.toLowerCase().includes("female") ||
+                        v.name.toLowerCase().includes("zira") ||
+                        v.name.toLowerCase().includes("laura") ||
+                        v.name.toLowerCase().includes("helena")
+                    )
+            ) ||
+            voices.find((v) => v.lang?.startsWith("es"));
+
+        return spanishFemale || voices[0];
+    };
+
+    const speak = useCallback(async (text) => {
+        if (!ttsEnabled || !text) {
+            setVoiceState(STATES.IDLE);
+            return;
+        }
+
+        try {
             window.speechSynthesis.cancel();
-
             setVoiceState(STATES.SPEAKING);
 
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = "es-ES";
+            const token = localStorage.getItem("auth_token");
 
-            utterance.onend = () => {
+            const response = await fetch(`${API}/tts`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ text }),
+            });
+
+            if (!response.ok) throw new Error("TTS failed");
+
+            const audioBlob = await response.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+
+            audio.onended = () => {
                 setVoiceState(STATES.IDLE);
             };
 
-            utterance.onerror = () => {
+            audio.onerror = () => {
                 setVoiceState(STATES.ERROR);
             };
 
+            await audio.play();
+
+        } catch (error) {
+            console.error("Neural TTS failed, fallback to browser:", error);
+
+            // fallback
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = "es-ES";
+            utterance.onend = () => setVoiceState(STATES.IDLE);
             window.speechSynthesis.speak(utterance);
-        },
-        [ttsEnabled]
-    );
+        }
+    }, [ttsEnabled]);
 
     /* ================= STOP LISTENING ================= */
 
@@ -193,7 +237,6 @@ export function useVoiceEngine() {
         };
 
         recognition.onend = () => {
-            // Si se corta sin procesar nada
             if (!isRequestInFlight.current) {
                 setVoiceState(STATES.IDLE);
             }

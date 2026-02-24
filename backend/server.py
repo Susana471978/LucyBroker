@@ -18,6 +18,7 @@ from fastapi import (
     Request,
     Header,
     Query,
+    Response,
 )
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.middleware.cors import CORSMiddleware
@@ -46,6 +47,11 @@ from backend.webhooks.stripe_webhook import router as stripe_router
 # GMAIL
 # =========================
 from backend.api.gmail import create_gmail_router
+
+# =========================
+# TTS (ElevenLabs)
+# =========================
+from backend.services.tts_service import generate_tts_audio
 
 # =========================
 # DB
@@ -210,6 +216,43 @@ api_router.include_router(_gmail_router)
 
 # AI router
 api_router.include_router(ai_router)
+
+
+# ======================================================
+# TTS ROUTES (ElevenLabs)
+# ======================================================
+
+tts_router = APIRouter(prefix="/tts", tags=["TTS"])
+
+
+@tts_router.post("")
+async def tts_endpoint(
+    request: Request,
+    payload: Dict[str, Any],
+    user: Dict[str, Any] = Depends(get_current_user),
+    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+):
+    """
+    Devuelve audio/mpeg generado por ElevenLabs.
+    Nota: NO usamos build_response aquí porque devolvemos bytes de audio.
+    """
+    text = (payload or {}).get("text", "")
+    text = text.strip() if isinstance(text, str) else ""
+
+    if not text:
+        raise HTTPException(status_code=400, detail="Texto vacío")
+
+    try:
+        audio_bytes = generate_tts_audio(text)
+        return Response(content=audio_bytes, media_type="audio/mpeg")
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("TTS error")
+        raise HTTPException(status_code=502, detail="Error generando audio")
+
+
+api_router.include_router(tts_router)
 
 
 # ======================================================
@@ -482,7 +525,6 @@ async def startup_state():
         logger.info("Executive memory TTL index ensured")
     except Exception:
         logger.exception("Error ensuring Executive TTL index")
-
 
 
 @app.on_event("shutdown")
