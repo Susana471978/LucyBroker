@@ -63,7 +63,7 @@ export default function OverviewPage() {
     cancel,
     speak,
     ttsEnabled,
-    setTtsEnabled, // ✅ AÑADIDO (necesario para el toggle)
+    setTtsEnabled,
     STATES
   } = useVoice();
 
@@ -75,16 +75,13 @@ export default function OverviewPage() {
   const [gmailEmail, setGmailEmail] = useState('');
   const [gmailLoading, setGmailLoading] = useState(false);
 
-  // Executive híbrido
   const [executiveInput, setExecutiveInput] = useState('');
   const [executiveResponse, setExecutiveResponse] = useState(null);
   const [executiveLoading, setExecutiveLoading] = useState(false);
 
-  // ✅ control interno para auto-lectura (no afecta al render)
   const lastInputModeRef = useRef(null);
   const lastSpokenRef = useRef(null);
 
-  /* ---------- VOICE STATE ---------- */
   const isIdle = voiceState === STATES.IDLE;
   const isListening = voiceState === STATES.LISTENING;
   const isProcessing = voiceState === STATES.PROCESSING;
@@ -105,11 +102,9 @@ export default function OverviewPage() {
     else cancel();
   };
 
-  /* ---------- SEND TEXT COMMAND ---------- */
   const sendTextCommand = async () => {
     if (!executiveInput.trim()) return;
 
-    // ✅ marcamos que el input fue texto
     lastInputModeRef.current = "text";
 
     try {
@@ -133,30 +128,19 @@ export default function OverviewPage() {
     }
   };
 
-  /* ---------- AUTO TTS PARA RESPUESTA DE TEXTO (FASE A) ---------- */
   useEffect(() => {
     if (!executiveResponse) return;
-
-    // Solo si el último input fue texto
     if (lastInputModeRef.current !== "text") return;
-
-    // No interferir con voz/listening/processing/speaking
     if (voiceState !== STATES.IDLE) return;
-
-    // TTS activo
     if (!ttsEnabled) return;
-
-    // Dedupe
     if (executiveResponse === lastSpokenRef.current) return;
 
-    // Speak con el mismo motor del VoiceProvider
     if (typeof speak === 'function') {
       speak(executiveResponse);
       lastSpokenRef.current = executiveResponse;
     }
   }, [executiveResponse, voiceState, ttsEnabled, speak, STATES]);
 
-  /* ---------- FETCH EMAILS ---------- */
   const fetchData = useCallback(async () => {
     if (!token) return;
 
@@ -170,15 +154,9 @@ export default function OverviewPage() {
 
       setStats({
         total: list.length,
-        prioritarios: list.filter(
-          e => e.priority?.priority_label === 'PRIORITARIO'
-        ).length,
-        seguimiento: list.filter(
-          e => e.priority?.priority_label === 'SEGUIMIENTO'
-        ).length,
-        with_attachments: list.filter(
-          e => e.email?.has_attachments
-        ).length,
+        prioritarios: list.filter(e => e.priority?.priority_label === 'PRIORITARIO').length,
+        seguimiento: list.filter(e => e.priority?.priority_label === 'SEGUIMIENTO').length,
+        with_attachments: list.filter(e => e.email?.has_attachments).length,
       });
 
     } catch (err) {
@@ -194,7 +172,6 @@ export default function OverviewPage() {
     if (token) fetchData();
   }, [fetchData, token]);
 
-  /* ---------- GMAIL STATUS ---------- */
   useEffect(() => {
     if (!token) return;
 
@@ -207,7 +184,6 @@ export default function OverviewPage() {
         const d = res.data?.data || res.data;
         setGmailConnected(!!d.gmail_connected);
         setGmailEmail(d.gmail_email || '');
-
       } catch (err) {
         console.error('Gmail status error:', err);
       } finally {
@@ -218,7 +194,6 @@ export default function OverviewPage() {
     checkGmail();
   }, [token]);
 
-  /* ---------- GMAIL CONNECT ---------- */
   const handleGmailConnect = async () => {
     try {
       const res = await axios.get(`${API}/gmail/auth`, {
@@ -226,15 +201,12 @@ export default function OverviewPage() {
       });
 
       const url = res.data?.data?.auth_url || res.data?.auth_url;
-
       if (url) window.location.href = url;
-
     } catch (err) {
       console.error("Gmail connect error:", err);
     }
   };
 
-  /* ---------- GMAIL DISCONNECT ---------- */
   const handleDisconnect = async () => {
     try {
       await disconnectGmail();
@@ -314,21 +286,18 @@ export default function OverviewPage() {
                 highlight
                 onClick={() => navigate('/messages')}
               />
-
               <StatCard
                 icon={<Sparkles className="w-5 h-5" />}
                 label="Prioritarios"
                 value={stats.prioritarios}
                 onClick={() => navigate('/messages?filter=PRIORITARIO')}
               />
-
               <StatCard
                 icon={<Clock className="w-5 h-5" />}
                 label="Seguimiento"
                 value={stats.seguimiento}
                 onClick={() => navigate('/messages?filter=SEGUIMIENTO')}
               />
-
               <StatCard
                 icon={<Paperclip className="w-5 h-5" />}
                 label="Con Adjuntos"
@@ -337,10 +306,8 @@ export default function OverviewPage() {
               />
             </div>
 
-            {/* EXECUTIVE HÍBRIDO */}
             <div className="glass-premium rounded-2xl p-6 border border-blue-500/20">
               <div className="flex flex-col gap-6">
-
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                   <div>
                     <h3 className="text-lg font-semibold text-slate-100 mb-2">
@@ -353,13 +320,11 @@ export default function OverviewPage() {
                     </p>
                   </div>
 
-                  {/* ✅ SOLO AÑADIMOS EL TOGGLE AQUÍ, SIN TOCAR NADA MÁS */}
                   <div className="flex items-center gap-3">
                     <Button
                       variant="outline"
                       onClick={() => setTtsEnabled(prev => !prev)}
                       className="border-slate-600 text-slate-300 hover:bg-slate-700 px-3"
-                      title={ttsEnabled ? "Desactivar voz" : "Activar voz"}
                     >
                       {ttsEnabled ? (
                         <Volume2 className="w-4 h-4" />
@@ -405,7 +370,6 @@ export default function OverviewPage() {
                     {executiveResponse}
                   </div>
                 )}
-
               </div>
             </div>
           </>

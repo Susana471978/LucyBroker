@@ -7,6 +7,8 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 
+import dnaBackground from '../assets/Video fondo ECS.mp4';
+
 export default function AuthPage() {
 
   const { login, register, logout, isAuthenticated } = useAuth();
@@ -15,14 +17,10 @@ export default function AuthPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
-
   const [showPassword, setShowPassword] = useState(false);
-
   const [isRegister, setIsRegister] = useState(false);
-
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -58,17 +56,21 @@ export default function AuthPage() {
     }
   };
 
-
   return (
-    <div className="auth-shell relative">
+    <div className="auth-shell relative min-h-screen overflow-hidden">
 
-      {/* Background */}
-      <div
-        className="bg-neural pointer-events-none"
-        aria-hidden="true"
-      />
+      {/* Video de fondo Canva */}
+      <video
+        autoPlay
+        loop
+        muted
+        playsInline
+        className="ecs-auth-video-bg"
+      >
+        <source src={dnaBackground} type="video/mp4" />
+      </video>
 
-      {/* Content */}
+      {/* Contenido */}
       <motion.div
         initial={{ opacity: 0, y: 24 }}
         animate={{ opacity: 1, y: 0 }}
@@ -97,7 +99,6 @@ export default function AuthPage() {
 
         </motion.div>
 
-
         {/* Card */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
@@ -110,19 +111,14 @@ export default function AuthPage() {
             {isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
           </h2>
 
-
           <form onSubmit={handleSubmit} className="auth-form">
 
-            {/* Name (only register) */}
             {isRegister && (
               <div className="auth-field">
-
                 <label className="auth-field-label">
                   Nombre
                 </label>
-
                 <div className="auth-input-wrapper">
-
                   <Input
                     type="text"
                     value={name}
@@ -131,63 +127,45 @@ export default function AuthPage() {
                     required
                     className="auth-input !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
                   />
-
                 </div>
               </div>
             )}
 
-
-            {/* Email */}
             <div className="auth-field">
-
               <label className="auth-field-label">
                 Correo electrónico
               </label>
-
               <div className="auth-input-wrapper">
-
                 <Mail
                   className="auth-input-icon"
                   strokeWidth={1.4}
                 />
-
                 <Input
                   type="email"
                   value={email}
-                  onChange={(event) =>
-                    setEmail(event.target.value)
-                  }
+                  onChange={(event) => setEmail(event.target.value)}
                   placeholder="email@example.com"
                   autoComplete="email"
                   required
                   className="auth-input !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
                   data-testid="auth-email-input"
                 />
-
               </div>
             </div>
 
-
-            {/* Password */}
             <div className="auth-field">
-
               <label className="auth-field-label">
                 Contraseña
               </label>
-
               <div className="auth-input-wrapper">
-
                 <Lock
                   className="auth-input-icon"
                   strokeWidth={1.4}
                 />
-
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(event) =>
-                    setPassword(event.target.value)
-                  }
+                  onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"
                   autoComplete={
                     isRegister
@@ -203,7 +181,7 @@ export default function AuthPage() {
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-                  aria-label={showPassword ? 'Ocultar contrasena' : 'Mostrar contrasena'}
+                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" strokeWidth={1.4} />
@@ -215,8 +193,6 @@ export default function AuthPage() {
               </div>
             </div>
 
-
-            {/* Error */}
             {error && (
               <motion.div
                 initial={{ opacity: 0, y: -8 }}
@@ -228,15 +204,12 @@ export default function AuthPage() {
               </motion.div>
             )}
 
-
-            {/* Submit */}
             <Button
               type="submit"
               disabled={loading}
               className="auth-submit !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
               data-testid="auth-submit-btn"
             >
-
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
               ) : (
@@ -245,19 +218,14 @@ export default function AuthPage() {
                   <ArrowRight className="w-4 h-4 ml-1" />
                 </>
               )}
-
             </Button>
 
           </form>
 
-
-          {/* Toggle */}
           <p className="auth-secondary-link">
-
             {isRegister
               ? '¿Ya tienes cuenta?'
               : '¿No tienes cuenta?'}{' '}
-
             <span
               onClick={() => {
                 setIsRegister(!isRegister);
@@ -269,7 +237,6 @@ export default function AuthPage() {
                 ? 'Iniciar sesión'
                 : 'Registrarse'}
             </span>
-
           </p>
 
         </motion.div>
