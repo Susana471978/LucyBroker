@@ -10,8 +10,8 @@
 
 :root {
   --background-base: #0A0A0A;
-  --surface-primary: #15171C;
-  --surface-secondary: #1C1F26;
+  --surface-primary: #121212;
+  --surface-secondary: #161616;
   --blue-structural: #0F1C2E;
   --champagne: #C9B27C;
   --text-primary: #E6E6E6;
@@ -149,11 +149,17 @@ h6 {
 
 .auth-input {
   padding-left: 2.8rem;
-  background: var(--surface-secondary);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-primary);
+  background-color: var(--surface-secondary) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: var(--text-primary) !important;
   font-size: 0.95rem;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.auth-input:focus {
+  border-color: var(--blue-structural) !important;
+  background-color: var(--surface-secondary) !important;
+  box-shadow: 0 0 0 1px var(--blue-structural);
 }
 
 .auth-input::placeholder {
@@ -236,6 +242,6 @@ h6 {
   height: 100%;
   object-fit: cover;
   z-index: 0;
-  opacity: 0.45;
+  opacity: 0.21;
   pointer-events: none;
 }

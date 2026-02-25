@@ -130,7 +130,7 @@ export default function LandingPage() {
       <header className="glass-premium border-b border-white/5 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-28 py-3">
           <div className="flex items-center gap-3">
-            <img src={require('../assets/logo/LogoEmail.png')} alt="Email Control" className="h-44 w-auto" />
+            {/* Logo eliminado por ausencia de archivo LogoEmail.png */}
           </div>
 
           <div className="flex items-center gap-3">
@@ -171,7 +171,7 @@ export default function LandingPage() {
       <section className="relative z-10 max-w-5xl mx-auto px-6 pt-24 pb-8 text-center">
         <motion.div variants={fadeUp} initial="hidden" animate="visible">
           <h1 className="text-4xl sm:text-6xl font-bold text-slate-100 leading-tight mb-6">
-            Email System Control
+            Email Control System
           </h1>
           <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
             Reduce el ruido, identifica lo importante y toma decisiones más rápido.
