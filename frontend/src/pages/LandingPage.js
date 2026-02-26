@@ -18,6 +18,8 @@ import {
 import { Button } from '../components/ui/button';
 import { motion } from 'framer-motion';
 
+import LandingNeuralFieldCanvas from "../components/backgrounds/LandingNeuralFieldCanvas";
+
 const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
 /* ───────── Animation helpers ───────── */
@@ -169,34 +171,19 @@ export default function LandingPage() {
 
       {/* ─── HERO ─── */}
       <section className="relative z-10 max-w-5xl mx-auto px-6 pt-24 pb-8 text-center">
-        <LandingNeuralFieldCanvas style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          width: '100%',
-          height: '100%',
-          zIndex: 0,
-          pointerEvents: 'none',
-        }} />
-        <div style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          width: '100%',
-          height: '200px',
-          background: 'linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 100%)',
-          pointerEvents: 'none',
-          zIndex: 0,
-        }} />
-        <motion.div style={{ position: 'relative', zIndex: 1 }} variants={fadeUp} initial="hidden" animate="visible">
-          <h1 className="text-4xl sm:text-6xl font-bold text-slate-100 leading-tight mb-6">
-            Email Control System
-          </h1>
-          <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Reduce el ruido, identifica lo importante y toma decisiones más rápido.
-            Un sistema inteligente que clasifica, prioriza y te asiste con IA.
-          </p>
-        </motion.div>
+        <div className="...existing code..." style={{ position: "relative" }}>
+          <LandingNeuralFieldCanvas />
+          <div style={{ position: "absolute", bottom: 0, left: 0, width: "100%", height: "200px", background: "linear-gradient(to bottom, rgba(0,0,0,0) 0%, #000 100%)", pointerEvents: "none", zIndex: 0 }} />
+          <motion.div style={{ position: "relative", zIndex: 1 }} variants={fadeUp} initial="hidden" animate="visible">
+            <h1 className="text-4xl sm:text-6xl font-bold text-slate-100 leading-tight mb-6">
+              Email Control System
+            </h1>
+            <p className="text-lg sm:text-xl text-slate-400 max-w-2xl mx-auto mb-10 leading-relaxed">
+              Reduce el ruido, identifica lo importante y toma decisiones más rápido.
+              Un sistema inteligente que clasifica, prioriza y te asiste con IA.
+            </p>
+          </motion.div>
+        </div>
       </section>
 
       {/* ─── CÓMO FUNCIONA ─── */}
