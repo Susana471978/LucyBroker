@@ -26,9 +26,14 @@ const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api
 
 /* ---------- Stat Card ---------- */
 const StatCard = ({ icon, label, value, highlight, onClick }) => {
+
   let baseClass =
-    'glass-subtle rounded-xl p-4 text-left w-full cursor-pointer transition-all hover:shadow-lg hover:shadow-blue-500/10 ';
-  if (highlight) baseClass += 'border-blue-500/30 halo-active';
+    'glass-subtle rounded-xl p-4 text-left w-full cursor-pointer transition-all ' +
+    'shadow-[0_0_35px_rgba(29,78,216,0.22)] ' +
+    'sm:shadow-[0_0_50px_rgba(29,78,216,0.12)] ' +
+    'hover:shadow-[0_0_70px_rgba(29,78,216,0.25)] ';
+
+  if (highlight) baseClass += 'border-blue-500/30 halo-active ';
 
   let iconClass =
     'w-10 h-10 rounded-lg flex items-center justify-center mb-3 ';
@@ -240,7 +245,11 @@ export default function OverviewPage() {
         </div>
 
         {!gmailLoading && (
-          <div className="glass-subtle rounded-xl p-4 mb-8 flex items-center justify-between">
+          <div className="glass-subtle rounded-xl p-4 mb-8 flex items-center justify-between
+            shadow-[0_0_35px_rgba(29,78,216,0.22)]
+            sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
+            hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
+            transition-all">
             {gmailConnected ? (
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-3">
@@ -306,8 +315,13 @@ export default function OverviewPage() {
               />
             </div>
 
-            <div className="glass-premium rounded-2xl p-6 border border-blue-500/20">
+            <div className="glass-premium rounded-2xl p-6 border border-blue-500/20
+              shadow-[0_0_35px_rgba(29,78,216,0.22)]
+              sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
+              hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
+              transition-all">
               <div className="flex flex-col gap-6">
+
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                   <div>
                     <h3 className="text-lg font-semibold text-slate-100 mb-2">
