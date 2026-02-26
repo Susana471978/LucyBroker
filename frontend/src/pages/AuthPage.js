@@ -7,7 +7,7 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 
-import dnaBackground from '../assets/Video fondo ECS.mp4';
+import videoBg from "../assets/video-fondo-ecs.mp4";
 
 export default function AuthPage() {
 
@@ -24,12 +24,10 @@ export default function AuthPage() {
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-
     setError('');
     setLoading(true);
 
     try {
-
       if (isAuthenticated) {
         logout();
       }
@@ -43,14 +41,12 @@ export default function AuthPage() {
       navigate('/app');
 
     } catch (err) {
-
       setError(
         err.response?.data?.detail ||
         (isRegister
           ? 'Error al registrarse'
           : 'Error al iniciar sesión')
       );
-
     } finally {
       setLoading(false);
     }
@@ -59,7 +55,7 @@ export default function AuthPage() {
   return (
     <div className="auth-shell relative min-h-screen overflow-hidden">
 
-      {/* Video de fondo Canva */}
+      {/* Video de fondo */}
       <video
         autoPlay
         loop
@@ -67,7 +63,7 @@ export default function AuthPage() {
         playsInline
         className="ecs-auth-video-bg"
       >
-        <source src={dnaBackground} type="video/mp4" />
+        <source src={videoBg} type="video/mp4" />
       </video>
 
       {/* Contenido */}
@@ -148,7 +144,6 @@ export default function AuthPage() {
                   autoComplete="email"
                   required
                   className="auth-input !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
-                  data-testid="auth-email-input"
                 />
               </div>
             </div>
@@ -157,7 +152,7 @@ export default function AuthPage() {
               <label className="auth-field-label">
                 Contraseña
               </label>
-              <div className="auth-input-wrapper">
+              <div className="auth-input-wrapper relative">
                 <Lock
                   className="auth-input-icon"
                   strokeWidth={1.4}
@@ -174,14 +169,12 @@ export default function AuthPage() {
                   }
                   required
                   className="auth-input !h-14 !rounded-2xl pr-12 focus-visible:ring-0 focus-visible:ring-offset-0"
-                  data-testid="auth-password-input"
                 />
 
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
-                  aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                 >
                   {showPassword ? (
                     <EyeOff className="w-4 h-4" strokeWidth={1.4} />
@@ -198,7 +191,6 @@ export default function AuthPage() {
                 initial={{ opacity: 0, y: -8 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="auth-error"
-                data-testid="auth-error-message"
               >
                 {error}
               </motion.div>
@@ -208,7 +200,6 @@ export default function AuthPage() {
               type="submit"
               disabled={loading}
               className="auth-submit !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
-              data-testid="auth-submit-btn"
             >
               {loading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
