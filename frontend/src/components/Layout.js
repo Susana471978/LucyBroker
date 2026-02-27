@@ -36,7 +36,7 @@ const Layout = ({ children }) => {
     <div className="min-h-screen">
       <div className="bg-neural" />
 
-      <header className="glass-premium border-b border-white/5 sticky top-0 z-50">
+      <header className="backdrop-blur-md bg-transparent border-b border-white/5 sticky top-0 z-50">
         <TrialBanner />
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex items-center justify-between h-24 py-2">

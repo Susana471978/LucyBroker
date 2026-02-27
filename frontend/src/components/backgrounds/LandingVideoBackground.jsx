@@ -20,13 +20,9 @@ const LandingVideoBackground = () => {
 
 const containerStyle = {
     position: "absolute",
-    top: 0,
-    left: 0,
+    inset: 0,
     width: "100%",
     height: "100%",
-    overflow: "hidden",
-    zIndex: 0,
-    pointerEvents: "none"
 };
 
 const videoStyle = {

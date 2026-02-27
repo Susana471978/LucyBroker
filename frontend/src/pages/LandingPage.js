@@ -47,8 +47,9 @@ const StepCard = ({ icon, title, text, index }) => (
       flex-col
       items-start
       gap-4
-      shadow-[0_0_50px_rgba(29,78,216,0.12)]
-      hover:shadow-[0_0_70px_rgba(29,78,216,0.18)]
+      shadow-[0_0_35px_rgba(29,78,216,0.22)]
+      sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
+      hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
       transition-all
       duration-500
     "
@@ -127,12 +128,10 @@ export default function LandingPage() {
   );
 
   return (
-    <div className="relative">
-
+    <div className="relative min-h-screen overflow-hidden">
       {/* NAVBAR */}
-      <header className="sticky top-0 z-50 pointer-events-none">
-        <div className="relative max-w-7xl mx-auto px-6 flex items-center justify-end h-16 pointer-events-auto">
-
+      <header className="absolute top-6 left-0 w-full z-50">
+        <div className="relative max-w-7xl mx-auto px-6 flex items-center justify-end py-6 pointer-events-auto">
           {isAuthenticated ? (
             <>
               <Button
@@ -163,9 +162,6 @@ export default function LandingPage() {
               <ArrowRight className="w-5 h-5" />
             </Button>
           )}
-
-          {/* Línea 3D fina integrada en el fondo */}
-          <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/15 to-transparent" />
         </div>
       </header>
 
@@ -180,7 +176,7 @@ export default function LandingPage() {
                 overflow-hidden
               ">
         <LandingVideoBackground />
-      
+
         <div className="relative z-10 text-center max-w-4xl mx-auto px-6">
           <motion.div variants={fadeUp} initial="hidden" animate="visible">
             <h1 className="text-5xl sm:text-7xl font-semibold tracking-tight leading-tight mb-8 text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
@@ -281,8 +277,9 @@ export default function LandingPage() {
             flex-col
             items-start
             gap-4
-            shadow-[0_0_50px_rgba(29,78,216,0.12)]
-            hover:shadow-[0_0_70px_rgba(29,78,216,0.18)]
+            shadow-[0_0_35px_rgba(29,78,216,0.22)]
+            sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
+            hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
             transition-all
             duration-500
           "
@@ -305,8 +302,9 @@ export default function LandingPage() {
             glass-premium
             rounded-2xl
             p-10
-            shadow-[0_0_50px_rgba(29,78,216,0.12)]
-            hover:shadow-[0_0_70px_rgba(29,78,216,0.18)]
+            shadow-[0_0_35px_rgba(29,78,216,0.22)]
+            sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
+            hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
             transition-all
             duration-500
           "

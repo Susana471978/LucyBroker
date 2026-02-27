@@ -28,7 +28,7 @@ const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api
 const StatCard = ({ icon, label, value, highlight, onClick }) => {
 
   let baseClass =
-    'glass-subtle rounded-xl p-4 text-left w-full cursor-pointer transition-all ' +
+    'glass-subtle bg-slate-900/40 rounded-xl p-6 text-left w-full cursor-pointer transition-all ' +
     'shadow-[0_0_35px_rgba(29,78,216,0.22)] ' +
     'sm:shadow-[0_0_50px_rgba(29,78,216,0.12)] ' +
     'hover:shadow-[0_0_70px_rgba(29,78,216,0.25)] ';
@@ -36,7 +36,7 @@ const StatCard = ({ icon, label, value, highlight, onClick }) => {
   if (highlight) baseClass += 'border-blue-500/30 halo-active ';
 
   let iconClass =
-    'w-10 h-10 rounded-lg flex items-center justify-center mb-3 ';
+    'w-10 h-10 rounded-lg flex items-center justify-center mb-4 ';
   iconClass += highlight ? 'bg-blue-500/20' : 'bg-slate-700/50';
 
   return (
@@ -51,8 +51,14 @@ const StatCard = ({ icon, label, value, highlight, onClick }) => {
           {icon}
         </span>
       </div>
-      <p className="text-2xl font-bold text-slate-100">{value}</p>
-      <p className="text-sm text-slate-400">{label}</p>
+
+      <p className="text-4xl font-semibold text-white mb-1">
+        {value}
+      </p>
+
+      <p className="text-sm text-slate-500">
+        {label}
+      </p>
     </motion.button>
   );
 };
@@ -233,10 +239,10 @@ export default function OverviewPage() {
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto px-6 py-12 space-y-12">
 
-        <div className="mb-10">
-          <h1 className="text-4xl font-bold text-slate-100 mb-4">
+        <div>
+          <h1 className="text-5xl font-semibold tracking-tight text-white mb-4">
             {t(language, 'welcomeTitle')}
           </h1>
           <p className="text-lg text-slate-400 max-w-2xl">
@@ -245,7 +251,7 @@ export default function OverviewPage() {
         </div>
 
         {!gmailLoading && (
-          <div className="glass-subtle rounded-xl p-4 mb-8 flex items-center justify-between
+          <div className="glass-subtle rounded-2xl p-5 flex items-center justify-between
             shadow-[0_0_35px_rgba(29,78,216,0.22)]
             sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
             hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
@@ -287,7 +293,7 @@ export default function OverviewPage() {
 
         {!loading && stats && gmailConnected && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <StatCard
                 icon={<Inbox className="w-5 h-5" />}
                 label="Total Emails"
@@ -315,16 +321,14 @@ export default function OverviewPage() {
               />
             </div>
 
-            <div className="glass-premium rounded-2xl p-6 border border-blue-500/20
-              shadow-[0_0_35px_rgba(29,78,216,0.22)]
-              sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
-              hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
+            <div className="glass-premium rounded-2xl p-8 border border-blue-500/20 mt-6
+              shadow-[0_0_60px_rgba(29,78,216,0.15)]
               transition-all">
-              <div className="flex flex-col gap-6">
+              <div className="flex flex-col gap-8">
 
                 <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
                   <div>
-                    <h3 className="text-lg font-semibold text-slate-100 mb-2">
+                    <h3 className="text-xl font-semibold text-white mb-3">
                       SyntexIA Executive
                     </h3>
                     <p className="text-sm text-slate-400 leading-relaxed max-w-md">
@@ -350,7 +354,7 @@ export default function OverviewPage() {
                     <Button
                       onClick={handleExecutiveClick}
                       disabled={isProcessing}
-                      className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-5 py-2.5"
+                      className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-6 py-3 shadow-[0_0_20px_rgba(59,130,246,0.35)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all duration-300"
                     >
                       <Mic className="w-4 h-4" />
                       {executiveLabel}
@@ -364,7 +368,7 @@ export default function OverviewPage() {
                     value={executiveInput}
                     onChange={(e) => setExecutiveInput(e.target.value)}
                     placeholder="Escribe un comando..."
-                    className="flex-1 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-2 text-slate-200 focus:outline-none focus:border-blue-500"
+                    className="flex-1 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40"
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') sendTextCommand();
                     }}

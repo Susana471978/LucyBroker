@@ -102,9 +102,11 @@ h6 {
   width: 100%;
   padding: 2.4rem;
   border-radius: 20px;
-  background: var(--surface-primary);
-  border: 1px solid var(--border-subtle);
-  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6);
+  background: transparent;
+  border: transparent;
+  box-shadow: none;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   text-align: left;
 }
 
