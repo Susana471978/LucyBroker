@@ -125,10 +125,12 @@ export default function MessagesPage() {
     setSummaryLoading(true);
 
     try {
-      const summaryText = await summarizeEmail(
+      const result = await summarizeEmail(
         selectedEmail.email.id
       );
-      setSummary(summaryText);
+
+      setSummary(result || null);
+
     } catch (error) {
       console.error('Summarize error:', error);
     } finally {

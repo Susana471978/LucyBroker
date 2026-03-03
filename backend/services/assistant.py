@@ -10,6 +10,7 @@ from backend.server import get_current_user
 from backend.api.gmail import fetch_enriched_messages
 from backend.core.database import db
 from backend.services.executive_memory import set_memory
+from backend.services.ai_service import generate_llm_response  # 👈 NUEVO IMPORT
 
 
 router = APIRouter(prefix="/assistant", tags=["Assistant"])
@@ -37,7 +38,17 @@ class AssistantResponse(BaseModel):
 
 
 # =========================
-# ENDPOINT
+# NUEVO MODELO PARA MENSAJE INDIVIDUAL
+# =========================
+
+class AssistantMessageAction(BaseModel):
+    mode: str
+    message_content: str
+    audio_enabled: Optional[bool] = False
+
+
+# =========================
+# ENDPOINT ORIGINAL (NO TOCADO)
 # =========================
 
 @router.post("", response_model=AssistantResponse)
@@ -80,10 +91,6 @@ async def assistant_endpoint(
 
         actions: Optional[List[AssistantAction]] = None
 
-        # =========================
-        # INTENCIÓN RESPONDER
-        # =========================
-
         if any(k in text_lower for k in ["responder", "reply", "contestar", "redactar", "borrador"]):
 
             assistant_text = "Selecciona el correo al que deseas responder."
@@ -99,20 +106,12 @@ async def assistant_endpoint(
 
             last_focus = "REPLY"
 
-        # =========================
-        # PRIORITARIOS
-        # =========================
-
         elif "prioritario" in text_lower or "importante" in text_lower:
             last_focus = "PRIORITARIO"
             if counts["prioritarios"] > 0:
                 assistant_text = f"Tienes {counts['prioritarios']} correos prioritarios."
             else:
                 assistant_text = "No tienes correos prioritarios."
-
-        # =========================
-        # SEGUIMIENTO
-        # =========================
 
         elif "seguimiento" in text_lower or "pendiente" in text_lower:
             last_focus = "SEGUIMIENTO"
@@ -121,20 +120,12 @@ async def assistant_endpoint(
             else:
                 assistant_text = "No tienes correos en seguimiento."
 
-        # =========================
-        # ADJUNTOS
-        # =========================
-
         elif "adjunto" in text_lower or "archivo" in text_lower:
             last_focus = "ADJUNTOS"
             if counts["adjuntos"] > 0:
                 assistant_text = f"Tienes {counts['adjuntos']} correos con adjuntos."
             else:
                 assistant_text = "No tienes correos con adjuntos."
-
-        # =========================
-        # DEFAULT
-        # =========================
 
         else:
             last_focus = "ALL"
@@ -144,10 +135,6 @@ async def assistant_endpoint(
                 f"{counts['seguimiento']} en seguimiento. "
                 f"{counts['adjuntos']} con adjuntos."
             )
-
-        # =========================
-        # MEMORIA
-        # =========================
 
         try:
             await set_memory(
@@ -178,3 +165,84 @@ async def assistant_endpoint(
             status="error",
             timestamp=datetime.utcnow().isoformat(),
         )
+
+
+# =========================
+# NUEVO ENDPOINT PARA MENSAJE INDIVIDUAL
+# =========================
+
+@router.post("/message")
+async def assistant_message_endpoint(
+    payload: AssistantMessageAction,
+    user: Dict[str, Any] = Depends(get_current_user),
+):
+    try:
+
+        if not payload.message_content:
+            raise HTTPException(status_code=400, detail="Contenido vacío")
+
+        # =========================
+        # RESUMEN NATURAL (3-4 FRASES)
+        # =========================
+
+        if payload.mode == "summarize":
+
+            prompt = f"""
+Resume el siguiente correo en un máximo de 4 frases.
+Debe sonar natural, claro y conversacional, como si me lo estuvieras contando mientras camino escuchándolo.
+No uses encabezados ni fórmulas repetitivas.
+No hagas análisis ni clasificaciones.
+Solo síntesis clara y ejecutiva.
+
+Correo:
+{payload.message_content}
+"""
+
+            summary = await generate_llm_response(
+                prompt=prompt,
+                temperature=0.4,
+                max_tokens=180,
+            )
+
+            return {
+                "type": "summary",
+                "text": summary.strip(),
+                "audio": payload.audio_enabled,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+        # =========================
+        # RESPUESTA FORMAL AUTOMÁTICA
+        # =========================
+
+        elif payload.mode == "auto_reply":
+
+            prompt = f"""
+Redacta una respuesta formal, profesional y clara al siguiente correo.
+Debe ser concisa, directa y adecuada para un entorno profesional.
+No excesivamente larga.
+Debe poder enviarse tal cual.
+
+Correo:
+{payload.message_content}
+"""
+
+            reply = await generate_llm_response(
+                prompt=prompt,
+                temperature=0.5,
+                max_tokens=220,
+            )
+
+            return {
+                "type": "auto_reply",
+                "text": reply.strip(),
+                "audio": payload.audio_enabled,
+                "timestamp": datetime.utcnow().isoformat(),
+            }
+
+        else:
+            raise HTTPException(status_code=400, detail="Modo no válido")
+
+    except Exception as e:
+        print("Assistant message error:", e)
+        raise HTTPException(status_code=500, detail="Error procesando el mensaje")

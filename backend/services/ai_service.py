@@ -1,98 +1,27 @@
 from __future__ import annotations
 
 from typing import List, Optional
+import os
 
 from backend.models import AIIntent, EmailEvent
 from backend.utils.logger import get_logger
 from backend.services.executive_client import update_executive_session
 
+from openai import AsyncOpenAI
+
 
 class AIService:
     def __init__(self):
-        # Modo local determinístico
-        self.api_key = None
+        self.api_key = os.getenv("OPENAI_API_KEY")
         self.logger = get_logger(self.__class__.__name__)
 
-    # =====================================================
-    # INTENT PROCESSING
-    # =====================================================
-
-    async def process_intent(
-        self,
-        message: str,
-        context: Optional[str] = None,
-    ) -> AIIntent:
-
-        message_lower = message.lower()
-
-        if any(kw in message_lower for kw in ["prioritario", "importante", "urgente", "priority", "urgent"]):
-            return AIIntent(
-                assistant_text="Mostrando correos prioritarios que requieren tu atención inmediata.",
-                intent="SHOW_PRIORITARIOS",
-                ui_state="filter_priority",
-                action={"type": "filter", "payload": {"label": "PRIORITARIO"}},
-            )
-
-        if any(kw in message_lower for kw in ["seguimiento", "pendiente", "follow", "pending"]):
-            return AIIntent(
-                assistant_text="Mostrando correos que requieren seguimiento.",
-                intent="SHOW_SEGUIMIENTO",
-                ui_state="filter_followup",
-                action={"type": "filter", "payload": {"label": "SEGUIMIENTO"}},
-            )
-
-        if any(kw in message_lower for kw in ["adjunto", "attachment", "archivo", "documento", "pdf"]):
-            return AIIntent(
-                assistant_text="Filtrando correos con archivos adjuntos.",
-                intent="FILTER_ATTACHMENTS",
-                ui_state="filter_attachments",
-                action={"type": "filter", "payload": {"has_attachments": True}},
-            )
-
-        if any(kw in message_lower for kw in ["resumen", "resume", "summary", "resumir"]):
-            return AIIntent(
-                assistant_text="Selecciona un correo para generar su resumen.",
-                intent="SUMMARIZE_SELECTED",
-                ui_state="await_selection",
-                action={"type": "prompt_selection", "payload": {}},
-            )
-
-        if any(kw in message_lower for kw in ["responder", "reply", "contestar", "redactar", "borrador", "draft"]):
-            return AIIntent(
-                assistant_text="¿Sobre qué correo te ayudo a redactar una respuesta?",
-                intent="DRAFT_REPLY",
-                ui_state="await_selection",
-                action={"type": "prompt_selection", "payload": {}},
-            )
-
-        if any(kw in message_lower for kw in ["todo", "all", "completo", "ver todo", "mostrar todo"]):
-            return AIIntent(
-                assistant_text="Mostrando todos los correos ordenados por prioridad.",
-                intent="SHOW_ALL",
-                ui_state="default",
-                action={"type": "filter", "payload": {"label": None}},
-            )
-
-        if any(kw in message_lower for kw in ["info", "información", "informativo", "newsletter"]):
-            return AIIntent(
-                assistant_text="Mostrando correos informativos de baja prioridad.",
-                intent="SHOW_INFO",
-                ui_state="filter_info",
-                action={"type": "filter", "payload": {"label": "INFO"}},
-            )
-
-        return AIIntent(
-            assistant_text=(
-                "Puedo ayudarte a: ver correos prioritarios, filtrar por adjuntos, "
-                "resumir mensajes o redactar respuestas. ¿Qué necesitas?"
-            ),
-            intent="HELP",
-            ui_state="default",
-            action={"type": "none", "payload": {}},
-        )
+        if self.api_key:
+            self.client = AsyncOpenAI(api_key=self.api_key)
+        else:
+            self.client = None
 
     # =====================================================
-    # SUMMARIZE EMAIL (Determinístico)
+    # SUMMARIZE EMAIL (Natural LLM + Fallback)
     # =====================================================
 
     async def summarize_email(
@@ -101,12 +30,46 @@ class AIService:
         user_id: str,
     ) -> str:
 
-        try:
-            base_text = (email.body or email.snippet or "").strip()
+        base_text = (email.body or email.snippet or "").strip()
 
-            if not base_text:
-                summary = "No se pudo generar un resumen porque el correo no contiene contenido legible."
-            else:
+        if not base_text:
+            return "No se pudo generar un resumen porque el correo no contiene contenido legible."
+
+        summary = None
+
+        # -------------------------
+        # LLM MODE (Natural)
+        # -------------------------
+        if self.client:
+            try:
+                prompt = f"""
+            Resume el siguiente correo en un máximo de 4 frases.
+            Debe sonar natural, claro y conversacional, como si me lo estuvieras contando mientras camino escuchándolo.
+            No uses encabezados ni fórmulas repetitivas.
+            No hagas análisis ni clasificaciones.
+            Solo síntesis clara y ejecutiva.
+
+            Correo:
+            {base_text}
+            """
+
+                response = await self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.4,
+                    max_tokens=180,
+                )
+
+                summary = response.choices[0].message.content.strip()
+
+            except Exception as exc:
+                self.logger.error("LLM summarize failed, fallback active: %s", exc)
+
+        # -------------------------
+        # FALLBACK DETERMINISTIC
+        # -------------------------
+        if not summary:
+            try:
                 sentences = base_text.split(".")
                 summary = ". ".join(sentences[:3]).strip()
 
@@ -115,11 +78,10 @@ class AIService:
 
                 if len(summary) > 500:
                     summary = summary[:500].rsplit(" ", 1)[0] + "..."
+            except Exception:
+                summary = email.snippet or "Resumen no disponible."
 
-        except Exception as exc:
-            self.logger.error("Error summarizing email: %s", exc)
-            summary = f"Resumen: {email.snippet}"
-
+        # Update executive session
         try:
             await update_executive_session(
                 user_id=user_id,
@@ -135,7 +97,7 @@ class AIService:
         return summary
 
     # =====================================================
-    # DRAFT REPLY (Determinístico Seguro)
+    # DRAFT REPLY (Editable)
     # =====================================================
 
     async def draft_reply(
@@ -143,34 +105,25 @@ class AIService:
         user_id: str,
         email: EmailEvent,
         instructions: str,
-        tone: str = "professional",
+        tone: str = "formal",
     ) -> List[str]:
 
-        try:
-            greeting = f"Estimado/a {email.from_name}," if email.from_name else "Hola,"
+        greeting = f"Estimado/a {email.from_name}," if email.from_name else "Hola,"
 
-            body_instruction = instructions.strip() if instructions else "Gracias por tu mensaje."
+        body_instruction = instructions.strip() if instructions else "Gracias por tu mensaje."
 
-            if tone == "formal":
-                closing = "Quedo atento/a a tu respuesta.\n\nSaludos cordiales."
-            elif tone == "friendly":
-                closing = "Quedo pendiente.\n\nUn saludo."
-            else:
-                closing = "Quedo a tu disposición.\n\nSaludos."
+        if tone == "formal":
+            closing = "Quedo atento/a a tu respuesta.\n\nSaludos cordiales."
+        elif tone == "friendly":
+            closing = "Quedo pendiente.\n\nUn saludo."
+        else:
+            closing = "Quedo a tu disposición.\n\nSaludos."
 
-            draft = (
-                f"{greeting}\n\n"
-                f"{body_instruction}\n\n"
-                f"{closing}"
-            )
-
-        except Exception as exc:
-            self.logger.error("Error generating draft: %s", exc)
-            draft = (
-                f"Hola,\n\n"
-                f"{instructions}\n\n"
-                "Saludos."
-            )
+        draft = (
+            f"{greeting}\n\n"
+            f"{body_instruction}\n\n"
+            f"{closing}"
+        )
 
         try:
             await update_executive_session(
@@ -186,3 +139,65 @@ class AIService:
             self.logger.warning("Executive update failed: %s", e)
 
         return [draft]
+
+    # =====================================================
+    # AUTO REPLY (IA REAL)
+    # =====================================================
+
+    async def auto_reply(
+        self,
+        email: EmailEvent,
+        user_id: str,
+    ) -> str:
+
+        base_text = (email.body or email.snippet or "").strip()
+
+        if not base_text:
+            return "No se pudo generar respuesta porque el correo no contiene contenido legible."
+
+        reply = None
+
+        if self.client:
+            try:
+                prompt = f"""
+            Redacta una respuesta formal, profesional y clara al siguiente correo.
+            Debe ser concisa, directa y adecuada para un entorno profesional.
+            No excesivamente larga.
+            Debe poder enviarse tal cual.
+
+            Correo:
+            {base_text}
+            """
+
+                response = await self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.5,
+                    max_tokens=220,
+                )
+
+                reply = response.choices[0].message.content.strip()
+
+            except Exception as exc:
+                self.logger.error("LLM auto-reply failed: %s", exc)
+
+        if not reply:
+            reply = (
+                "Gracias por tu mensaje.\n\n"
+                "He recibido la información y la revisaré a la mayor brevedad posible.\n\n"
+                "Quedo atento/a.\n\nSaludos."
+            )
+
+        try:
+            await update_executive_session(
+                user_id=user_id,
+                fields={
+                    "last_draft_content": reply,
+                    "last_action": "auto_reply",
+                    "current_email_id": email.id,
+                },
+            )
+        except Exception as e:
+            self.logger.warning("Executive update failed: %s", e)
+
+        return reply

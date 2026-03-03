@@ -3,7 +3,7 @@
 import os
 import base64
 from pathlib import Path
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
@@ -24,8 +24,13 @@ CREDENTIALS_FILE = BASE_DIR / "credentials" / "google_oauth.json"
 
 SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
 
+# Permite OAuth en http local
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
+
+# =========================================================
+# FLOW
+# =========================================================
 
 def _get_flow(redirect_uri: str, state: str | None = None) -> Flow:
     return Flow.from_client_secrets_file(
@@ -37,7 +42,7 @@ def _get_flow(redirect_uri: str, state: str | None = None) -> Flow:
 
 
 # =========================================================
-# ✅ EXTRAER BODY COMPLETO (HTML/TEXTO) SIN ROMPER NADA
+# BODY EXTRACTION
 # =========================================================
 
 def _decode_gmail_body(data: str) -> str:
@@ -50,57 +55,31 @@ def _decode_gmail_body(data: str) -> str:
 
 
 def _extract_body_from_payload(payload: Dict[str, Any]) -> str:
-    """
-    Intenta extraer el body completo del payload Gmail.
-    Prioridad: text/html, luego text/plain.
-    Soporta payload anidado (multipart) de forma recursiva.
-    """
-
     if not payload:
         return ""
 
-    # 1) Si el payload tiene body directo
     body_data = (payload.get("body") or {}).get("data")
     mime = payload.get("mimeType", "")
 
-    # Si ya es texto/html o texto plano directo
     if body_data and mime in ("text/html", "text/plain"):
         return _decode_gmail_body(body_data)
 
-    # 2) Si es multipart, buscamos primero HTML, luego texto plano, recursivo
     parts = payload.get("parts") or []
-    if parts:
-        # Buscar HTML primero
-        for part in parts:
-            part_mime = part.get("mimeType", "")
-            part_body_data = (part.get("body") or {}).get("data")
-            if part_mime == "text/html" and part_body_data:
-                return _decode_gmail_body(part_body_data)
+    for part in parts:
+        part_mime = part.get("mimeType", "")
+        part_body_data = (part.get("body") or {}).get("data")
 
-        # Si no hay HTML directo, buscar HTML recursivo en subpartes
-        for part in parts:
-            part_mime = part.get("mimeType", "")
-            if part_mime.startswith("multipart/"):
-                found = _extract_body_from_payload(part)
-                if found:
-                    return found
+        if part_mime == "text/html" and part_body_data:
+            return _decode_gmail_body(part_body_data)
 
-        # Buscar texto plano directo
-        for part in parts:
-            part_mime = part.get("mimeType", "")
-            part_body_data = (part.get("body") or {}).get("data")
-            if part_mime == "text/plain" and part_body_data:
-                return _decode_gmail_body(part_body_data)
+        if part_mime.startswith("multipart/"):
+            found = _extract_body_from_payload(part)
+            if found:
+                return found
 
-        # Buscar texto plano recursivo
-        for part in parts:
-            part_mime = part.get("mimeType", "")
-            if part_mime.startswith("multipart/"):
-                found = _extract_body_from_payload(part)
-                if found:
-                    return found
+        if part_mime == "text/plain" and part_body_data:
+            return _decode_gmail_body(part_body_data)
 
-    # 3) Fallback: si hay body data sin mime compatible
     if body_data:
         return _decode_gmail_body(body_data)
 
@@ -108,18 +87,31 @@ def _extract_body_from_payload(payload: Dict[str, Any]) -> str:
 
 
 # =========================================================
-# 🔹 FUNCIÓN REUTILIZABLE (CLAVE PARA SINCRONIZAR ASSISTANT)
+# FETCH + SAVE
 # =========================================================
 
 async def fetch_enriched_messages(
     user: Dict[str, Any],
+    db,
     max_results: int = 20,
+    label: str = "inbox",
 ) -> List[Dict[str, Any]]:
+    """
+    Devuelve una lista enriquecida:
+    [
+      { "email": <EmailEvent dict>, "priority": <priority dict> },
+      ...
+    ]
+    Además persiste cada email en Mongo (db.emails).
+    """
 
     if not user.get("gmail_connected"):
         return []
 
     tokens = user.get("gmail_tokens") or {}
+    if not tokens.get("token"):
+        # Estado inconsistente: marcado conectado pero sin token
+        return []
 
     creds = Credentials(
         token=tokens.get("token"),
@@ -127,19 +119,29 @@ async def fetch_enriched_messages(
         token_uri=tokens.get("token_uri"),
         client_id=tokens.get("client_id"),
         client_secret=tokens.get("client_secret"),
-        scopes=tokens.get("scopes"),
+        scopes=tokens.get("scopes") or SCOPES,
     )
 
     service = build_service("gmail", "v1", credentials=creds)
 
+    # Mapeo simple de label del frontend -> labelIds Gmail
+    label_ids = ["INBOX"]
+    if label and label.lower() in ("all", "todo", "todos"):
+        # "all" no es un labelId real; usamos INBOX por defecto para no romper
+        label_ids = ["INBOX"]
+    elif label and label.lower() in ("inbox", "entrada"):
+        label_ids = ["INBOX"]
+    elif label and label.lower() in ("unread", "no_leidos", "no leidos"):
+        label_ids = ["INBOX", "UNREAD"]
+
     results = service.users().messages().list(
         userId="me",
-        labelIds=["INBOX"],
+        labelIds=label_ids,
         maxResults=max_results,
     ).execute()
 
-    message_ids = results.get("messages", [])
-    enriched = []
+    message_ids = results.get("messages", []) or []
+    enriched: List[Dict[str, Any]] = []
 
     for msg_stub in message_ids:
         msg_id = msg_stub["id"]
@@ -152,19 +154,13 @@ async def fetch_enriched_messages(
 
         headers = {
             h["name"].lower(): h["value"]
-            for h in detail.get("payload", {}).get("headers", [])
+            for h in (detail.get("payload", {}) or {}).get("headers", []) or []
         }
 
         snippet = detail.get("snippet", "")
-
-        # ✅ body completo (para UI)
         payload = detail.get("payload", {}) or {}
         full_body = _extract_body_from_payload(payload) or ""
 
-        # -------------------------------------------------
-        # 🔒 MANTENEMOS ESTABLE: EmailEvent.body = snippet
-        # (reglas/prioridad siguen igual que antes)
-        # -------------------------------------------------
         email_event = EmailEvent(
             id=detail["id"],
             thread_id=detail.get("threadId", ""),
@@ -173,26 +169,39 @@ async def fetch_enriched_messages(
             subject=headers.get("subject", "(Sin asunto)"),
             date=datetime.now(timezone.utc).isoformat(),
             snippet=snippet,
-            body=snippet,  # 👈 NO CAMBIAMOS ESTO (ESTABLE)
-            labels=detail.get("labelIds", []),
+            body=full_body or snippet,
+            labels=detail.get("labelIds", []) or [],
             has_attachments=False,
             attachments=[],
         )
 
         priority = calculate_priority(email_event)
-
-        # -------------------------------------------------
-        # ✅ SOLO PARA RESPUESTA AL FRONTEND:
-        # Sobrescribimos email.body con full_body
-        # sin tocar el objeto usado por reglas.
-        # -------------------------------------------------
         email_dict = email_event.model_dump()
-        email_dict["body"] = full_body or snippet
 
-        enriched.append({
-            "email": email_dict,
-            "priority": priority.model_dump(),
-        })
+        now = datetime.now(timezone.utc).isoformat()
+
+        # Persistencia en Mongo
+        await db.emails.update_one(
+            {"_id": msg_id},
+            {
+                "$set": {
+                    "_id": msg_id,
+                    "gmail_id": msg_id,
+                    "user_id": user["id"],
+                    **email_dict,
+                    "updated_at": now,
+                },
+                "$setOnInsert": {"created_at": now},
+            },
+            upsert=True,
+        )
+
+        enriched.append(
+            {
+                "email": email_dict,
+                "priority": priority.model_dump(),
+            }
+        )
 
     return enriched
 
@@ -209,107 +218,79 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         "http://127.0.0.1:8000/api/gmail/callback",
     )
 
-    # ================= AUTH =================
-
-    @router.get("/gmail/auth")
-    async def gmail_auth(
-        request: Request,
-        user: Dict[str, Any] = Depends(get_current_user),
-    ):
-        flow = _get_flow(REDIRECT_URI)
-
-        auth_url, _ = flow.authorization_url(
-            access_type="offline",
-            include_granted_scopes="true",
-            prompt="consent",
-            state=user["id"],
-        )
-
-        return build_response(
-            request,
-            data={"auth_url": auth_url},
-            legacy={"auth_url": auth_url},
-        )
-
-    # ================= CALLBACK =================
-
-    @router.get("/gmail/callback")
-    async def gmail_callback(
-        request: Request,
-        code: str = Query(...),
-        state: str = Query(""),
-    ):
-        if not state:
-            raise HTTPException(400, "Falta state")
-
-        flow = _get_flow(REDIRECT_URI, state=state)
-        flow.fetch_token(code=code)
-        creds = flow.credentials
-
-        service = build_service("gmail", "v1", credentials=creds)
-        profile = service.users().getProfile(userId="me").execute()
-        gmail_email = profile.get("emailAddress", "")
-
-        token_data = {
-            "token": creds.token,
-            "refresh_token": creds.refresh_token,
-            "token_uri": creds.token_uri,
-            "client_id": creds.client_id,
-            "client_secret": creds.client_secret,
-            "scopes": list(creds.scopes or []),
-        }
-
-        await db.users.update_one(
-            {"id": state},
-            {
-                "$set": {
-                    "gmail_connected": True,
-                    "gmail_email": gmail_email,
-                    "gmail_tokens": token_data,
-                }
-            },
-        )
-
-        frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
-        return RedirectResponse(f"{frontend_url}/app?gmail=connected")
-
-    # ================= STATUS =================
+    # ================= STATUS (🔴 FALTABA Y ROMPE LAS CARDS) =================
 
     @router.get("/gmail/status")
     async def gmail_status(
         request: Request,
         user: Dict[str, Any] = Depends(get_current_user),
     ):
+        """
+        Endpoint usado por el frontend para decidir si mostrar:
+        - banner 'Conectar mi correo'
+        - o cards/resúmenes/Executive
+
+        Si esto da 404, el frontend se cae al modo "no conectado".
+        """
         data = {
             "gmail_connected": bool(user.get("gmail_connected", False)),
-            "gmail_email": user.get("gmail_email", "") or "",
         }
         return build_response(request, data=data, legacy=data)
 
-    # ================= DISCONNECT =================
+    # ================= OAUTH START =================
 
-    @router.post("/gmail/disconnect")
-    async def gmail_disconnect(
+    @router.get("/gmail/auth")
+    async def gmail_auth(
         request: Request,
         user: Dict[str, Any] = Depends(get_current_user),
     ):
+        # Usamos state=user_id para poder guardar tokens en callback sin auth header
+        flow = _get_flow(REDIRECT_URI, state=user["id"])
+        auth_url, _state = flow.authorization_url(
+            access_type="offline",
+            include_granted_scopes="true",
+            prompt="consent",
+        )
+        data = {"auth_url": auth_url}
+        return build_response(request, data=data, legacy=data)
+
+    # ================= OAUTH CALLBACK =================
+
+    @router.get("/gmail/callback")
+    async def gmail_callback(
+        code: str,
+        state: str = Query(...),
+    ):
+        """
+        state = user_id
+        NO usamos Depends(get_current_user) aquí.
+        """
+        flow = _get_flow(REDIRECT_URI, state=state)
+        flow.fetch_token(code=code)
+
+        creds = flow.credentials
+
+        tokens = {
+            "token": creds.token,
+            "refresh_token": creds.refresh_token,
+            "token_uri": creds.token_uri,
+            "client_id": creds.client_id,
+            "client_secret": creds.client_secret,
+            "scopes": list(creds.scopes) if creds.scopes else SCOPES,
+        }
+
         await db.users.update_one(
-            {"id": user["id"]},
+            {"id": state},
             {
                 "$set": {
-                    "gmail_connected": False,
-                    "gmail_email": "",
-                    "gmail_tokens": None,
+                    "gmail_tokens": tokens,
+                    "gmail_connected": True,
                 }
             },
         )
 
-        data = {
-            "gmail_connected": False,
-            "gmail_email": "",
-        }
-
-        return build_response(request, data=data, legacy=data)
+        frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+        return RedirectResponse(url=f"{frontend_url}/app")
 
     # ================= MESSAGES =================
 
@@ -318,8 +299,12 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         request: Request,
         user: Dict[str, Any] = Depends(get_current_user),
         max_results: int = Query(20, ge=1, le=50),
+        # Estos params los envía tu UI; los aceptamos para no romper aunque no se usen a fondo
+        label: str = Query("inbox"),
+        attachments: bool = Query(False),
     ):
-        enriched = await fetch_enriched_messages(user, max_results)
+        _ = attachments  # placeholder (no implementamos adjuntos todavía)
+        enriched = await fetch_enriched_messages(user, db, max_results=max_results, label=label)
         return build_response(request, data=enriched, legacy=enriched)
 
     return router

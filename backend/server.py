@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any
 from pathlib import Path
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from fastapi import (
@@ -208,13 +209,14 @@ async def get_current_user(
 
 
 # ======================================================
-# GMAIL OAUTH
+# ROUTERS (orden importante)
 # ======================================================
 
+# GMAIL OAUTH
 _gmail_router = create_gmail_router(db, get_current_user)
 api_router.include_router(_gmail_router)
 
-# AI router
+# AI router ✅ (esto garantiza /api/ai/...)
 api_router.include_router(ai_router)
 
 
@@ -293,6 +295,10 @@ async def register(request: Request, user_data: UserCreate):
         ),
     ).model_dump()
 
+    # flags extra (compatibilidad frontend)
+    legacy["user"]["gmail_connected"] = False
+    legacy["user"]["is_admin"] = False
+
     return build_response(
         request,
         data=legacy,
@@ -320,7 +326,11 @@ async def login(request: Request, credentials: UserLogin):
         ),
     ).model_dump()
 
-    # Restaurar sesión executive automáticamente (no rompe login si falla)
+    # flags extra (compatibilidad frontend)
+    legacy["user"]["gmail_connected"] = bool(user.get("gmail_connected", False))
+    legacy["user"]["is_admin"] = bool(user.get("is_admin", False))
+
+    # Restaurar sesión executive automáticamente
     try:
         executive_session = await restore_executive_session(user["id"])
         legacy["executive_session"] = executive_session
@@ -349,6 +359,7 @@ async def get_me(
     ).model_dump()
 
     legacy["is_admin"] = bool(user.get("is_admin", False))
+    legacy["gmail_connected"] = bool(user.get("gmail_connected", False))
 
     return build_response(request, data=legacy, legacy=legacy)
 
@@ -477,7 +488,23 @@ async def billing_checkout(
 # ROUTER + MIDDLEWARE
 # ======================================================
 
+# ✅ Registrar el api_router al final, después de incluir subrouters
 app.include_router(api_router)
+
+# --- DEBUG ROUTES (temporal) ---
+print(">>> api_router registered")
+print("=== ROUTES REGISTERED ===")
+for r in app.routes:
+    try:
+        methods = ",".join(sorted(getattr(r, "methods", []) or []))
+        path = getattr(r, "path", "")
+        name = getattr(r, "name", "")
+        if "/ai" in path or "/api" in path:
+            print(f"{methods:20s} {path:35s} {name}")
+    except Exception:
+        pass
+print("=== END ROUTES ===")
+# --- END DEBUG ROUTES ---
 
 app.add_middleware(
     RateLimitMiddleware,
@@ -529,7 +556,6 @@ async def startup_state():
 
 @app.on_event("shutdown")
 async def shutdown_db_client():
-    # Motor: db.client exists; PyMongo: client usually reachable too.
     try:
         if hasattr(db, "client") and db.client:
             db.client.close()
@@ -539,7 +565,7 @@ async def shutdown_db_client():
 
 if __name__ == "__main__":
     uvicorn.run(
-        "backend.main:app",
+        "backend.server:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.env == "development",
