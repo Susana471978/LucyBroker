@@ -10,15 +10,20 @@ from backend.server import get_current_user
 from backend.api.gmail import fetch_enriched_messages
 from backend.core.database import db
 from backend.services.executive_memory import set_memory
-from backend.services.ai_service import generate_llm_response  # 👈 NUEVO IMPORT
+
+# ✔ AIService para instancia + generate_llm_response como función suelta
+from backend.services.ai_service import AIService, generate_llm_response
 
 
 router = APIRouter(prefix="/assistant", tags=["Assistant"])
 
+# instancia del servicio IA
+ai_service = AIService()
 
-# =========================
+
+# =====================================================
 # MODELOS
-# =========================
+# =====================================================
 
 class AssistantMessage(BaseModel):
     text: Optional[str] = None
@@ -37,26 +42,24 @@ class AssistantResponse(BaseModel):
     timestamp: str
 
 
-# =========================
-# NUEVO MODELO PARA MENSAJE INDIVIDUAL
-# =========================
-
 class AssistantMessageAction(BaseModel):
     mode: str
     message_content: str
-    audio_enabled: Optional[bool] = True
+    audio_enabled: Optional[bool] = False
 
 
-# =========================
-# ENDPOINT ORIGINAL (NO TOCADO)
-# =========================
+# =====================================================
+# ENDPOINT PRINCIPAL (ASISTENTE GENERAL)
+# =====================================================
 
 @router.post("", response_model=AssistantResponse)
 async def assistant_endpoint(
     payload: AssistantMessage,
     user: Dict[str, Any] = Depends(get_current_user),
 ):
+
     try:
+
         user_text = payload.text or payload.message
 
         if not user_text:
@@ -98,37 +101,43 @@ async def assistant_endpoint(
             actions = [
                 AssistantAction(
                     type="reply_mode",
-                    payload={
-                        "enabled": True
-                    }
+                    payload={"enabled": True}
                 )
             ]
 
             last_focus = "REPLY"
 
         elif "prioritario" in text_lower or "importante" in text_lower:
+
             last_focus = "PRIORITARIO"
+
             if counts["prioritarios"] > 0:
                 assistant_text = f"Tienes {counts['prioritarios']} correos prioritarios."
             else:
                 assistant_text = "No tienes correos prioritarios."
 
         elif "seguimiento" in text_lower or "pendiente" in text_lower:
+
             last_focus = "SEGUIMIENTO"
+
             if counts["seguimiento"] > 0:
                 assistant_text = f"Tienes {counts['seguimiento']} correos en seguimiento."
             else:
                 assistant_text = "No tienes correos en seguimiento."
 
         elif "adjunto" in text_lower or "archivo" in text_lower:
+
             last_focus = "ADJUNTOS"
+
             if counts["adjuntos"] > 0:
                 assistant_text = f"Tienes {counts['adjuntos']} correos con adjuntos."
             else:
                 assistant_text = "No tienes correos con adjuntos."
 
         else:
+
             last_focus = "ALL"
+
             assistant_text = (
                 f"Tienes {total} correos. "
                 f"{counts['prioritarios']} prioritarios. "
@@ -157,6 +166,7 @@ async def assistant_endpoint(
         )
 
     except Exception as e:
+
         print("Assistant error:", e)
 
         return AssistantResponse(
@@ -167,70 +177,59 @@ async def assistant_endpoint(
         )
 
 
-# =========================
-# NUEVO ENDPOINT PARA MENSAJE INDIVIDUAL
-# =========================
+# =====================================================
+# ENDPOINT PARA ACCIONES SOBRE MENSAJES
+# =====================================================
 
 @router.post("/message")
 async def assistant_message_endpoint(
     payload: AssistantMessageAction,
     user: Dict[str, Any] = Depends(get_current_user),
 ):
+
     try:
 
         if not payload.message_content:
             raise HTTPException(status_code=400, detail="Contenido vacío")
 
-        # =========================
-        # RESUMEN NATURAL (3-4 FRASES)
-        # =========================
+        # ================================
+        # RESUMEN
+        # ================================
 
         if payload.mode == "summarize":
 
             prompt = f"""
-Resume este correo como si me lo contaras mientras camino.
-Máximo 3 frases.
-Lenguaje natural.
-Nada de encabezados ni enumeraciones.
+Resume el siguiente correo en un máximo de 4 frases.
+Debe sonar natural, claro y conversacional.
+No uses encabezados ni enumeraciones.
 
 Correo:
 {payload.message_content}
 """
-
-            summary = await generate_llm_response(
-                prompt=prompt,
-                temperature=0.4,
-                max_tokens=180,
-            )
+            # ✔ FIX: llamada directa a función suelta, no como método de instancia
+            summary = await generate_llm_response(prompt)
 
             return {
                 "type": "summary",
                 "text": summary.strip(),
-                "audio": True,
+                "audio": payload.audio_enabled,
                 "timestamp": datetime.utcnow().isoformat(),
             }
 
-        # =========================
-        # RESPUESTA FORMAL AUTOMÁTICA
-        # =========================
+        # ================================
+        # AUTO REPLY
+        # ================================
 
         elif payload.mode == "auto_reply":
 
             prompt = f"""
-Redacta una respuesta formal, profesional y clara al siguiente correo.
-Debe ser concisa, directa y adecuada para un entorno profesional.
-No excesivamente larga.
-Debe poder enviarse tal cual.
+Redacta una respuesta profesional clara y concisa al siguiente correo.
 
 Correo:
 {payload.message_content}
 """
-
-            reply = await generate_llm_response(
-                prompt=prompt,
-                temperature=0.5,
-                max_tokens=220,
-            )
+            # ✔ FIX: llamada directa a función suelta, no como método de instancia
+            reply = await generate_llm_response(prompt)
 
             return {
                 "type": "auto_reply",
@@ -243,5 +242,10 @@ Correo:
             raise HTTPException(status_code=400, detail="Modo no válido")
 
     except Exception as e:
+
         print("Assistant message error:", e)
-        raise HTTPException(status_code=500, detail="Error procesando el mensaje")
+
+        raise HTTPException(
+            status_code=500,
+            detail="Error procesando el mensaje"
+        )

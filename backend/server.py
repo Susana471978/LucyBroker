@@ -38,6 +38,8 @@ from backend.services.executive_memory import ensure_ttl_index
 # =========================
 from backend.api.ai import router as ai_router
 
+from backend.api.contacts import router as contacts_router
+
 # =========================
 # STRIPE
 # =========================
@@ -140,6 +142,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 # Stripe webhooks (NO van bajo api_router)
 app.include_router(stripe_router, prefix="/api")
 
+app.include_router(contacts_router, prefix="/api")
 
 # ======================================================
 # AUTH HELPERS

@@ -1,3 +1,5 @@
+# backend/services/ai_service.py
+
 from __future__ import annotations
 
 from typing import List, Optional
@@ -20,14 +22,15 @@ class AIService:
         else:
             self.client = None
 
-    # =====================================================
-    # SUMMARIZE EMAIL (Natural LLM + Fallback)
-    # =====================================================
+    # ======================================================
+    # SUMMARIZE EMAIL
+    # ======================================================
 
     async def summarize_email(
         self,
         email: EmailEvent,
         user_id: str,
+        contact_insight: Optional[str] = None,   # ✅ NUEVO
     ) -> str:
 
         base_text = (
@@ -36,38 +39,45 @@ class AIService:
             or email.snippet
             or ""
         ).strip()
-        
+
         if not base_text:
             return "No se pudo generar un resumen porque el correo no contiene contenido legible."
 
         summary = None
 
-        # -------------------------
-        # LLM MODE (Natural)
-        # -------------------------
         if self.client:
             try:
+                # ✅ Incluir contexto del contacto si existe
+                context_block = ""
+                if contact_insight:
+                    context_block = f"""
+CONTEXTO DEL CONTACTO:
+{contact_insight}
+
+Ten en cuenta este contexto al resumir. Si hay acciones pendientes o el contacto es VIP, mencionarlo.
+"""
+
                 prompt = f"""
-            Resume este correo en 3 o 4 frases cortas.
+Resume este correo en 3 o 4 frases cortas.
 
-            Debe sonar natural, como si me lo contaras caminando.
-            Lenguaje claro, directo y humano.
+Debe sonar natural, como si me lo contaras caminando.
+Lenguaje claro, directo y humano.
 
-            No uses encabezados.
-            No enumeraciones.
-            No análisis.
+No uses encabezados.
+No enumeraciones.
+No análisis.
 
-            Solo síntesis clara.
-
-            Correo:
-            {base_text}
-            """
+Solo síntesis clara. Si hay una acción requerida, menciónala al final.
+{context_block}
+Correo:
+{base_text}
+"""
 
                 response = await self.client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.4,
-                    max_tokens=180,
+                    max_tokens=200,
                 )
 
                 summary = response.choices[0].message.content.strip()
@@ -75,23 +85,19 @@ class AIService:
             except Exception as exc:
                 self.logger.error("LLM summarize failed, fallback active: %s", exc)
 
-        # -------------------------
-        # FALLBACK DETERMINISTIC
-        # -------------------------
+        # Fallback determinístico
         if not summary:
             try:
                 sentences = base_text.split(".")
                 summary = ". ".join(sentences[:3]).strip()
-
                 if not summary.endswith("."):
                     summary += "."
-
                 if len(summary) > 500:
                     summary = summary[:500].rsplit(" ", 1)[0] + "..."
             except Exception:
                 summary = email.snippet or "Resumen no disponible."
 
-        # Update executive session
+        # Actualizar sesión ejecutiva
         try:
             await update_executive_session(
                 user_id=user_id,
@@ -106,9 +112,9 @@ class AIService:
 
         return summary
 
-    # =====================================================
-    # DRAFT REPLY (Editable)
-    # =====================================================
+    # ======================================================
+    # DRAFT REPLY
+    # ======================================================
 
     async def draft_reply(
         self,
@@ -116,24 +122,68 @@ class AIService:
         email: EmailEvent,
         instructions: str,
         tone: str = "formal",
+        contact_insight: Optional[str] = None,   # ✅ NUEVO
     ) -> List[str]:
 
-        greeting = f"Estimado/a {email.from_name}," if email.from_name else "Hola,"
+        draft = None
 
-        body_instruction = instructions.strip() if instructions else "Gracias por tu mensaje."
+        if self.client:
+            try:
+                # ✅ Incluir contexto del contacto si existe
+                context_block = ""
+                if contact_insight:
+                    context_block = f"""
+CONTEXTO DEL CONTACTO:
+{contact_insight}
 
-        if tone == "formal":
-            closing = "Quedo atento/a a tu respuesta.\n\nSaludos cordiales."
-        elif tone == "friendly":
-            closing = "Quedo pendiente.\n\nUn saludo."
-        else:
-            closing = "Quedo a tu disposición.\n\nSaludos."
+Usa este contexto para personalizar la respuesta. Respeta el tono preferido indicado.
+"""
 
-        draft = (
-            f"{greeting}\n\n"
-            f"{body_instruction}\n\n"
-            f"{closing}"
-        )
+                tone_instruction = {
+                    "formal": "Tono formal y profesional.",
+                    "friendly": "Tono cercano y amigable pero profesional.",
+                    "neutral": "Tono neutro y directo.",
+                }.get(tone, "Tono formal y profesional.")
+
+                prompt = f"""
+Redacta una respuesta de correo electrónico.
+
+{tone_instruction}
+Clara, concisa y lista para enviar.
+No añadas asunto ni encabezados extra.
+{context_block}
+CORREO ORIGINAL:
+De: {email.from_name} <{email.from_email}>
+Asunto: {email.subject}
+Contenido:
+{email.body}
+
+INSTRUCCIONES DEL USUARIO:
+{instructions or "Responde de forma apropiada al contenido del correo."}
+"""
+
+                response = await self.client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[{"role": "user", "content": prompt}],
+                    temperature=0.5,
+                    max_tokens=300,
+                )
+
+                draft = response.choices[0].message.content.strip()
+
+            except Exception as exc:
+                self.logger.error("LLM draft_reply failed: %s", exc)
+
+        # Fallback determinístico
+        if not draft:
+            greeting = f"Estimado/a {email.from_name}," if email.from_name else "Hola,"
+            body = instructions.strip() if instructions else "Gracias por tu mensaje."
+            closing = {
+                "formal": "Quedo atento/a a tu respuesta.\n\nSaludos cordiales.",
+                "friendly": "Quedo pendiente.\n\nUn saludo.",
+                "neutral": "Quedo a tu disposición.\n\nSaludos.",
+            }.get(tone, "Saludos cordiales.")
+            draft = f"{greeting}\n\n{body}\n\n{closing}"
 
         try:
             await update_executive_session(
@@ -150,14 +200,15 @@ class AIService:
 
         return [draft]
 
-    # =====================================================
-    # AUTO REPLY (IA REAL)
-    # =====================================================
+    # ======================================================
+    # AUTO REPLY
+    # ======================================================
 
     async def auto_reply(
         self,
         email: EmailEvent,
         user_id: str,
+        contact_insight: Optional[str] = None,   # ✅ NUEVO
     ) -> str:
 
         base_text = (email.body or email.snippet or "").strip()
@@ -169,21 +220,30 @@ class AIService:
 
         if self.client:
             try:
-                prompt = f"""
-            Redacta una respuesta formal, profesional y clara al siguiente correo.
-            Debe ser concisa, directa y adecuada para un entorno profesional.
-            No excesivamente larga.
-            Debe poder enviarse tal cual.
+                # ✅ Incluir contexto del contacto si existe
+                context_block = ""
+                if contact_insight:
+                    context_block = f"""
+CONTEXTO DEL CONTACTO:
+{contact_insight}
 
-            Correo:
-            {base_text}
-            """
+Personaliza la respuesta teniendo en cuenta el historial con este contacto.
+"""
+
+                prompt = f"""
+Redacta una respuesta formal, profesional y clara al siguiente correo.
+Debe ser concisa, directa y lista para enviarse tal cual.
+No excesivamente larga.
+{context_block}
+Correo:
+{base_text}
+"""
 
                 response = await self.client.chat.completions.create(
                     model="gpt-4o-mini",
                     messages=[{"role": "user", "content": prompt}],
                     temperature=0.5,
-                    max_tokens=220,
+                    max_tokens=250,
                 )
 
                 reply = response.choices[0].message.content.strip()
@@ -211,3 +271,25 @@ class AIService:
             self.logger.warning("Executive update failed: %s", e)
 
         return reply
+
+
+# ======================================================
+# GENERIC LLM RESPONSE (usado por assistant.py)
+# ======================================================
+
+async def generate_llm_response(prompt: str) -> str:
+    api_key = os.getenv("OPENAI_API_KEY")
+
+    if not api_key:
+        return "LLM no disponible (OPENAI_API_KEY no configurada)."
+
+    client = AsyncOpenAI(api_key=api_key)
+
+    response = await client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.4,
+        max_tokens=300,
+    )
+
+    return response.choices[0].message.content.strip()

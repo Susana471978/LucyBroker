@@ -5,7 +5,12 @@ export async function summarizeEmail(emailId) {
         email_id: emailId,
     });
 
-    return res.data?.data?.summary || res.data?.summary;
+    // El backend puede devolver { summary: "..." } o { data: { summary: "..." } }
+    return (
+        res.data?.data?.summary ||
+        res.data?.summary ||
+        null
+    );
 }
 
 export async function generateDraft(emailId, instructions) {
@@ -14,5 +19,10 @@ export async function generateDraft(emailId, instructions) {
         instructions,
     });
 
-    return res.data?.data?.drafts || res.data?.drafts;
+    // El backend puede devolver { drafts: [...] } o { data: { drafts: [...] } }
+    return (
+        res.data?.data?.drafts ||
+        res.data?.drafts ||
+        []
+    );
 }
