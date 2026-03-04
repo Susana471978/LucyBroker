@@ -30,8 +30,13 @@ class AIService:
         user_id: str,
     ) -> str:
 
-        base_text = (email.body or email.snippet or "").strip()
-
+        base_text = (
+            getattr(email, "body_text", None)
+            or email.body
+            or email.snippet
+            or ""
+        ).strip()
+        
         if not base_text:
             return "No se pudo generar un resumen porque el correo no contiene contenido legible."
 
@@ -43,11 +48,16 @@ class AIService:
         if self.client:
             try:
                 prompt = f"""
-            Resume el siguiente correo en un máximo de 4 frases.
-            Debe sonar natural, claro y conversacional, como si me lo estuvieras contando mientras camino escuchándolo.
-            No uses encabezados ni fórmulas repetitivas.
-            No hagas análisis ni clasificaciones.
-            Solo síntesis clara y ejecutiva.
+            Resume este correo en 3 o 4 frases cortas.
+
+            Debe sonar natural, como si me lo contaras caminando.
+            Lenguaje claro, directo y humano.
+
+            No uses encabezados.
+            No enumeraciones.
+            No análisis.
+
+            Solo síntesis clara.
 
             Correo:
             {base_text}

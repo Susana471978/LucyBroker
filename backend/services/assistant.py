@@ -44,7 +44,7 @@ class AssistantResponse(BaseModel):
 class AssistantMessageAction(BaseModel):
     mode: str
     message_content: str
-    audio_enabled: Optional[bool] = False
+    audio_enabled: Optional[bool] = True
 
 
 # =========================
@@ -188,11 +188,10 @@ async def assistant_message_endpoint(
         if payload.mode == "summarize":
 
             prompt = f"""
-Resume el siguiente correo en un máximo de 4 frases.
-Debe sonar natural, claro y conversacional, como si me lo estuvieras contando mientras camino escuchándolo.
-No uses encabezados ni fórmulas repetitivas.
-No hagas análisis ni clasificaciones.
-Solo síntesis clara y ejecutiva.
+Resume este correo como si me lo contaras mientras camino.
+Máximo 3 frases.
+Lenguaje natural.
+Nada de encabezados ni enumeraciones.
 
 Correo:
 {payload.message_content}
@@ -207,7 +206,7 @@ Correo:
             return {
                 "type": "summary",
                 "text": summary.strip(),
-                "audio": payload.audio_enabled,
+                "audio": True,
                 "timestamp": datetime.utcnow().isoformat(),
             }
 

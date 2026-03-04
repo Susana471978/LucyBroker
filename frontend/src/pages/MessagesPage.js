@@ -27,6 +27,28 @@ import Layout from '../components/Layout';
 import { fetchEmails as fetchEmailsService } from '../services/mailService';
 import { summarizeEmail, generateDraft } from '../services/aiService';
 
+
+/* ---------------- EXECUTIVE VOICE ---------------- */
+
+const speakExecutive = (text) => {
+  if (!text) return;
+
+  try {
+    // corta cualquier locución previa (evita solape)
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "es-ES";
+    utterance.rate = 0.95;
+    utterance.pitch = 1;
+
+    window.speechSynthesis.speak(utterance);
+  } catch (err) {
+    console.error("Executive voice error:", err);
+  }
+};
+
+
 /* ---------------- FILTER BUTTON ---------------- */
 
 const FilterBtn = ({ active, onClick, label, icon, highlight }) => {
@@ -47,9 +69,11 @@ const FilterBtn = ({ active, onClick, label, icon, highlight }) => {
   );
 };
 
+
 /* ---------------- MAIN PAGE ---------------- */
 
 export default function MessagesPage() {
+
   const { language } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -68,6 +92,7 @@ export default function MessagesPage() {
 
   const [draftInstructions, setDraftInstructions] = useState('');
   const [showReplyBox, setShowReplyBox] = useState(false);
+
 
   /* ---------------- FETCH EMAILS ---------------- */
 
@@ -97,9 +122,11 @@ export default function MessagesPage() {
     }
   }, [filter, attachmentsOnly]);
 
+
   useEffect(() => {
     fetchEmails();
   }, [fetchEmails]);
+
 
   /* ---------------- FILTERS ---------------- */
 
@@ -109,27 +136,61 @@ export default function MessagesPage() {
     setSearchParams({ label: newFilter });
   };
 
+
   const handleSelectEmail = (email) => {
     setSelectedEmail(email);
     setSummary(null);
     setDrafts([]);
     setDraftInstructions('');
     setShowReplyBox(false);
+
+    // si el Executive estaba hablando, lo cortamos al cambiar de email
+    try { window.speechSynthesis.cancel(); } catch (_) { }
   };
+
+
+  /* ---------------- HELPERS ---------------- */
+
+  const getPriorityIcon = (label) => {
+    if (label === 'PRIORITARIO')
+      return <AlertCircle className="w-4 h-4 text-blue-400" />;
+
+    if (label === 'SEGUIMIENTO')
+      return <Clock className="w-4 h-4 text-amber-400" />;
+
+    return <Info className="w-4 h-4 text-slate-400" />;
+  };
+
+
+  const renderEmailBody = () => {
+    const body = selectedEmail?.email?.body || "";
+
+    // Si viene texto plano: lo convertimos a HTML legible
+    if (body && !body.includes("<")) {
+      return body.replace(/\n/g, "<br/>");
+    }
+
+    return body || "<div>(Sin contenido)</div>";
+  };
+
 
   /* ---------------- AI ---------------- */
 
   const handleSummarize = async () => {
+    // Volvemos al flujo estable: summarizeEmail(id) (evita 404 /assistant/message)
     if (!selectedEmail?.email?.id) return;
 
     setSummaryLoading(true);
 
     try {
-      const result = await summarizeEmail(
-        selectedEmail.email.id
-      );
+      const result = await summarizeEmail(selectedEmail.email.id);
 
-      setSummary(result || null);
+      const summaryText = (typeof result === "string" ? result : "") || "";
+      setSummary(summaryText || null);
+
+      if (summaryText) {
+        speakExecutive("Resumen del correo. " + summaryText);
+      }
 
     } catch (error) {
       console.error('Summarize error:', error);
@@ -137,6 +198,7 @@ export default function MessagesPage() {
       setSummaryLoading(false);
     }
   };
+
 
   const handleDraftReply = async () => {
     if (!selectedEmail?.email?.id || !draftInstructions.trim()) return;
@@ -157,17 +219,6 @@ export default function MessagesPage() {
     }
   };
 
-  /* ---------------- HELPERS ---------------- */
-
-  const getPriorityIcon = (label) => {
-    if (label === 'PRIORITARIO')
-      return <AlertCircle className="w-4 h-4 text-blue-400" />;
-
-    if (label === 'SEGUIMIENTO')
-      return <Clock className="w-4 h-4 text-amber-400" />;
-
-    return <Info className="w-4 h-4 text-slate-400" />;
-  };
 
   /* ---------------- UI ---------------- */
 
@@ -262,21 +313,45 @@ export default function MessagesPage() {
                   </Button>
                 </div>
 
+                {/* CUERPO DEL EMAIL */}
                 <div className="rounded-xl p-6 overflow-auto max-h-[75vh] mb-6 bg-slate-900/70 backdrop-blur-xl border border-slate-700">
                   <div
-                    className="email-content text-slate-200"
+                    className="email-content text-slate-200 whitespace-pre-wrap leading-relaxed"
                     dangerouslySetInnerHTML={{
-                      __html: selectedEmail.email.body || '',
+                      __html: renderEmailBody(),
                     }}
                   />
                 </div>
 
+                {/* RESUMEN IA */}
                 {summary && (
-                  <div className="glass-subtle rounded-xl p-4 mb-6">
-                    <p className="text-slate-400">{summary}</p>
+                  <div className="
+                    glass-subtle 
+                    rounded-xl 
+                    p-6 
+                    mb-6
+                    border border-blue-500/20
+                    shadow-[0_0_35px_rgba(29,78,216,0.22)]
+                    sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
+                    hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
+                  ">
+
+                    <div className="flex items-center gap-2 mb-3">
+
+                      <Sparkles className="w-4 h-4 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]" />                      <p className="text-blue-400 text-sm font-medium tracking-wide">
+                        Resumen generado por Executive
+                      </p>
+
+                    </div>
+
+                    <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
+                      {summary}
+                    </p>
+
                   </div>
                 )}
 
+                {/* RESPUESTA IA */}
                 {showReplyBox && (
                   <div className="glass-subtle rounded-xl p-4">
                     <Textarea
