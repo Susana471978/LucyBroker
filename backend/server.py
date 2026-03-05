@@ -40,6 +40,9 @@ from backend.api.ai import router as ai_router
 
 from backend.api.contacts import router as contacts_router
 
+# Junto a los otros imports arriba
+from backend.api.assistant import router as assistant_router
+
 # =========================
 # STRIPE
 # =========================
@@ -143,6 +146,8 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 app.include_router(stripe_router, prefix="/api")
 
 app.include_router(contacts_router, prefix="/api")
+
+api_router.include_router(assistant_router)
 
 # ======================================================
 # AUTH HELPERS

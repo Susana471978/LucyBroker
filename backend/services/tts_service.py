@@ -1,46 +1,55 @@
+# backend/services/tts_service.py
+
+"""
+TTS Service — OpenAI Text-to-Speech
+Reemplaza ElevenLabs por OpenAI TTS (tts-1, voz nova).
+Voz natural en español, sin configuración extra — usa OPENAI_API_KEY.
+"""
+
 import os
-import requests
-
-ELEVEN_API_KEY = os.getenv("ELEVENLABS_API_KEY")
-VOICE_ID = os.getenv("ELEVENLABS_VOICE_ID")
-
-if not ELEVEN_API_KEY:
-    raise Exception("ELEVENLABS_API_KEY no configurada")
-
-if not VOICE_ID:
-    raise Exception("ELEVENLABS_VOICE_ID no configurada")
+import asyncio
 
 
 def generate_tts_audio(text: str) -> bytes:
     """
-    Genera audio usando ElevenLabs y devuelve bytes MP3.
-    Compatible con modelo v2.
+    Genera audio MP3 usando OpenAI TTS.
+    Interfaz síncrona compatible con el endpoint existente en server.py.
     """
+    api_key = os.getenv("OPENAI_API_KEY")
 
-    url = f"https://api.elevenlabs.io/v1/text-to-speech/{VOICE_ID}/stream"
+    if not api_key:
+        raise Exception("OPENAI_API_KEY no configurada")
 
-    headers = {
-        "xi-api-key": ELEVEN_API_KEY,
-        "Content-Type": "application/json",
-        "Accept": "audio/mpeg",
-    }
+    text = text.strip()
+    if not text:
+        raise Exception("Texto vacío")
 
-    payload = {
-        "text": text,
-        "model_id": "eleven_multilingual_v2",
-        "voice_settings": {
-            "stability": 0.55,
-            "similarity_boost": 0.75,
-            "style": 0.35,
-            "use_speaker_boost": True,
-        },
-    }
+    # Límite defensivo
+    if len(text) > 4096:
+        text = text[:4096]
 
-    response = requests.post(url, json=payload, headers=headers)
+    async def _generate():
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(api_key=api_key)
 
-    if response.status_code != 200:
-        raise Exception(
-            f"ElevenLabs error {response.status_code}: {response.text}"
+        response = await client.audio.speech.create(
+            model="tts-1",
+            voice="shimmer",       # voz femenina, natural en español
+            input=text,
+            speed=1.0,
         )
+        return response.content
 
-    return response.content
+    # Ejecutar async desde contexto síncrono
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            # Si hay un loop activo (FastAPI), usar run_coroutine_threadsafe
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                future = pool.submit(asyncio.run, _generate())
+                return future.result(timeout=30)
+        else:
+            return loop.run_until_complete(_generate())
+    except Exception as e:
+        raise Exception(f"OpenAI TTS error: {e}")
