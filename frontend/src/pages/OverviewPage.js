@@ -26,7 +26,6 @@ const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api
 
 /* ---------- Stat Card ---------- */
 const StatCard = ({ icon, label, value, highlight, onClick }) => {
-
   let baseClass =
     'glass-subtle bg-slate-900/40 rounded-xl p-6 text-left w-full cursor-pointer transition-all ' +
     'shadow-[0_0_35px_rgba(29,78,216,0.22)] ' +
@@ -35,8 +34,7 @@ const StatCard = ({ icon, label, value, highlight, onClick }) => {
 
   if (highlight) baseClass += 'border-blue-500/30 halo-active ';
 
-  let iconClass =
-    'w-10 h-10 rounded-lg flex items-center justify-center mb-4 ';
+  let iconClass = 'w-10 h-10 rounded-lg flex items-center justify-center mb-4 ';
   iconClass += highlight ? 'bg-blue-500/20' : 'bg-slate-700/50';
 
   return (
@@ -51,14 +49,8 @@ const StatCard = ({ icon, label, value, highlight, onClick }) => {
           {icon}
         </span>
       </div>
-
-      <p className="text-4xl font-semibold text-white mb-1">
-        {value}
-      </p>
-
-      <p className="text-sm text-slate-500">
-        {label}
-      </p>
+      <p className="text-4xl font-semibold text-white mb-1">{value}</p>
+      <p className="text-sm text-slate-500">{label}</p>
     </motion.button>
   );
 };
@@ -75,6 +67,12 @@ export default function OverviewPage() {
     speak,
     ttsEnabled,
     setTtsEnabled,
+    wakeWordEnabled,
+    setWakeWordEnabled,
+    wakeWordActive,
+    handsFreeModeActive,
+    activateHandsFreeMode,
+    lastInteraction,
     STATES
   } = useVoice();
 
@@ -115,20 +113,15 @@ export default function OverviewPage() {
 
   const sendTextCommand = async () => {
     if (!executiveInput.trim()) return;
-
     lastInputModeRef.current = "text";
 
     try {
       setExecutiveLoading(true);
-
       const res = await axios.post(
         `${API}/assistant`,
         { text: executiveInput },
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
-
       const data = res.data?.data || res.data;
       setExecutiveResponse(data.assistant_text);
       setExecutiveInput('');
@@ -154,7 +147,6 @@ export default function OverviewPage() {
 
   const fetchData = useCallback(async () => {
     if (!token) return;
-
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const emailsRes = await axios.get(`${API}/gmail/messages`, { headers });
@@ -162,14 +154,12 @@ export default function OverviewPage() {
       const list = Array.isArray(emailsData) ? emailsData : [];
 
       setEmails(list);
-
       setStats({
         total: list.length,
         prioritarios: list.filter(e => e.priority?.priority_label === 'PRIORITARIO').length,
         seguimiento: list.filter(e => e.priority?.priority_label === 'SEGUIMIENTO').length,
         with_attachments: list.filter(e => e.email?.has_attachments).length,
       });
-
     } catch (err) {
       console.error('Fetch error:', err);
       setEmails([]);
@@ -185,13 +175,11 @@ export default function OverviewPage() {
 
   useEffect(() => {
     if (!token) return;
-
     const checkGmail = async () => {
       try {
         const res = await axios.get(`${API}/gmail/status`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-
         const d = res.data?.data || res.data;
         setGmailConnected(!!d.gmail_connected);
         setGmailEmail(d.gmail_email || '');
@@ -201,7 +189,6 @@ export default function OverviewPage() {
         setGmailLoading(false);
       }
     };
-
     checkGmail();
   }, [token]);
 
@@ -210,7 +197,6 @@ export default function OverviewPage() {
       const res = await axios.get(`${API}/gmail/auth`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       const url = res.data?.data?.auth_url || res.data?.auth_url;
       if (url) window.location.href = url;
     } catch (err) {
@@ -221,17 +207,10 @@ export default function OverviewPage() {
   const handleDisconnect = async () => {
     try {
       await disconnectGmail();
-
       setGmailConnected(false);
       setGmailEmail('');
       setEmails([]);
-      setStats({
-        total: 0,
-        prioritarios: 0,
-        seguimiento: 0,
-        with_attachments: 0,
-      });
-
+      setStats({ total: 0, prioritarios: 0, seguimiento: 0, with_attachments: 0 });
     } catch (err) {
       console.error("Disconnect error", err);
     }
@@ -265,12 +244,7 @@ export default function OverviewPage() {
                     <span className="text-blue-400">{gmailEmail}</span>
                   </span>
                 </div>
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDisconnect}
-                >
+                <Button variant="outline" size="sm" onClick={handleDisconnect}>
                   Desconectar
                 </Button>
               </div>
@@ -322,72 +296,86 @@ export default function OverviewPage() {
             </div>
 
             <div className="glass-premium rounded-2xl p-8 border border-blue-500/20 mt-6
-              shadow-[0_0_60px_rgba(29,78,216,0.15)]
-              transition-all">
-              <div className="flex flex-col gap-8">
+              shadow-[0_0_60px_rgba(29,78,216,0.15)] transition-all">
+              <div className="flex flex-col gap-6">
 
-                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                  <div>
-                    <h3 className="text-xl font-semibold text-white mb-3">
-                      SyntexIA Executive
-                    </h3>
-                    <p className="text-sm text-slate-400 leading-relaxed max-w-md">
-                      Controla tu bandeja mediante voz o texto.
-                      Filtra mensajes, navega entre correos y ejecuta acciones
-                      sin interrumpir tu flujo de trabajo.
-                    </p>
-                  </div>
-
+                {/* HEADER */}
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Button
-                      variant="outline"
-                      onClick={() => setTtsEnabled(prev => !prev)}
-                      className="border-slate-600 text-slate-300 hover:bg-slate-700 px-3"
-                    >
-                      {ttsEnabled ? (
-                        <Volume2 className="w-4 h-4" />
-                      ) : (
-                        <VolumeX className="w-4 h-4" />
-                      )}
-                    </Button>
-
-                    <Button
-                      onClick={handleExecutiveClick}
-                      disabled={isProcessing}
-                      className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-6 py-3 shadow-[0_0_20px_rgba(59,130,246,0.35)] hover:shadow-[0_0_30px_rgba(59,130,246,0.5)] transition-all duration-300"
-                    >
-                      <Mic className="w-4 h-4" />
-                      {executiveLabel}
-                    </Button>
+                    <h3 className="text-xl font-semibold text-white">Lucy</h3>
+                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all duration-300 ${wakeWordActive
+                        ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
+                        : wakeWordEnabled
+                          ? 'bg-slate-800 text-slate-500 border-slate-700'
+                          : 'bg-slate-900 text-slate-600 border-slate-800'
+                      }`}>
+                      <div className={`w-1.5 h-1.5 rounded-full ${wakeWordActive ? 'bg-blue-400 animate-pulse' : wakeWordEnabled ? 'bg-slate-500' : 'bg-slate-700'
+                        }`} />
+                      {wakeWordActive ? 'Escuchando...' : wakeWordEnabled ? 'Di "Hola Lucy"' : 'Voz desactivada'}
+                    </div>
                   </div>
-                </div>
-
-                <div className="flex gap-3">
-                  <input
-                    type="text"
-                    value={executiveInput}
-                    onChange={(e) => setExecutiveInput(e.target.value)}
-                    placeholder="Escribe un comando..."
-                    className="flex-1 bg-slate-800/60 border border-slate-700 rounded-xl px-4 py-3 text-slate-200 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/40"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') sendTextCommand();
-                    }}
-                  />
 
                   <Button
-                    onClick={sendTextCommand}
-                    disabled={executiveLoading}
-                    className="bg-slate-700 hover:bg-slate-600 text-white"
+                    variant="outline"
+                    onClick={() => setTtsEnabled(prev => !prev)}
+                    className="border-slate-700 text-slate-400 hover:bg-slate-800 px-3"
+                    title={ttsEnabled ? 'Desactivar voz' : 'Activar voz'}
                   >
-                    {executiveLoading ? "..." : "Enviar"}
+                    {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                   </Button>
                 </div>
 
-                {executiveResponse && (
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 text-slate-200 text-sm">
-                    {executiveResponse}
+                <p className="text-sm text-slate-400 -mt-2">
+                  Tu asistente ejecutiva de correo. Elige cómo quieres trabajar hoy.
+                </p>
+
+                {/* SELECTOR DE MODO */}
+                <div className="grid grid-cols-2 gap-4">
+
+                  <button
+                    onClick={handsFreeModeActive ? cancel : undefined}
+                    className={`rounded-xl p-5 text-left border transition-all duration-300 ${!handsFreeModeActive
+                        ? 'bg-blue-600/15 border-blue-500/40 shadow-[0_0_20px_rgba(59,130,246,0.15)]'
+                        : 'bg-slate-800/40 border-slate-700 hover:border-slate-600 cursor-pointer'
+                      }`}
+                  >
+                    <div className="text-2xl mb-3">🖥️</div>
+                    <p className="text-sm font-medium text-white mb-1">Modo Escritorio</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Usa los botones de la app. Resume y responde correos con un clic.
+                    </p>
+                    {!handsFreeModeActive && (
+                      <div className="mt-3 text-xs text-blue-400 font-medium">● Activo</div>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
+                    className={`rounded-xl p-5 text-left border transition-all duration-300 ${handsFreeModeActive
+                        ? 'bg-emerald-600/15 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
+                        : 'bg-slate-800/40 border-slate-700 hover:border-slate-600 cursor-pointer'
+                      }`}
+                  >
+                    <div className="text-2xl mb-3">🎧</div>
+                    <p className="text-sm font-medium text-white mb-1">Manos Libres</p>
+                    <p className="text-xs text-slate-400 leading-relaxed">
+                      Lucy te lee la bandeja en voz alta. Ideal para el coche o mientras corres.
+                    </p>
+                    {handsFreeModeActive && (
+                      <div className="mt-3 text-xs text-emerald-400 font-medium animate-pulse">● Activo — di "para" para salir</div>
+                    )}
+                  </button>
+
+                </div>
+
+                {/* RESPUESTA DE LUCY */}
+                {lastInteraction && (
+                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-300 text-sm leading-relaxed">
+                    <span className="text-slate-500 text-xs block mb-1">Lucy</span>
+                    {lastInteraction}
                   </div>
                 )}
+
               </div>
             </div>
           </>
