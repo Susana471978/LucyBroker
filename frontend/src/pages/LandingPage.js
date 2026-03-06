@@ -1,352 +1,493 @@
-import { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import axios from 'axios';
-import {
-  Sparkles,
-  Zap,
-  Shield,
-  Target,
-  LayoutDashboard,
-  Loader2,
-  CreditCard,
-  CheckCircle,
-  ArrowRight,
-  LogOut,
-} from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { motion } from 'framer-motion';
-
-import LandingVideoBackground from "../components/backgrounds/LandingVideoBackground";
-
-const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
-
-/* ───────── Animation helpers ───────── */
-const fadeUp = {
-  hidden: { opacity: 0, y: 30 },
-  visible: (i = 0) => ({
-    opacity: 1,
-    y: 0,
-    transition: { delay: i * 0.12, duration: 0.5, ease: 'easeOut' },
-  }),
-};
-
-/* ───────── How-it-works card ───────── */
-const StepCard = ({ icon, title, text, index }) => (
-  <motion.div
-    custom={index}
-    variants={fadeUp}
-    initial="hidden"
-    whileInView="visible"
-    viewport={{ once: true, amount: 0.3 }}
-    className="
-      glass-subtle
-      rounded-2xl
-      p-6
-      flex
-      flex-col
-      items-start
-      gap-4
-      shadow-[0_0_35px_rgba(29,78,216,0.22)]
-      sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
-      hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
-      transition-all
-      duration-500
-    "
-  >
-    <div className="w-12 h-12 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-      <span className="text-blue-400">{icon}</span>
-    </div>
-    <h3 className="text-lg font-semibold text-slate-100">{title}</h3>
-    <p className="text-sm text-slate-400 leading-relaxed">{text}</p>
-  </motion.div>
-);
-
-/* ───────── Benefit row ───────── */
-const Benefit = ({ text }) => (
-  <div className="flex items-start gap-3">
-    <CheckCircle className="w-5 h-5 text-emerald-400 mt-0.5 shrink-0" />
-    <span className="text-slate-300 text-sm">{text}</span>
-  </div>
-);
+import { useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 export default function LandingPage() {
-  const { token, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const cursorRef = useRef(null);
+  const ringRef = useRef(null);
+  const mxRef = useRef(0);
+  const myRef = useRef(0);
+  const rxRef = useRef(0);
+  const ryRef = useRef(0);
+  const rafRef = useRef(null);
 
   useEffect(() => {
-    if (location.hash) {
-      const el = document.querySelector(location.hash);
-      if (el) el.scrollIntoView({ behavior: 'smooth' });
-    }
-  }, [location.hash]);
+    const cursor = cursorRef.current;
+    const ring = ringRef.current;
+    if (!cursor || !ring) return;
 
-  const startCheckout = async () => {
-    if (!token) {
-      navigate('/auth');
-      return;
-    }
+    const onMove = (e) => {
+      mxRef.current = e.clientX;
+      myRef.current = e.clientY;
+      cursor.style.left = (e.clientX - 4) + 'px';
+      cursor.style.top = (e.clientY - 4) + 'px';
+    };
 
-    setCheckoutLoading(true);
-    try {
-      const res = await axios.post(
-        `${API}/billing/checkout?plan=monthly`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    const animateRing = () => {
+      rxRef.current += (mxRef.current - rxRef.current - 16) * 0.12;
+      ryRef.current += (myRef.current - ryRef.current - 16) * 0.12;
+      ring.style.left = rxRef.current + 'px';
+      ring.style.top = ryRef.current + 'px';
+      rafRef.current = requestAnimationFrame(animateRing);
+    };
 
-      const checkoutUrl =
-        res.data?.data?.checkout_url ||
-        res.data?.checkout_url;
+    document.addEventListener('mousemove', onMove);
+    rafRef.current = requestAnimationFrame(animateRing);
 
-      if (checkoutUrl) {
-        window.location.assign(checkoutUrl);
-      }
-    } catch (err) {
-      console.error('Stripe checkout error:', err.response?.data || err);
-      alert('Error conectando con Stripe');
-    } finally {
-      setCheckoutLoading(false);
-    }
-  };
+    const interactables = document.querySelectorAll('a, button, .nav-cta-btn, .btn-primary-react, .pricing-btn-react');
+    interactables.forEach(el => {
+      el.addEventListener('mouseenter', () => {
+        cursor.style.transform = 'scale(2.5)';
+        ring.style.transform = 'scale(1.5)';
+        ring.style.borderColor = 'rgba(196,163,90,0.8)';
+      });
+      el.addEventListener('mouseleave', () => {
+        cursor.style.transform = 'scale(1)';
+        ring.style.transform = 'scale(1)';
+        ring.style.borderColor = 'rgba(196,163,90,0.4)';
+      });
+    });
 
-  const CtaButton = ({ className = '' }) => (
-    <Button
-      onClick={startCheckout}
-      disabled={checkoutLoading}
-      className={`bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-6 py-3 text-base font-semibold ${className}`}
-    >
-      {checkoutLoading ? (
-        <Loader2 className="w-5 h-5 animate-spin" />
-      ) : (
-        <CreditCard className="w-5 h-5" />
-      )}
-      Activar suscripción
-    </Button>
-  );
+    // Intersection observer for scroll animations
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          e.target.style.opacity = '1';
+          e.target.style.transform = 'translateY(0)';
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('.feature-card, blockquote, .pricing-card').forEach(el => {
+      el.style.opacity = '0';
+      el.style.transform = 'translateY(20px)';
+      el.style.transition = 'opacity 0.7s ease, transform 0.7s ease';
+      observer.observe(el);
+    });
+
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      cancelAnimationFrame(rafRef.current);
+      observer.disconnect();
+    };
+  }, []);
 
   return (
-    <div className="relative min-h-screen overflow-hidden">
-      {/* NAVBAR */}
-      <header className="absolute top-6 left-0 w-full z-50">
-        <div className="relative max-w-7xl mx-auto px-6 flex items-center justify-end py-6 pointer-events-auto">
-          {isAuthenticated ? (
-            <>
-              <Button
-                variant="ghost"
-                onClick={() => navigate('/app')}
-                className="text-slate-300 hover:text-white gap-2 text-base font-medium"
-              >
-                <LayoutDashboard className="w-5 h-5" />
-                Mi cuenta
-              </Button>
+    <>
+      {/* Custom cursor */}
+      <div ref={cursorRef} className="lp-cursor" />
+      <div ref={ringRef} className="lp-cursor-ring" />
 
-              <Button
-                variant="ghost"
-                onClick={() => { logout(); navigate('/auth'); }}
-                className="text-slate-400 hover:text-red-400 gap-2 text-base font-medium"
-              >
-                <LogOut className="w-5 h-5" />
-                Cerrar sesión
-              </Button>
-            </>
-          ) : (
-            <Button
-              variant="ghost"
-              onClick={() => navigate('/auth')}
-              className="text-white hover:text-slate-200 gap-2 text-base font-medium"
-            >
-              Iniciar sesión
-              <ArrowRight className="w-5 h-5" />
-            </Button>
-          )}
-        </div>
-      </header>
+      <style>{`
+        /* ── Reset & base ── */
+        .lp-wrap * { margin: 0; padding: 0; box-sizing: border-box; }
+        .lp-wrap {
+          --black: #060608;
+          --deep: #0A0A10;
+          --surface: #0F0F18;
+          --gold: #C4A35A;
+          --gold-light: #D4B878;
+          --gold-dim: rgba(196,163,90,0.15);
+          --white: #F0EDE8;
+          --white-dim: rgba(240,237,232,0.55);
+          --white-faint: rgba(240,237,232,0.08);
+          background: var(--black);
+          color: var(--white);
+          font-family: 'DM Sans', sans-serif;
+          font-weight: 300;
+          overflow-x: hidden;
+          cursor: none;
+          min-height: 100vh;
+        }
 
-      {/* HERO */}
-      <section className="
-                relative
-                w-full
-                min-h-[110vh]
-                flex
-                items-center
-                justify-center
-                overflow-hidden
-              ">
-        <LandingVideoBackground />
+        /* ── Cursor ── */
+        .lp-cursor {
+          position: fixed; width: 8px; height: 8px;
+          background: #C4A35A; border-radius: 50%;
+          pointer-events: none; z-index: 9999;
+          transition: transform 0.15s ease;
+          mix-blend-mode: difference;
+        }
+        .lp-cursor-ring {
+          position: fixed; width: 32px; height: 32px;
+          border: 1px solid rgba(196,163,90,0.4); border-radius: 50%;
+          pointer-events: none; z-index: 9998;
+          transition: border-color 0.3s, transform 0.3s;
+        }
 
-        <div className="relative z-10 text-center max-w-4xl mx-auto px-6">
-          <motion.div variants={fadeUp} initial="hidden" animate="visible">
-            <h1 className="text-5xl sm:text-7xl font-semibold tracking-tight leading-tight mb-8 text-white drop-shadow-[0_4px_24px_rgba(0,0,0,0.6)]">
-              Email Control System
-            </h1>
-            <p className="text-lg sm:text-xl text-slate-450 ax-w-2xl mx-auto mb-10 leading-relaxed">
-              Reduce el ruido, identifica lo importante y toma decisiones más rápido.
-              Un sistema inteligente que clasifica, prioriza y te asiste con IA.
-            </p>
-          </motion.div>
-        </div>
-      </section >
+        /* ── Noise overlay ── */
+        .lp-wrap::before {
+          content: '';
+          position: fixed; inset: 0;
+          background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+          pointer-events: none; z-index: 1000; opacity: 0.35;
+        }
 
-      {/* CÓMO FUNCIONA */}
-      < section className="relative z-10 max-w-5xl mx-auto px-6 pt-8 pb-20" >
-        <motion.h2
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true, amount: 0.3 }}
-          className="text-2xl sm:text-3xl font-bold text-slate-100 text-center mb-12"
-        >
-          Cómo funciona
-        </motion.h2>
+        /* ── Nav ── */
+        .lp-nav {
+          position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+          padding: 2rem 4rem;
+          display: flex; align-items: center; justify-content: space-between;
+          background: linear-gradient(to bottom, rgba(6,6,8,0.97), transparent);
+        }
+        .lp-logo {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 1.5rem; font-weight: 300; letter-spacing: 0.15em;
+          color: #F0EDE8; cursor: pointer;
+        }
+        .lp-logo span { color: #C4A35A; }
+        .lp-nav-links { display: flex; align-items: center; gap: 3rem; list-style: none; }
+        .lp-nav-links a {
+          text-decoration: none; font-size: 0.78rem;
+          letter-spacing: 0.12em; text-transform: uppercase;
+          color: rgba(240,237,232,0.55); transition: color 0.3s; cursor: none;
+        }
+        .lp-nav-links a:hover { color: #C4A35A; }
+        .lp-nav-cta {
+          padding: 0.6rem 1.8rem !important;
+          border: 1px solid rgba(196,163,90,0.4) !important;
+          color: #C4A35A !important;
+          background: transparent;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 0.78rem; letter-spacing: 0.12em; text-transform: uppercase;
+          cursor: none; transition: all 0.3s;
+        }
+        .lp-nav-cta:hover { background: rgba(196,163,90,0.15) !important; border-color: #C4A35A !important; }
 
-        <div className="grid md:grid-cols-3 gap-6">
-          <StepCard
-            index={0}
-            icon={<Sparkles className="w-6 h-6" />}
-            title="Clasificación inteligente"
-            text="Analiza cada correo y lo clasifica automáticamente por urgencia, tipo y contexto. Sin reglas manuales."
-          />
-          <StepCard
-            index={1}
-            icon={<Target className="w-6 h-6" />}
-            title="Prioridades reales"
-            text="Identifica qué necesita acción inmediata y qué puede esperar. Tú decides, no tu bandeja."
-          />
-          <StepCard
-            index={2}
-            icon={<Zap className="w-6 h-6" />}
-            title="Asistente IA"
-            text="Pregunta lo que necesites: busca correos, resume hilos, filtra por remitente. En lenguaje natural."
-          />
-        </div>
-      </section >
+        /* ── Hero ── */
+        .lp-hero {
+          min-height: 100vh;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+          text-align: center; padding: 8rem 2rem 6rem;
+          position: relative; overflow: hidden;
+        }
+        .lp-hero::after {
+          content: ''; position: absolute;
+          top: 50%; left: 50%; transform: translate(-50%,-50%);
+          width: 700px; height: 700px;
+          background: radial-gradient(ellipse, rgba(196,163,90,0.05) 0%, transparent 70%);
+          pointer-events: none;
+        }
+        .lp-eyebrow {
+          font-size: 0.72rem; letter-spacing: 0.25em; text-transform: uppercase;
+          color: #C4A35A; margin-bottom: 2.5rem;
+          opacity: 0; animation: lp-fadeUp 0.8s ease 0.2s forwards;
+        }
+        .lp-h1 {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: clamp(4.5rem, 12vw, 10rem);
+          font-weight: 300; line-height: 0.9; letter-spacing: -0.02em;
+          color: #F0EDE8;
+          opacity: 0; animation: lp-fadeUp 0.9s ease 0.35s forwards;
+        }
+        .lp-h1 em { font-style: italic; color: #D4B878; }
+        .lp-subtitle {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: clamp(1.2rem, 2.5vw, 1.8rem);
+          font-weight: 300; font-style: italic;
+          color: rgba(240,237,232,0.55);
+          margin-top: 1.8rem; margin-bottom: 4rem;
+          opacity: 0; animation: lp-fadeUp 0.9s ease 0.5s forwards;
+        }
+        .lp-actions {
+          display: flex; gap: 1.5rem; align-items: center;
+          opacity: 0; animation: lp-fadeUp 0.9s ease 0.65s forwards;
+        }
+        .lp-btn-primary {
+          padding: 1rem 3rem;
+          background: #C4A35A; color: #060608;
+          font-family: 'DM Sans', sans-serif;
+          font-size: 0.8rem; font-weight: 500;
+          letter-spacing: 0.1em; text-transform: uppercase;
+          border: none; cursor: none; transition: all 0.3s ease;
+        }
+        .lp-btn-primary:hover {
+          background: #D4B878; transform: translateY(-2px);
+          box-shadow: 0 8px 32px rgba(196,163,90,0.3);
+        }
+        .lp-btn-secondary {
+          font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase;
+          color: rgba(240,237,232,0.55); background: none; border: none;
+          display: flex; align-items: center; gap: 0.5rem;
+          transition: color 0.3s; cursor: none;
+        }
+        .lp-btn-secondary:hover { color: #F0EDE8; }
+        .lp-btn-secondary::after { content: '→'; }
 
-      {/* ─── DEMO ─── */}
-      < section className="relative z-10 max-w-3xl mx-auto px-6 py-20" >
-        <motion.div
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          className="glass-premium rounded-2xl p-10 text-center"
-        >
-          <h2 className="text-2xl sm:text-3xl font-bold text-slate-100 mb-3">
-            Pruébalo en acción
-          </h2>
-          <p className="text-slate-400 max-w-lg mx-auto mb-8 leading-relaxed">
-            Explora una bandeja de ejemplo y entiende cómo Email Control toma el control por ti.
-          </p>
+        /* ── Scroll indicator ── */
+        .lp-scroll {
+          position: absolute; bottom: 3rem; left: 50%; transform: translateX(-50%);
+          display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+          opacity: 0; animation: lp-fadeUp 1s ease 1.2s forwards;
+        }
+        .lp-scroll span { font-size: 0.6rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(240,237,232,0.55); }
+        .lp-scroll-line {
+          width: 1px; height: 40px;
+          background: linear-gradient(to bottom, #C4A35A, transparent);
+          animation: lp-scroll-anim 2s ease infinite;
+        }
 
-          <Button
-            onClick={() => navigate(isAuthenticated ? '/app' : '/auth')}
-            className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2 px-6 py-3 text-base font-semibold mx-auto"
-          >
-            Entrar en la demo
-            <ArrowRight className="w-5 h-5" />
-          </Button>
+        /* ── Wave line ── */
+        .lp-wave { width: 1px; height: 100px; background: linear-gradient(to bottom, transparent, rgba(196,163,90,0.4), transparent); margin: 0 auto; }
 
-          <p className="text-xs text-slate-500 mt-4">Sin tarjeta · Sin compromiso</p>
-        </motion.div>
-      </section >
+        /* ── Section label ── */
+        .lp-section-label { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: #C4A35A; text-align: center; }
 
-      {/* ─── BENEFICIOS ─── */}
-      < section className="relative z-10 max-w-3xl mx-auto px-6 py-20" >
-        <motion.h2
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          className="text-2xl sm:text-3xl font-bold text-slate-100 text-center mb-12"
-        >
-          Lo que cambia para ti
-        </motion.h2>
+        /* ── Voice demo ── */
+        .lp-voice { padding: 8rem 4rem; display: flex; flex-direction: column; align-items: center; gap: 5rem; }
+        .lp-voice-circle { position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; }
+        .lp-voice-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(196,163,90,0.2); animation: lp-pulse 3s ease infinite; }
+        .lp-voice-ring:nth-child(1) { width: 100%; height: 100%; }
+        .lp-voice-ring:nth-child(2) { width: 70%; height: 70%; animation-delay: 0.6s; border-color: rgba(196,163,90,0.35); }
+        .lp-voice-ring:nth-child(3) { width: 42%; height: 42%; animation-delay: 1.2s; border-color: rgba(196,163,90,0.55); }
+        .lp-voice-center {
+          width: 56px; height: 56px;
+          background: rgba(196,163,90,0.15);
+          border: 1px solid rgba(196,163,90,0.5); border-radius: 50%;
+          display: flex; align-items: center; justify-content: center; z-index: 1;
+        }
+        .lp-voice-center svg { width: 20px; height: 20px; color: #C4A35A; }
+        .lp-conversation { max-width: 580px; width: 100%; display: flex; flex-direction: column; gap: 1.5rem; }
+        .lp-msg { display: flex; flex-direction: column; gap: 0.4rem; opacity: 0; transform: translateY(10px); animation: lp-fadeUp 0.6s ease forwards; }
+        .lp-msg:nth-child(1) { animation-delay: 0.3s; }
+        .lp-msg:nth-child(2) { animation-delay: 1s; }
+        .lp-msg:nth-child(3) { animation-delay: 1.8s; }
+        .lp-msg:nth-child(4) { animation-delay: 2.6s; }
+        .lp-msg-who { font-size: 0.65rem; letter-spacing: 0.2em; text-transform: uppercase; color: rgba(240,237,232,0.55); }
+        .lp-msg-who.lucy { color: #C4A35A; }
+        .lp-msg-text {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 1.3rem; font-weight: 300; line-height: 1.5; color: #F0EDE8;
+          padding: 1.2rem 1.8rem;
+          border-left: 1px solid rgba(240,237,232,0.08);
+        }
+        .lp-msg-lucy { border-left-color: rgba(196,163,90,0.35); background: linear-gradient(to right, rgba(196,163,90,0.04), transparent); }
 
-        <motion.div
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          className="
-            glass-subtle
-            rounded-2xl
-            p-6
-            flex
-            flex-col
-            items-start
-            gap-4
-            shadow-[0_0_35px_rgba(29,78,216,0.22)]
-            sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
-            hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
-            transition-all
-            duration-500
-          "
-        >
-          <Benefit text="Menos ruido: solo ves lo que importa" />
-          <Benefit text="Más foco: prioridades claras cada mañana" />
-          <Benefit text="Decisiones rápidas: contexto al instante" />
-          <Benefit text="Un solo panel: todo tu correo, organizado" />
-        </motion.div>
-      </section >
+        /* ── Features ── */
+        .lp-features { padding: 8rem 4rem; max-width: 1200px; margin: 0 auto; }
+        .lp-features-header { text-align: center; margin-bottom: 5rem; }
+        .lp-features-header h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.5rem, 5vw, 4.5rem); font-weight: 300; line-height: 1.1; margin-top: 1.5rem; }
+        .lp-features-header h2 em { font-style: italic; color: #D4B878; }
+        .lp-features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: rgba(240,237,232,0.08); }
+        .feature-card { background: #060608; padding: 3rem 2.5rem; position: relative; overflow: hidden; transition: background 0.4s; }
+        .feature-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 1px; background: linear-gradient(to right, transparent, #C4A35A, transparent); opacity: 0; transition: opacity 0.4s; }
+        .feature-card:hover { background: #0F0F18; }
+        .feature-card:hover::after { opacity: 1; }
+        .lp-feature-num { font-family: 'Cormorant Garamond', serif; font-size: 3.5rem; font-weight: 300; color: rgba(240,237,232,0.08); line-height: 1; margin-bottom: 2rem; transition: color 0.4s; }
+        .feature-card:hover .lp-feature-num { color: rgba(196,163,90,0.15); }
+        .lp-feature-title { font-size: 0.82rem; letter-spacing: 0.1em; text-transform: uppercase; color: #F0EDE8; margin-bottom: 1rem; font-weight: 500; }
+        .lp-feature-desc { font-size: 0.88rem; line-height: 1.75; color: rgba(240,237,232,0.55); }
 
-      {/* ─── PRECIO ─── */}
-      < section id="pricing" className="relative z-10 max-w-xl mx-auto px-6 py-20 text-center" >
-        <motion.div
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          className="
-            glass-premium
-            rounded-2xl
-            p-10
-            shadow-[0_0_35px_rgba(29,78,216,0.22)]
-            sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
-            hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
-            transition-all
-            duration-500
-          "
-        >
-          <h2 className="text-2xl font-bold text-slate-100 mb-2">
-            Plan mensual
-          </h2>
+        /* ── Quote ── */
+        .lp-quote { padding: 10rem 4rem; text-align: center; position: relative; }
+        .lp-quote::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 800px; height: 400px; background: radial-gradient(ellipse, rgba(196,163,90,0.04) 0%, transparent 70%); }
+        .lp-quote-mark { font-family: 'Cormorant Garamond', serif; font-size: 8rem; line-height: 0.5; color: #C4A35A; opacity: 0.25; display: block; margin-bottom: 2rem; }
+        .lp-quote blockquote { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.8rem, 4vw, 3rem); font-weight: 300; font-style: italic; line-height: 1.4; color: #F0EDE8; max-width: 860px; margin: 0 auto; position: relative; z-index: 1; }
+        .lp-gold-line { width: 40px; height: 1px; background: #C4A35A; margin: 3rem auto 0; opacity: 0.5; }
 
-          <p className="text-5xl font-bold text-gradient mb-1">
-            19 €
-          </p>
+        /* ── Pricing ── */
+        .lp-pricing { padding: 8rem 4rem; max-width: 860px; margin: 0 auto; text-align: center; }
+        .lp-pricing h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.5rem, 5vw, 4rem); font-weight: 300; margin: 1.5rem 0 5rem; }
+        .lp-pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(240,237,232,0.08); }
+        .pricing-card { background: #060608; padding: 3.5rem 3rem; text-align: left; }
+        .pricing-card.featured { background: #0F0F18; position: relative; }
+        .pricing-card.featured::before { content: 'Recomendado'; position: absolute; top: 0; left: 50%; transform: translateX(-50%) translateY(-50%); background: #C4A35A; color: #060608; font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.3rem 1rem; font-weight: 500; }
+        .lp-pricing-name { font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase; color: #C4A35A; margin-bottom: 1.5rem; }
+        .lp-pricing-price { font-family: 'Cormorant Garamond', serif; font-size: 4.5rem; font-weight: 300; line-height: 1; color: #F0EDE8; margin-bottom: 0.4rem; }
+        .lp-pricing-price span { font-size: 1.3rem; color: rgba(240,237,232,0.55); }
+        .lp-pricing-period { font-size: 0.78rem; color: rgba(240,237,232,0.55); margin-bottom: 2.5rem; }
+        .lp-pricing-features { list-style: none; display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 2.5rem; }
+        .lp-pricing-features li { font-size: 0.85rem; color: rgba(240,237,232,0.55); display: flex; align-items: center; gap: 0.75rem; }
+        .lp-pricing-features li::before { content: '—'; color: #C4A35A; opacity: 0.5; flex-shrink: 0; }
+        .lp-pricing-btn { display: block; width: 100%; padding: 0.9rem; text-align: center; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; background: none; border: 1px solid rgba(196,163,90,0.25); color: rgba(240,237,232,0.55); transition: all 0.3s; cursor: none; font-family: 'DM Sans', sans-serif; }
+        .lp-pricing-btn:hover, .pricing-card.featured .lp-pricing-btn { background: #C4A35A; border-color: #C4A35A; color: #060608; }
 
-          <p className="text-slate-400 mb-8">
-            / mes · sin compromiso
-          </p>
+        /* ── CTA ── */
+        .lp-cta { padding: 10rem 4rem; text-align: center; border-top: 1px solid rgba(240,237,232,0.08); }
+        .lp-cta h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(3rem, 7vw, 6.5rem); font-weight: 300; line-height: 1; margin: 1.5rem 0 2rem; }
+        .lp-cta h2 em { font-style: italic; color: #D4B878; }
+        .lp-cta p { font-size: 0.95rem; color: rgba(240,237,232,0.55); margin-bottom: 3.5rem; max-width: 460px; margin-left: auto; margin-right: auto; line-height: 1.8; }
 
-          <ul className="text-left max-w-xs mx-auto space-y-3 mb-8">
-            <Benefit text="Clasificación automática ilimitada" />
-            <Benefit text="Priorización inteligente" />
-            <Benefit text="Asistente IA incluido" />
-            <Benefit text="Soporte por email" />
+        /* ── Footer ── */
+        .lp-footer { padding: 3rem 4rem; border-top: 1px solid rgba(240,237,232,0.08); display: flex; align-items: center; justify-content: space-between; }
+        .lp-footer-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; font-weight: 300; letter-spacing: 0.15em; color: rgba(240,237,232,0.55); }
+        .lp-footer-logo span { color: #C4A35A; }
+        .lp-footer p { font-size: 0.72rem; color: rgba(240,237,232,0.25); letter-spacing: 0.05em; }
+
+        /* ── Animations ── */
+        @keyframes lp-fadeUp { to { opacity: 1; transform: translateY(0); } }
+        @keyframes lp-pulse { 0%,100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.05); opacity: 0.25; } }
+        @keyframes lp-scroll-anim { 0% { transform: scaleY(0); transform-origin: top; } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+
+        /* ── Responsive ── */
+        @media (max-width: 768px) {
+          .lp-nav { padding: 1.5rem 2rem; }
+          .lp-nav-links { display: none; }
+          .lp-features-grid, .lp-pricing-grid { grid-template-columns: 1fr; }
+          .lp-features, .lp-voice, .lp-pricing, .lp-quote, .lp-cta { padding: 5rem 2rem; }
+          .lp-footer { flex-direction: column; gap: 1rem; text-align: center; }
+        }
+      `}</style>
+
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+
+      <div className="lp-wrap">
+
+        {/* Nav */}
+        <nav className="lp-nav">
+          <div className="lp-logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
+            Lucy<span>.</span>
+          </div>
+          <ul className="lp-nav-links">
+            <li><a href="#features">Funciones</a></li>
+            <li><a href="#pricing">Precios</a></li>
+            <li>
+              <button className="lp-nav-cta" onClick={() => navigate('/auth')}>
+                Acceder
+              </button>
+            </li>
           </ul>
+        </nav>
 
-          <CtaButton className="w-full justify-center" />
-        </motion.div>
-      </section >
+        {/* Hero */}
+        <section className="lp-hero">
+          <p className="lp-eyebrow">Secretaria ejecutiva con inteligencia artificial</p>
+          <h1 className="lp-h1">Hola,<br />soy <em>Lucy.</em></h1>
+          <p className="lp-subtitle">Tu día, ordenado. Tu mente, libre.</p>
+          <div className="lp-actions">
+            <button className="lp-btn-primary" onClick={() => navigate('/auth')}>
+              Comenzar ahora
+            </button>
+            <button className="lp-btn-secondary" onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}>
+              Ver cómo funciona
+            </button>
+          </div>
+          <div className="lp-scroll">
+            <span>Descubrir</span>
+            <div className="lp-scroll-line" />
+          </div>
+        </section>
 
-      {/* ─── CIERRE ─── */}
-      < section className="relative z-10 max-w-3xl mx-auto px-6 pt-10 pb-20 text-center" >
-        <motion.div
-          variants={fadeUp}
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
-          <Shield className="w-8 h-8 text-slate-500 mx-auto mb-4" />
-          <p className="text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
-            Tus datos están protegidos. No almacenamos contenido de correos.
-            Cancela cuando quieras sin preguntas.
-          </p>
-        </motion.div>
-      </section >
-    </div >
+        <div className="lp-wave" />
+
+        {/* Voice demo */}
+        <section className="lp-voice" id="demo">
+          <p className="lp-section-label">Experiencia de voz</p>
+          <div className="lp-voice-circle">
+            <div className="lp-voice-ring" />
+            <div className="lp-voice-ring" />
+            <div className="lp-voice-ring" />
+            <div className="lp-voice-center">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
+                <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
+              </svg>
+            </div>
+          </div>
+          <div className="lp-conversation">
+            <div className="lp-msg">
+              <span className="lp-msg-who">Tú</span>
+              <div className="lp-msg-text">"Lucy, buenos días."</div>
+            </div>
+            <div className="lp-msg">
+              <span className="lp-msg-who lucy">Lucy</span>
+              <div className="lp-msg-text lp-msg-lucy">"Buenos días, Susana. Tienes 18 correos nuevos. 3 requieren respuesta urgente. Hoy tienes dos reuniones: a las 11 con Sara y a las 17 con Pedro. ¿Empezamos?"</div>
+            </div>
+            <div className="lp-msg">
+              <span className="lp-msg-who">Tú</span>
+              <div className="lp-msg-text">"Sí. Y responde a Pedro confirmando la reunión."</div>
+            </div>
+            <div className="lp-msg">
+              <span className="lp-msg-who lucy">Lucy</span>
+              <div className="lp-msg-text lp-msg-lucy">"Hecho. Respuesta enviada. Primer correo prioritario: de Sara García — propuesta de colaboración para el primer trimestre..."</div>
+            </div>
+          </div>
+        </section>
+
+        <div className="lp-wave" />
+
+        {/* Features */}
+        <section className="lp-features" id="features">
+          <div className="lp-features-header">
+            <p className="lp-section-label">Capacidades</p>
+            <h2>Todo lo que necesitas.<br /><em>Nada que no necesitas.</em></h2>
+          </div>
+          <div className="lp-features-grid">
+            {[
+              ['01', 'Briefing Matutino', 'Cada mañana, Lucy te resume lo esencial: correos, reuniones y alertas. Sin abrir el ordenador.'],
+              ['02', 'Correo Inteligente', 'Lee, resume, prioriza y responde correos por voz. Lucy aprende tu estilo y lo replica.'],
+              ['03', 'Gestión de Agenda', 'Crea, mueve y cancela reuniones. Lucy sincroniza con tu calendario y avisa con tiempo.'],
+              ['04', 'Memoria Relacional', 'Lucy recuerda quién es importante para ti, cómo prefieres comunicarte y qué priorizas.'],
+              ['05', 'Modo Manos Libres', 'En el coche, corriendo o en casa. Lucy opera solo con tu voz, sin necesidad de pantalla.'],
+              ['06', 'Aprendizaje Continuo', 'Cuanto más la usas, mejor te conoce. Lucy se adapta a tus hábitos y mejora cada día.'],
+            ].map(([num, title, desc]) => (
+              <div className="feature-card" key={num}>
+                <div className="lp-feature-num">{num}</div>
+                <div className="lp-feature-title">{title}</div>
+                <p className="lp-feature-desc">{desc}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Quote */}
+        <section className="lp-quote">
+          <span className="lp-quote-mark">"</span>
+          <blockquote>
+            En un mundo saturado de notificaciones, Lucy representa una nueva forma de relacionarse con la tecnología. Más natural. Más humana. Profundamente orientada a la eficiencia.
+          </blockquote>
+          <div className="lp-gold-line" />
+        </section>
+
+        {/* Pricing */}
+        <section className="lp-pricing" id="pricing">
+          <p className="lp-section-label">Planes</p>
+          <h2>Invierte en tu tiempo.</h2>
+          <div className="lp-pricing-grid">
+            <div className="pricing-card">
+              <div className="lp-pricing-name">Esencial</div>
+              <div className="lp-pricing-price"><span>€</span>29</div>
+              <div className="lp-pricing-period">por mes · facturación anual</div>
+              <ul className="lp-pricing-features">
+                {['Gestión de correo con IA', 'Briefing diario por voz', 'Memoria de contactos', 'Modo manos libres', '1 cuenta de correo'].map(f => <li key={f}>{f}</li>)}
+              </ul>
+              <button className="lp-pricing-btn" onClick={() => navigate('/auth')}>
+                Empezar gratis 14 días
+              </button>
+            </div>
+            <div className="pricing-card featured">
+              <div className="lp-pricing-name">Ejecutivo</div>
+              <div className="lp-pricing-price"><span>€</span>79</div>
+              <div className="lp-pricing-period">por mes · facturación anual</div>
+              <ul className="lp-pricing-features">
+                {['Todo lo del plan Esencial', 'Gestión de agenda completa', 'Resumen de documentos', 'Integración CRM', 'Respuestas automáticas', 'Soporte prioritario'].map(f => <li key={f}>{f}</li>)}
+              </ul>
+              <button className="lp-pricing-btn" onClick={() => navigate('/auth')}>
+                Empezar gratis 14 días
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* CTA final */}
+        <section className="lp-cta">
+          <p className="lp-section-label">Únete</p>
+          <h2>Tu día empieza<br />con <em>Lucy.</em></h2>
+          <p>Di "Lucy, buenos días" y descubre lo que es trabajar con claridad total desde el primer minuto.</p>
+          <button className="lp-btn-primary" onClick={() => navigate('/auth')}>
+            Comenzar ahora — es gratis
+          </button>
+        </section>
+
+        {/* Footer */}
+        <footer className="lp-footer">
+          <div className="lp-footer-logo">Lucy<span>.</span></div>
+          <p>© 2026 Lucy · Secretaria Virtual Inteligente · España</p>
+        </footer>
+
+      </div>
+    </>
   );
 }

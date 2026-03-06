@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff } from 'lucide-react';
+import { Lock, ArrowRight, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 import { useAuth } from '../context/AuthContext';
@@ -28,9 +28,7 @@ export default function AuthPage() {
     setLoading(true);
 
     try {
-      if (isAuthenticated) {
-        logout();
-      }
+      if (isAuthenticated) logout();
 
       if (isRegister) {
         await register(email, password, name);
@@ -43,9 +41,7 @@ export default function AuthPage() {
     } catch (err) {
       setError(
         err.response?.data?.detail ||
-        (isRegister
-          ? 'Error al registrarse'
-          : 'Error al iniciar sesión')
+        (isRegister ? 'Error al registrarse' : 'Error al iniciar sesión')
       );
     } finally {
       setLoading(false);
@@ -68,52 +64,58 @@ export default function AuthPage() {
 
       {/* Contenido */}
       <motion.div
-        initial={{ opacity: 0, y: 24 }}
+        initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
         className="auth-stack relative z-10"
       >
 
         {/* Brand */}
         <motion.div
-          initial={{ opacity: 0, y: -12 }}
+          initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1, duration: 0.5 }}
+          transition={{ delay: 0.15, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           className="auth-brand"
         >
 
           <div className="auth-brand-icon">
-            <Mail className="w-7 h-7 text-blue-100" strokeWidth={1.4} />
+            {/* Icono Lucy — estrella/diamante minimalista */}
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+              <path
+                d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
+                fill="rgba(201,178,124,0.9)"
+                stroke="rgba(201,178,124,0.4)"
+                strokeWidth="0.5"
+              />
+            </svg>
           </div>
 
-          <h1>Email Control</h1>
+          <h1>Lucy</h1>
 
           <p>
-            Transforma tu bandeja en un panel de decisiones.
-            Reduce el ruido, prioriza acciones.
+            Tu secretaria ejecutiva.<br />
+            Inteligencia al servicio de tu tiempo.
           </p>
 
         </motion.div>
 
         {/* Card */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 24 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2, duration: 0.6 }}
+          transition={{ delay: 0.25, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="auth-card"
         >
 
           <h2>
-            {isRegister ? 'Crear cuenta' : 'Iniciar sesión'}
+            {isRegister ? 'Crear cuenta' : 'Acceder'}
           </h2>
 
           <form onSubmit={handleSubmit} className="auth-form">
 
             {isRegister && (
               <div className="auth-field">
-                <label className="auth-field-label">
-                  Nombre
-                </label>
+                <label className="auth-field-label">Nombre</label>
                 <div className="auth-input-wrapper">
                   <Input
                     type="text"
@@ -121,74 +123,58 @@ export default function AuthPage() {
                     onChange={(e) => setName(e.target.value)}
                     placeholder="Tu nombre"
                     required
-                    className="auth-input !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
+                    className="auth-input !h-[3.2rem] !rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
+                    style={{ paddingLeft: '1rem' }}
                   />
                 </div>
               </div>
             )}
 
             <div className="auth-field">
-              <label className="auth-field-label">
-                Correo electrónico
-              </label>
+              <label className="auth-field-label">Correo electrónico</label>
               <div className="auth-input-wrapper">
-                <Mail
-                  className="auth-input-icon"
-                  strokeWidth={1.4}
-                />
+                <Mail className="auth-input-icon" strokeWidth={1.4} />
                 <Input
                   type="email"
                   value={email}
                   onChange={(event) => setEmail(event.target.value)}
-                  placeholder="email@example.com"
+                  placeholder="hola@tuempresa.com"
                   autoComplete="email"
                   required
-                  className="auth-input !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="auth-input !h-[3.2rem] !rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
               </div>
             </div>
 
             <div className="auth-field">
-              <label className="auth-field-label">
-                Contraseña
-              </label>
+              <label className="auth-field-label">Contraseña</label>
               <div className="auth-input-wrapper relative">
-                <Lock
-                  className="auth-input-icon"
-                  strokeWidth={1.4}
-                />
+                <Lock className="auth-input-icon" strokeWidth={1.4} />
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}
                   placeholder="••••••••"
-                  autoComplete={
-                    isRegister
-                      ? 'new-password'
-                      : 'current-password'
-                  }
+                  autoComplete={isRegister ? 'new-password' : 'current-password'}
                   required
-                  className="auth-input !h-14 !rounded-2xl pr-12 focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="auth-input !h-[3.2rem] !rounded-xl !pr-12 focus-visible:ring-0 focus-visible:ring-offset-0"
                 />
-
                 <button
                   type="button"
                   onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.55)] transition-colors z-10"
                 >
-                  {showPassword ? (
-                    <EyeOff className="w-4 h-4" strokeWidth={1.4} />
-                  ) : (
-                    <Eye className="w-4 h-4" strokeWidth={1.4} />
-                  )}
+                  {showPassword
+                    ? <EyeOff className="w-4 h-4" strokeWidth={1.4} />
+                    : <Eye className="w-4 h-4" strokeWidth={1.4} />
+                  }
                 </button>
-
               </div>
             </div>
 
             {error && (
               <motion.div
-                initial={{ opacity: 0, y: -8 }}
+                initial={{ opacity: 0, y: -6 }}
                 animate={{ opacity: 1, y: 0 }}
                 className="auth-error"
               >
@@ -199,14 +185,14 @@ export default function AuthPage() {
             <Button
               type="submit"
               disabled={loading}
-              className="auth-submit !h-14 !rounded-2xl focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="auth-submit !h-[3.2rem] !rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
             >
               {loading ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <>
-                  {isRegister ? 'Registrarse' : 'Iniciar sesión'}
-                  <ArrowRight className="w-4 h-4 ml-1" />
+                  {isRegister ? 'Crear cuenta' : 'Entrar'}
+                  <ArrowRight className="w-4 h-4 ml-2 opacity-60" />
                 </>
               )}
             </Button>
@@ -214,19 +200,14 @@ export default function AuthPage() {
           </form>
 
           <p className="auth-secondary-link">
-            {isRegister
-              ? '¿Ya tienes cuenta?'
-              : '¿No tienes cuenta?'}{' '}
+            {isRegister ? '¿Ya tienes cuenta?' : '¿Primera vez?'}{' '}
             <span
               onClick={() => {
                 setIsRegister(!isRegister);
                 setError('');
               }}
-              className="cursor-pointer text-blue-400 hover:underline"
             >
-              {isRegister
-                ? 'Iniciar sesión'
-                : 'Registrarse'}
+              {isRegister ? 'Iniciar sesión' : 'Crear cuenta'}
             </span>
           </p>
 

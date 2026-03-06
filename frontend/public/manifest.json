@@ -1,7 +1,7 @@
 {
-    "short_name": "SyntexIA",
-    "name": "SyntexIA · Email Control System",
-    "description": "Tu asistente ejecutivo de correo con IA. Prioriza, resume y responde sin esfuerzo.",
+    "short_name": "Lucy",
+    "name": "Lucy · Secretaria Virtual Inteligente",
+    "description": "Tu secretaria virtual inteligente. Inteligencia al servicio de tu tiempo.",
     "start_url": "/",
     "display": "standalone",
     "orientation": "portrait-primary",

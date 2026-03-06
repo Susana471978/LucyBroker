@@ -7,144 +7,177 @@ import { t } from '../i18n';
 import axios from 'axios';
 
 import {
-  Inbox,
-  CheckCircle,
-  Clock,
-  Paperclip,
-  Sparkles,
-  Link2,
-  Mic
+  Inbox, CheckCircle, Clock, Paperclip,
+  Sparkles, Link2
 } from 'lucide-react';
 
-import { Button } from '../components/ui/button';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/Layout';
-
 import { disconnectGmail } from '../services/mailService';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
-/* ---------- Stat Card ---------- */
-const StatCard = ({ icon, label, value, highlight, onClick }) => {
-  let baseClass =
-    'glass-subtle bg-slate-900/40 rounded-xl p-6 text-left w-full cursor-pointer transition-all ' +
-    'shadow-[0_0_35px_rgba(29,78,216,0.22)] ' +
-    'sm:shadow-[0_0_50px_rgba(29,78,216,0.12)] ' +
-    'hover:shadow-[0_0_70px_rgba(29,78,216,0.25)] ';
+/* ───────────────────────────────────────────────── */
+/* Briefing Overlay                                  */
+/* ───────────────────────────────────────────────── */
 
-  if (highlight) baseClass += 'border-blue-500/30 halo-active ';
-
-  let iconClass = 'w-10 h-10 rounded-lg flex items-center justify-center mb-4 ';
-  iconClass += highlight ? 'bg-blue-500/20' : 'bg-slate-700/50';
-
+function BriefingOverlay({ text, onDismiss, isSpeaking }) {
   return (
-    <motion.button
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      onClick={onClick}
-      className={baseClass}
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.5 }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(6,6,8,0.88)', backdropFilter: 'blur(24px)' }}
     >
-      <div className={iconClass}>
-        <span className={highlight ? 'text-blue-400' : 'text-slate-400'}>
-          {icon}
-        </span>
-      </div>
-      <p className="text-4xl font-semibold text-white mb-1">{value}</p>
-      <p className="text-sm text-slate-500">{label}</p>
-    </motion.button>
-  );
-};
+      <motion.div
+        initial={{ opacity: 0, y: 32, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -16, scale: 0.97 }}
+        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-xl w-full mx-6 text-center flex flex-col items-center gap-8"
+      >
+        {/* Lucy icon con pulso */}
+        <div className="relative flex items-center justify-center">
+          {isSpeaking && (
+            <>
+              <div className="absolute w-24 h-24 rounded-full border border-[rgba(201,178,124,0.15)] animate-ping" style={{ animationDuration: '2s' }} />
+              <div className="absolute w-16 h-16 rounded-full border border-[rgba(201,178,124,0.25)] animate-ping" style={{ animationDuration: '1.5s', animationDelay: '0.3s' }} />
+            </>
+          )}
+          <div className={`
+            w-14 h-14 rounded-2xl flex items-center justify-center
+            bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.3)]
+            transition-all duration-500
+            ${isSpeaking ? 'shadow-[0_0_40px_rgba(201,178,124,0.2)]' : ''}
+          `}>
+            <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+              <path
+                d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
+                fill={isSpeaking ? '#C9B27C' : 'rgba(201,178,124,0.6)'}
+              />
+            </svg>
+          </div>
+        </div>
 
-/* ---------- PAGE ---------- */
+        {/* Label */}
+        <div>
+          <p className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.15em] mb-2">
+            Buenos días
+          </p>
+          <p className="text-xs text-[rgba(201,178,124,0.5)] uppercase tracking-[0.1em]">
+            {isSpeaking ? 'Lucy está hablando…' : 'Briefing listo'}
+          </p>
+        </div>
+
+        {/* Texto */}
+        {text && (
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="font-light text-[rgba(255,255,255,0.75)] leading-relaxed text-xl max-w-md"
+            style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}
+          >
+            "{text}"
+          </motion.p>
+        )}
+
+        {/* Ondas de audio */}
+        {isSpeaking && (
+          <div className="flex items-end gap-1 h-6">
+            {[...Array(7)].map((_, i) => (
+              <motion.div
+                key={i}
+                className="w-1 rounded-full bg-[#C9B27C]"
+                animate={{ height: ['4px', `${10 + i * 3}px`, '4px'] }}
+                transition={{ duration: 0.5 + i * 0.08, repeat: Infinity, ease: 'easeInOut', delay: i * 0.07 }}
+                style={{ opacity: 0.4 + i * 0.08 }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Dismiss */}
+        <button
+          onClick={onDismiss}
+          className="text-xs text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.45)]
+            uppercase tracking-[0.12em] transition-colors duration-200 mt-1"
+        >
+          {isSpeaking ? 'Saltar →' : 'Entrar al panel →'}
+        </button>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ───────────────────────────────────────────────── */
+/* Stat Card                                         */
+/* ───────────────────────────────────────────────── */
+
+const StatCard = ({ icon, label, value, highlight, onClick, delay = 0 }) => (
+  <motion.button
+    initial={{ opacity: 0, y: 16 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+    whileHover={{ scale: 1.015, y: -1 }}
+    whileTap={{ scale: 0.985 }}
+    onClick={onClick}
+    className={`
+      group relative rounded-2xl p-6 text-left w-full cursor-pointer transition-all duration-300
+      bg-[rgba(255,255,255,0.025)] border backdrop-blur-sm overflow-hidden
+      ${highlight
+        ? 'border-[rgba(201,178,124,0.2)] shadow-[0_0_40px_rgba(201,178,124,0.06),0_1px_0_rgba(255,255,255,0.05)_inset]'
+        : 'border-[rgba(255,255,255,0.06)] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]'}
+      hover:border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.04)]
+    `}
+  >
+    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+    <div className={`
+      w-9 h-9 rounded-xl flex items-center justify-center mb-5 transition-all duration-300
+      ${highlight
+        ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C]'
+        : 'bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.35)] group-hover:text-[rgba(255,255,255,0.6)]'}
+    `}>
+      {icon}
+    </div>
+    <p className="text-3xl font-light text-white mb-1.5 tracking-tight">{value}</p>
+    <p className="text-xs text-[rgba(255,255,255,0.3)] uppercase tracking-[0.07em] font-medium">{label}</p>
+  </motion.button>
+);
+
+/* ───────────────────────────────────────────────── */
+/* Overview Page                                     */
+/* ───────────────────────────────────────────────── */
+
 export default function OverviewPage() {
   const { language, token } = useAuth();
   const navigate = useNavigate();
 
   const {
-    voiceState,
-    startListening,
-    cancel,
-    speak,
-    ttsEnabled,
-    setTtsEnabled,
-    wakeWordEnabled,
-    setWakeWordEnabled,
-    wakeWordActive,
-    handsFreeModeActive,
-    activateHandsFreeMode,
-    lastInteraction,
-    STATES
+    voiceState, startListening, cancel, speak,
+    ttsEnabled, setTtsEnabled,
+    wakeWordEnabled, wakeWordActive,
+    handsFreeModeActive, activateHandsFreeMode,
+    lastInteraction, STATES
   } = useVoice();
 
   const [emails, setEmails] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
-
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailEmail, setGmailEmail] = useState('');
-  const [gmailLoading, setGmailLoading] = useState(false);
+  const [gmailLoading, setGmailLoading] = useState(true);
 
-  const [executiveInput, setExecutiveInput] = useState('');
-  const [executiveResponse, setExecutiveResponse] = useState(null);
-  const [executiveLoading, setExecutiveLoading] = useState(false);
+  // Briefing
+  const [briefingVisible, setBriefingVisible] = useState(false);
+  const [briefingText, setBriefingText] = useState('');
+  const [briefingIsSpeaking, setBriefingIsSpeaking] = useState(false);
+  const briefingDoneRef = useRef(false);
+  const briefingAudioRef = useRef(null);
 
-  const lastInputModeRef = useRef(null);
-  const lastSpokenRef = useRef(null);
-
-  const isIdle = voiceState === STATES.IDLE;
-  const isListening = voiceState === STATES.LISTENING;
-  const isProcessing = voiceState === STATES.PROCESSING;
-  const isSpeaking = voiceState === STATES.SPEAKING;
-
-  const executiveLabel = isIdle
-    ? "Activar Executive"
-    : isListening
-      ? "Escuchando… (clic para cancelar)"
-      : isProcessing
-        ? "Procesando…"
-        : isSpeaking
-          ? "Hablando… (clic para cancelar)"
-          : "Activar Executive";
-
-  const handleExecutiveClick = () => {
-    if (isIdle) startListening();
-    else cancel();
-  };
-
-  const sendTextCommand = async () => {
-    if (!executiveInput.trim()) return;
-    lastInputModeRef.current = "text";
-
-    try {
-      setExecutiveLoading(true);
-      const res = await axios.post(
-        `${API}/assistant`,
-        { text: executiveInput },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      const data = res.data?.data || res.data;
-      setExecutiveResponse(data.assistant_text);
-      setExecutiveInput('');
-    } catch (err) {
-      console.error("Executive text error:", err);
-    } finally {
-      setExecutiveLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!executiveResponse) return;
-    if (lastInputModeRef.current !== "text") return;
-    if (voiceState !== STATES.IDLE) return;
-    if (!ttsEnabled) return;
-    if (executiveResponse === lastSpokenRef.current) return;
-
-    if (typeof speak === 'function') {
-      speak(executiveResponse);
-      lastSpokenRef.current = executiveResponse;
-    }
-  }, [executiveResponse, voiceState, ttsEnabled, speak, STATES]);
-
+  /* ── Fetch data ── */
   const fetchData = useCallback(async () => {
     if (!token) return;
     try {
@@ -152,7 +185,6 @@ export default function OverviewPage() {
       const emailsRes = await axios.get(`${API}/gmail/messages`, { headers });
       const emailsData = emailsRes.data?.data || emailsRes.data || [];
       const list = Array.isArray(emailsData) ? emailsData : [];
-
       setEmails(list);
       setStats({
         total: list.length,
@@ -169,10 +201,7 @@ export default function OverviewPage() {
     }
   }, [token]);
 
-  useEffect(() => {
-    if (token) fetchData();
-  }, [fetchData, token]);
-
+  /* ── Gmail status ── */
   useEffect(() => {
     if (!token) return;
     const checkGmail = async () => {
@@ -192,6 +221,74 @@ export default function OverviewPage() {
     checkGmail();
   }, [token]);
 
+  useEffect(() => {
+    if (token) fetchData();
+  }, [fetchData, token]);
+
+  /* ── Briefing helper ── */
+  const runBriefing = useCallback(async (promptText = 'buenos días Lucy, dame mi briefing matutino') => {
+    setBriefingVisible(true);
+    setBriefingIsSpeaking(true);
+    setBriefingText('');
+    try {
+      const res = await axios.post(
+        `${API}/assistant`,
+        { text: promptText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      const text = res.data?.assistant_text || res.data?.data?.assistant_text || '';
+      setBriefingText(text);
+
+      if (text && ttsEnabled) {
+        const ttsRes = await fetch(`${API}/tts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ text }),
+        });
+        if (ttsRes.ok) {
+          const blob = await ttsRes.blob();
+          const url = URL.createObjectURL(blob);
+          const audio = new Audio(url);
+          briefingAudioRef.current = audio;
+          audio.onended = () => setBriefingIsSpeaking(false);
+          audio.onerror = () => setBriefingIsSpeaking(false);
+          await audio.play();
+        } else {
+          setBriefingIsSpeaking(false);
+        }
+      } else {
+        setBriefingIsSpeaking(false);
+      }
+    } catch (err) {
+      console.error('Briefing error:', err);
+      setBriefingIsSpeaking(false);
+    }
+  }, [token, ttsEnabled]);
+
+  /* ── Briefing matutino automático — una vez por día ── */
+  useEffect(() => {
+    if (!token || gmailLoading || !gmailConnected || loading || briefingDoneRef.current) return;
+
+    const todayKey = `lucy_briefing_${new Date().toDateString()}`;
+    if (sessionStorage.getItem(todayKey)) return;
+
+    briefingDoneRef.current = true;
+    sessionStorage.setItem(todayKey, '1');
+
+    const timer = setTimeout(() => runBriefing(), 900);
+    return () => clearTimeout(timer);
+  }, [token, gmailLoading, gmailConnected, loading, runBriefing]);
+
+  const dismissBriefing = () => {
+    if (briefingAudioRef.current) {
+      briefingAudioRef.current.pause();
+      briefingAudioRef.current = null;
+    }
+    setBriefingVisible(false);
+    setBriefingIsSpeaking(false);
+  };
+
+  /* ── Gmail connect / disconnect ── */
   const handleGmailConnect = async () => {
     try {
       const res = await axios.get(`${API}/gmail/auth`, {
@@ -200,7 +297,7 @@ export default function OverviewPage() {
       const url = res.data?.data?.auth_url || res.data?.auth_url;
       if (url) window.location.href = url;
     } catch (err) {
-      console.error("Gmail connect error:", err);
+      console.error('Gmail connect error:', err);
     }
   };
 
@@ -212,174 +309,229 @@ export default function OverviewPage() {
       setEmails([]);
       setStats({ total: 0, prioritarios: 0, seguimiento: 0, with_attachments: 0 });
     } catch (err) {
-      console.error("Disconnect error", err);
+      console.error('Disconnect error', err);
     }
+  };
+
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Buenos días';
+    if (h < 20) return 'Buenas tardes';
+    return 'Buenas noches';
   };
 
   return (
     <Layout>
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-12">
+      {/* ── Briefing overlay ── */}
+      <AnimatePresence>
+        {briefingVisible && (
+          <BriefingOverlay
+            text={briefingText}
+            isSpeaking={briefingIsSpeaking}
+            onDismiss={dismissBriefing}
+          />
+        )}
+      </AnimatePresence>
 
-        <div>
-          <h1 className="text-5xl font-semibold tracking-tight text-white mb-4">
+      <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
+
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+        >
+          <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] font-medium mb-3">
+            {getGreeting()}
+          </p>
+          <h1 className="text-4xl font-light tracking-tight text-white mb-3">
             {t(language, 'welcomeTitle')}
           </h1>
-          <p className="text-lg text-slate-400 max-w-2xl">
+          <p className="text-sm text-[rgba(255,255,255,0.35)] max-w-xl leading-relaxed">
             {t(language, 'welcomeSubtitle')}
           </p>
-        </div>
+        </motion.div>
 
+        {/* Gmail banner */}
         {!gmailLoading && (
-          <div className="glass-subtle rounded-2xl p-5 flex items-center justify-between
-            shadow-[0_0_35px_rgba(29,78,216,0.22)]
-            sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
-            hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
-            transition-all">
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1, duration: 0.5 }}
+            className="rounded-2xl px-5 py-4 flex items-center justify-between
+              bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.07)]
+              backdrop-blur-sm transition-all duration-300 hover:border-[rgba(255,255,255,0.1)]"
+          >
             {gmailConnected ? (
               <div className="flex items-center justify-between w-full">
                 <div className="flex items-center gap-3">
-                  <CheckCircle className="w-5 h-5 text-emerald-400" />
-                  <span className="text-slate-200 text-sm font-medium">
-                    Correo conectado:{' '}
-                    <span className="text-blue-400">{gmailEmail}</span>
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.6)]" />
+                  <span className="text-[rgba(255,255,255,0.5)] text-sm">
+                    Correo conectado —{' '}
+                    <span className="text-[rgba(255,255,255,0.7)]">{gmailEmail}</span>
                   </span>
                 </div>
-                <Button variant="outline" size="sm" onClick={handleDisconnect}>
+                <button
+                  onClick={handleDisconnect}
+                  className="text-xs text-[rgba(255,255,255,0.2)] hover:text-[rgba(255,255,255,0.5)] transition-colors"
+                >
                   Desconectar
-                </Button>
+                </button>
               </div>
             ) : (
               <>
-                <span className="text-slate-400 text-sm">
-                  Conecta tu correo para analizar tus emails
+                <span className="text-sm text-[rgba(255,255,255,0.35)]">
+                  Conecta tu correo para activar Lucy
                 </span>
-                <Button
+                <button
                   onClick={handleGmailConnect}
-                  className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2"
+                  className="flex items-center gap-2 text-sm text-[#C9B27C] hover:text-[#D4BC88]
+                    border border-[rgba(201,178,124,0.25)] hover:border-[rgba(201,178,124,0.4)]
+                    px-4 py-2 rounded-xl transition-all duration-200
+                    bg-[rgba(201,178,124,0.06)] hover:bg-[rgba(201,178,124,0.1)]"
                 >
-                  <Link2 className="w-4 h-4" />
-                  Conectar mi correo
-                </Button>
+                  <Link2 className="w-3.5 h-3.5" />
+                  Conectar correo
+                </button>
               </>
             )}
-          </div>
+          </motion.div>
         )}
 
+        {/* Stats + Lucy panel */}
         {!loading && stats && gmailConnected && (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-              <StatCard
-                icon={<Inbox className="w-5 h-5" />}
-                label="Total Emails"
-                value={stats.total}
-                highlight
-                onClick={() => navigate('/messages')}
-              />
-              <StatCard
-                icon={<Sparkles className="w-5 h-5" />}
-                label="Prioritarios"
-                value={stats.prioritarios}
-                onClick={() => navigate('/messages?filter=PRIORITARIO')}
-              />
-              <StatCard
-                icon={<Clock className="w-5 h-5" />}
-                label="Seguimiento"
-                value={stats.seguimiento}
-                onClick={() => navigate('/messages?filter=SEGUIMIENTO')}
-              />
-              <StatCard
-                icon={<Paperclip className="w-5 h-5" />}
-                label="Con Adjuntos"
-                value={stats.with_attachments}
-                onClick={() => navigate('/messages?filter=attachments')}
-              />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <StatCard icon={<Inbox className="w-4 h-4" />} label="Emails" value={stats.total} highlight onClick={() => navigate('/app/messages')} delay={0.15} />
+              <StatCard icon={<Sparkles className="w-4 h-4" />} label="Prioritarios" value={stats.prioritarios} onClick={() => navigate('/app/messages?filter=PRIORITARIO')} delay={0.2} />
+              <StatCard icon={<Clock className="w-4 h-4" />} label="Seguimiento" value={stats.seguimiento} onClick={() => navigate('/app/messages?filter=SEGUIMIENTO')} delay={0.25} />
+              <StatCard icon={<Paperclip className="w-4 h-4" />} label="Adjuntos" value={stats.with_attachments} onClick={() => navigate('/app/messages?filter=attachments')} delay={0.3} />
             </div>
 
-            <div className="glass-premium rounded-2xl p-8 border border-blue-500/20 mt-6
-              shadow-[0_0_60px_rgba(29,78,216,0.15)] transition-all">
-              <div className="flex flex-col gap-6">
+            {/* Lucy panel */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.35, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+              className="relative rounded-2xl overflow-hidden
+                bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.08)]
+                backdrop-blur-xl"
+            >
+              <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.3)] to-transparent" />
 
-                {/* HEADER */}
+              <div className="p-8 flex flex-col gap-7">
+
+                {/* Header Lucy */}
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <h3 className="text-xl font-semibold text-white">Lucy</h3>
-                    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-all duration-300 ${wakeWordActive
-                        ? 'bg-blue-500/20 text-blue-300 border-blue-400/40'
-                        : wakeWordEnabled
-                          ? 'bg-slate-800 text-slate-500 border-slate-700'
-                          : 'bg-slate-900 text-slate-600 border-slate-800'
-                      }`}>
-                      <div className={`w-1.5 h-1.5 rounded-full ${wakeWordActive ? 'bg-blue-400 animate-pulse' : wakeWordEnabled ? 'bg-slate-500' : 'bg-slate-700'
-                        }`} />
-                      {wakeWordActive ? 'Escuchando...' : wakeWordEnabled ? 'Di "Hola Lucy"' : 'Voz desactivada'}
+                  <div className="flex items-center gap-4">
+                    <div className="relative">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center
+                        bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.2)] transition-all duration-500
+                        ${wakeWordActive ? 'shadow-[0_0_16px_rgba(201,178,124,0.25)]' : ''}`}>
+                        <svg width="14" height="14" viewBox="0 0 22 22" fill="none">
+                          <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
+                            fill={wakeWordActive ? '#C9B27C' : 'rgba(201,178,124,0.6)'} />
+                        </svg>
+                      </div>
+                      {wakeWordActive && <div className="absolute -inset-1 rounded-2xl border border-[rgba(201,178,124,0.3)] animate-ping" />}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-medium text-white tracking-wide">Lucy</h3>
+                      <p className="text-xs text-[rgba(255,255,255,0.3)] mt-0.5">
+                        {wakeWordActive ? 'Escuchando…' : wakeWordEnabled ? 'Di "Hola Lucy"' : 'Asistente ejecutiva'}
+                      </p>
                     </div>
                   </div>
 
-                  <Button
-                    variant="outline"
-                    onClick={() => setTtsEnabled(prev => !prev)}
-                    className="border-slate-700 text-slate-400 hover:bg-slate-800 px-3"
-                    title={ttsEnabled ? 'Desactivar voz' : 'Activar voz'}
-                  >
-                    {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    {/* Repetir briefing */}
+                    <button
+                      onClick={() => runBriefing('repite mi briefing matutino')}
+                      className="w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200
+                        bg-[rgba(201,178,124,0.06)] text-[rgba(201,178,124,0.45)] border border-[rgba(201,178,124,0.15)]
+                        hover:bg-[rgba(201,178,124,0.12)] hover:text-[#C9B27C]"
+                      title="Repetir briefing"
+                    >
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                        <path d="M1 4v6h6M23 20v-6h-6" />
+                        <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" />
+                      </svg>
+                    </button>
+
+                    {/* TTS toggle */}
+                    <button
+                      onClick={() => setTtsEnabled(prev => !prev)}
+                      className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200
+                        ${ttsEnabled
+                          ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)]'
+                          : 'bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.25)] border border-[rgba(255,255,255,0.07)]'}
+                        hover:bg-[rgba(255,255,255,0.07)]`}
+                      title={ttsEnabled ? 'Silenciar voz' : 'Activar voz'}
+                    >
+                      {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                 </div>
 
-                <p className="text-sm text-slate-400 -mt-2">
-                  Tu asistente ejecutiva de correo. Elige cómo quieres trabajar hoy.
-                </p>
+                <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.06)] to-transparent -mx-8" />
 
-                {/* SELECTOR DE MODO */}
-                <div className="grid grid-cols-2 gap-4">
-
+                {/* Modos */}
+                <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={handsFreeModeActive ? cancel : undefined}
-                    className={`rounded-xl p-5 text-left border transition-all duration-300 ${!handsFreeModeActive
-                        ? 'bg-blue-600/15 border-blue-500/40 shadow-[0_0_20px_rgba(59,130,246,0.15)]'
-                        : 'bg-slate-800/40 border-slate-700 hover:border-slate-600 cursor-pointer'
-                      }`}
+                    className={`rounded-xl p-5 text-left border transition-all duration-300
+                      ${!handsFreeModeActive
+                        ? 'bg-[rgba(201,178,124,0.07)] border-[rgba(201,178,124,0.2)]'
+                        : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] hover:bg-[rgba(255,255,255,0.05)]'}`}
                   >
-                    <div className="text-2xl mb-3">🖥️</div>
-                    <p className="text-sm font-medium text-white mb-1">Modo Escritorio</p>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Usa los botones de la app. Resume y responde correos con un clic.
-                    </p>
+                    <div className="text-xl mb-3 opacity-80">🖥️</div>
+                    <p className="text-sm font-medium text-[rgba(255,255,255,0.8)] mb-1.5">Modo Escritorio</p>
+                    <p className="text-xs text-[rgba(255,255,255,0.3)] leading-relaxed">Botones, resúmenes y respuestas con un clic.</p>
                     {!handsFreeModeActive && (
-                      <div className="mt-3 text-xs text-blue-400 font-medium">● Activo</div>
+                      <div className="mt-3 text-xs text-[#C9B27C] font-medium flex items-center gap-1.5">
+                        <span className="w-1 h-1 rounded-full bg-[#C9B27C]" />Activo
+                      </div>
                     )}
                   </button>
 
                   <button
                     onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
-                    className={`rounded-xl p-5 text-left border transition-all duration-300 ${handsFreeModeActive
-                        ? 'bg-emerald-600/15 border-emerald-500/40 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
-                        : 'bg-slate-800/40 border-slate-700 hover:border-slate-600 cursor-pointer'
-                      }`}
+                    className={`rounded-xl p-5 text-left border transition-all duration-300
+                      ${handsFreeModeActive
+                        ? 'bg-[rgba(52,211,153,0.06)] border-[rgba(52,211,153,0.2)]'
+                        : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] hover:bg-[rgba(255,255,255,0.05)]'}`}
                   >
-                    <div className="text-2xl mb-3">🎧</div>
-                    <p className="text-sm font-medium text-white mb-1">Manos Libres</p>
-                    <p className="text-xs text-slate-400 leading-relaxed">
-                      Lucy te lee la bandeja en voz alta. Ideal para el coche o mientras corres.
-                    </p>
+                    <div className="text-xl mb-3 opacity-80">🎧</div>
+                    <p className="text-sm font-medium text-[rgba(255,255,255,0.8)] mb-1.5">Manos Libres</p>
+                    <p className="text-xs text-[rgba(255,255,255,0.3)] leading-relaxed">Lucy te lee la bandeja en voz alta.</p>
                     {handsFreeModeActive && (
-                      <div className="mt-3 text-xs text-emerald-400 font-medium animate-pulse">● Activo — di "para" para salir</div>
+                      <div className="mt-3 text-xs text-emerald-400 font-medium flex items-center gap-1.5 animate-pulse">
+                        <span className="w-1 h-1 rounded-full bg-emerald-400" />Activo — di "para" para salir
+                      </div>
                     )}
                   </button>
-
                 </div>
 
-                {/* RESPUESTA DE LUCY */}
-                {lastInteraction && (
-                  <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-4 py-3 text-slate-300 text-sm leading-relaxed">
-                    <span className="text-slate-500 text-xs block mb-1">Lucy</span>
-                    {lastInteraction}
-                  </div>
-                )}
+                {/* Última respuesta */}
+                <AnimatePresence>
+                  {lastInteraction && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      className="rounded-xl px-5 py-4 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]"
+                    >
+                      <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.07em] mb-2">Lucy</p>
+                      <p className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed">{lastInteraction}</p>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
               </div>
-            </div>
+            </motion.div>
           </>
         )}
+
       </div>
     </Layout>
   );
