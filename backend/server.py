@@ -43,6 +43,8 @@ from backend.api.contacts import router as contacts_router
 # Junto a los otros imports arriba
 from backend.api.assistant import router as assistant_router
 
+from backend.api.calendar import create_calendar_router
+
 # =========================
 # STRIPE
 # =========================
@@ -149,6 +151,7 @@ app.include_router(contacts_router, prefix="/api")
 
 api_router.include_router(assistant_router)
 
+
 # ======================================================
 # AUTH HELPERS
 # ======================================================
@@ -223,6 +226,10 @@ async def get_current_user(
 # GMAIL OAUTH
 _gmail_router = create_gmail_router(db, get_current_user)
 api_router.include_router(_gmail_router)
+
+# CALENDAR OAUTH
+_calendar_router = create_calendar_router(db, get_current_user)
+api_router.include_router(_calendar_router)
 
 # AI router ✅ (esto garantiza /api/ai/...)
 api_router.include_router(ai_router)
