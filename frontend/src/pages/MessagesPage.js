@@ -2,119 +2,105 @@ import { useState, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import {
-  Mail,
-  Paperclip,
-  ChevronDown,
-  ChevronUp,
-  Send,
-  Sparkles,
-  Loader2,
-  Clock,
-  AlertCircle,
-  Info,
-  X
+  Paperclip, Send, Sparkles, Loader2,
+  Clock, AlertCircle, Info, ChevronRight,
+  Mail, X
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ScrollArea } from '../components/ui/scroll-area';
-
-import { motion } from 'framer-motion';
 import Layout from '../components/Layout';
 
 import { fetchEmails as fetchEmailsService } from '../services/mailService';
 import { summarizeEmail, generateDraft } from '../services/aiService';
 
-
-/* ---------------- EXECUTIVE VOICE ---------------- */
-
+/* ─── TTS ejecutivo ───────────────────────────────────── */
 const speakExecutive = (text) => {
   if (!text) return;
-
   try {
-    // corta cualquier locución previa (evita solape)
     window.speechSynthesis.cancel();
-
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = "es-ES";
-    utterance.rate = 0.95;
-    utterance.pitch = 1;
-
-    window.speechSynthesis.speak(utterance);
-  } catch (err) {
-    console.error("Executive voice error:", err);
-  }
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'es-ES'; u.rate = 0.95; u.pitch = 1;
+    window.speechSynthesis.speak(u);
+  } catch (err) { console.error('Executive voice error:', err); }
 };
 
-
-/* ---------------- FILTER BUTTON ---------------- */
-
-const FilterBtn = ({ active, onClick, label, icon, highlight }) => {
-  let cls = 'px-3 py-1.5 rounded-lg text-sm font-medium ';
-
-  if (active) {
-    cls += highlight
-      ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-      : 'bg-slate-700 text-slate-100';
-  } else {
-    cls += 'text-slate-400 hover:text-slate-200 hover:bg-slate-800';
-  }
-
+/* ─── Priority badge ──────────────────────────────────── */
+const PriorityDot = ({ label }) => {
+  if (label === 'PRIORITARIO') return (
+    <span className="w-1.5 h-1.5 rounded-full bg-[#C9B27C] shadow-[0_0_6px_rgba(201,178,124,0.7)] flex-shrink-0 mt-1.5" />
+  );
+  if (label === 'SEGUIMIENTO') return (
+    <span className="w-1.5 h-1.5 rounded-full bg-[rgba(201,178,124,0.35)] flex-shrink-0 mt-1.5" />
+  );
   return (
-    <button onClick={onClick} className={cls}>
-      {icon || label}
-    </button>
+    <span className="w-1.5 h-1.5 rounded-full bg-[rgba(255,255,255,0.1)] flex-shrink-0 mt-1.5" />
   );
 };
 
+const PriorityChip = ({ label }) => {
+  if (label === 'PRIORITARIO') return (
+    <span className="text-[10px] uppercase tracking-[0.1em] px-2 py-0.5 rounded-full
+      bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.25)]">
+      Prioritario
+    </span>
+  );
+  if (label === 'SEGUIMIENTO') return (
+    <span className="text-[10px] uppercase tracking-[0.1em] px-2 py-0.5 rounded-full
+      bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.35)] border border-[rgba(255,255,255,0.08)]">
+      Seguimiento
+    </span>
+  );
+  return null;
+};
 
-/* ---------------- MAIN PAGE ---------------- */
+/* ─── Filter pill ─────────────────────────────────────── */
+const FilterPill = ({ active, onClick, label }) => (
+  <button
+    onClick={onClick}
+    className={`px-4 py-1.5 rounded-full text-xs uppercase tracking-[0.08em] font-medium
+      transition-all duration-200
+      ${active
+        ? 'bg-[rgba(201,178,124,0.12)] text-[#C9B27C] border border-[rgba(201,178,124,0.3)]'
+        : 'text-[rgba(255,255,255,0.3)] border border-transparent hover:text-[rgba(255,255,255,0.5)] hover:border-[rgba(255,255,255,0.1)]'
+      }`}
+  >
+    {label}
+  </button>
+);
 
+/* ─── Main ────────────────────────────────────────────── */
 export default function MessagesPage() {
-
   const { language } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState(null);
-
-  const [filter, setFilter] = useState(searchParams.get('label') || 'all');
-  const [attachmentsOnly, setAttachmentsOnly] = useState(false);
+  const [filter, setFilter] = useState(searchParams.get('filter') || searchParams.get('label') || 'all');
+  const [attachmentsOnly, setAttachmentsOnly] = useState(searchParams.get('filter') === 'attachments');
 
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
-
   const [drafts, setDrafts] = useState([]);
   const [draftsLoading, setDraftsLoading] = useState(false);
-
   const [draftInstructions, setDraftInstructions] = useState('');
   const [showReplyBox, setShowReplyBox] = useState(false);
 
-
-  /* ---------------- FETCH EMAILS ---------------- */
-
+  /* ── fetch ── */
   const fetchEmails = useCallback(async () => {
     setLoading(true);
-
     try {
-      const response = await fetchEmailsService({
-        label: filter,
-        attachments: attachmentsOnly,
-      });
-
+      const response = await fetchEmailsService({ label: filter, attachments: attachmentsOnly });
       let normalized = [];
-
       if (Array.isArray(response)) normalized = response;
       else if (Array.isArray(response?.data)) normalized = response.data;
       else if (Array.isArray(response?.emails)) normalized = response.emails;
-
-      if (Array.isArray(normalized)) {
-        setEmails(normalized);
-      }
-
+      setEmails(normalized);
     } catch (error) {
       console.error('Failed to fetch emails:', error);
     } finally {
@@ -122,76 +108,34 @@ export default function MessagesPage() {
     }
   }, [filter, attachmentsOnly]);
 
-
-  useEffect(() => {
-    fetchEmails();
-  }, [fetchEmails]);
-
-
-  /* ---------------- FILTERS ---------------- */
+  useEffect(() => { fetchEmails(); }, [fetchEmails]);
 
   const handleFilterChange = (newFilter) => {
-    setFilter(newFilter);
-    setAttachmentsOnly(false);
-    setSearchParams({ label: newFilter });
+    if (newFilter === 'attachments') {
+      setFilter('all');
+      setAttachmentsOnly(true);
+    } else {
+      setFilter(newFilter);
+      setAttachmentsOnly(false);
+    }
+    setSearchParams({ filter: newFilter });
   };
-
 
   const handleSelectEmail = (email) => {
     setSelectedEmail(email);
-    setSummary(null);
-    setDrafts([]);
-    setDraftInstructions('');
-    setShowReplyBox(false);
-
-    // si el Executive estaba hablando, lo cortamos al cambiar de email
+    setSummary(null); setDrafts([]); setDraftInstructions(''); setShowReplyBox(false);
     try { window.speechSynthesis.cancel(); } catch (_) { }
   };
 
-
-  /* ---------------- HELPERS ---------------- */
-
-  const getPriorityIcon = (label) => {
-    if (label === 'PRIORITARIO')
-      return <AlertCircle className="w-4 h-4 text-blue-400" />;
-
-    if (label === 'SEGUIMIENTO')
-      return <Clock className="w-4 h-4 text-amber-400" />;
-
-    return <Info className="w-4 h-4 text-slate-400" />;
-  };
-
-
-  const renderEmailBody = () => {
-    const body = selectedEmail?.email?.body || "";
-
-    // Si viene texto plano: lo convertimos a HTML legible
-    if (body && !body.includes("<")) {
-      return body.replace(/\n/g, "<br/>");
-    }
-
-    return body || "<div>(Sin contenido)</div>";
-  };
-
-
-  /* ---------------- AI ---------------- */
-
+  /* ── AI ── */
   const handleSummarize = async () => {
-    // Volvemos al flujo estable: summarizeEmail(id) (evita 404 /assistant/message)
     if (!selectedEmail?.email?.id) return;
-
     setSummaryLoading(true);
-
     try {
       const result = await summarizeEmail(selectedEmail.email.id);
-
-      const summaryText = (typeof result === "string" ? result : "") || "";
-      setSummary(summaryText || null);
-
-      if (summaryText) {
-        speakExecutive("Resumen del correo. " + summaryText);
-      }
-
+      const text = typeof result === 'string' ? result : '';
+      setSummary(text || null);
+      if (text) speakExecutive('Resumen del correo. ' + text);
     } catch (error) {
       console.error('Summarize error:', error);
     } finally {
@@ -199,18 +143,11 @@ export default function MessagesPage() {
     }
   };
 
-
   const handleDraftReply = async () => {
     if (!selectedEmail?.email?.id || !draftInstructions.trim()) return;
-
     setDraftsLoading(true);
-
     try {
-      const draftsData = await generateDraft(
-        selectedEmail.email.id,
-        draftInstructions
-      );
-
+      const draftsData = await generateDraft(selectedEmail.email.id, draftInstructions);
       setDrafts(Array.isArray(draftsData) ? draftsData : []);
     } catch (error) {
       console.error('Draft error:', error);
@@ -219,175 +156,303 @@ export default function MessagesPage() {
     }
   };
 
+  const renderEmailBody = () => {
+    const body = selectedEmail?.email?.body || '';
+    if (body && !body.includes('<')) return body.replace(/\n/g, '<br/>');
+    return body || '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
+  };
 
-  /* ---------------- UI ---------------- */
-
+  /* ── UI ── */
   return (
     <Layout>
-      <div className="flex h-[calc(100vh-80px)]">
+      <div className="flex h-[calc(100vh-64px)] overflow-hidden">
 
-        {/* LEFT PANEL */}
-        <div className="w-full md:w-[35%] border-r border-slate-800 flex flex-col">
-          <div className="p-4 border-b border-slate-800 flex gap-2">
-            <FilterBtn
-              active={filter === 'all'}
-              onClick={() => handleFilterChange('all')}
-              label={t(language, 'allEmails')}
-            />
-            <FilterBtn
-              active={filter === 'PRIORITARIO'}
-              onClick={() => handleFilterChange('PRIORITARIO')}
-              label={t(language, 'priority')}
-              highlight
-            />
+        {/* ══ LEFT — Lista ══════════════════════════════════ */}
+        <div className="w-full md:w-[38%] flex flex-col border-r border-[rgba(255,255,255,0.05)]"
+          style={{ background: 'rgba(6,6,10,0.6)' }}>
+
+          {/* Filtros */}
+          <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-2 flex-wrap">
+            <FilterPill active={filter === 'all' && !attachmentsOnly} onClick={() => handleFilterChange('all')} label="Todos" />
+            <FilterPill active={filter === 'PRIORITARIO'} onClick={() => handleFilterChange('PRIORITARIO')} label="Prioritarios" />
+            <FilterPill active={filter === 'SEGUIMIENTO'} onClick={() => handleFilterChange('SEGUIMIENTO')} label="Seguimiento" />
+            <FilterPill active={attachmentsOnly} onClick={() => handleFilterChange('attachments')} label="Adjuntos" />
           </div>
 
+          {/* Lista */}
           <ScrollArea className="flex-1">
             {loading ? (
-              <div className="p-8 text-center">
-                <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto" />
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center
+                  bg-[rgba(201,178,124,0.08)] border border-[rgba(201,178,124,0.15)]">
+                  <svg width="14" height="14" viewBox="0 0 22 22" fill="none">
+                    <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
+                      fill="rgba(201,178,124,0.5)" className="animate-pulse" />
+                  </svg>
+                </div>
+                <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Cargando correos…</p>
               </div>
             ) : emails.length === 0 ? (
-              <div className="p-8 text-center text-slate-400">
-                {t(language, 'noResults')}
+              <div className="flex flex-col items-center justify-center py-20 gap-3">
+                <Mail className="w-8 h-8 text-[rgba(255,255,255,0.1)]" />
+                <p className="text-sm text-[rgba(255,255,255,0.2)]">Sin correos</p>
               </div>
             ) : (
-              emails.map((item) => {
-                const email = item?.email;
-                const priority = item?.priority?.priority_label;
+              <div className="divide-y divide-[rgba(255,255,255,0.04)]">
+                {emails.map((item, idx) => {
+                  const email = item?.email;
+                  const priority = item?.priority?.priority_label;
+                  if (!email?.id) return null;
+                  const isSelected = selectedEmail?.email?.id === email.id;
 
-                if (!email?.id) return null;
-
-                return (
-                  <button
-                    key={email.id}
-                    onClick={() => handleSelectEmail(item)}
-                    className="w-full p-4 text-left hover:bg-slate-800/50"
-                  >
-                    <div className="flex gap-3">
-                      {getPriorityIcon(priority)}
-                      <div>
-                        <p className="text-slate-200">
-                          {email.subject || '(Sin asunto)'}
-                        </p>
-                        <p className="text-xs text-slate-500">
-                          {email.snippet || ''}
-                        </p>
+                  return (
+                    <motion.button
+                      key={email.id}
+                      initial={{ opacity: 0, x: -8 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: idx * 0.03, duration: 0.3 }}
+                      onClick={() => handleSelectEmail(item)}
+                      className={`w-full px-5 py-4 text-left transition-all duration-200 group relative
+                        ${isSelected
+                          ? 'bg-[rgba(201,178,124,0.06)] border-r-2 border-r-[rgba(201,178,124,0.4)]'
+                          : 'hover:bg-[rgba(255,255,255,0.025)]'
+                        }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute inset-y-0 left-0 w-px bg-[rgba(201,178,124,0.5)]" />
+                      )}
+                      <div className="flex gap-3">
+                        <PriorityDot label={priority} />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-start justify-between gap-2 mb-1">
+                            <p className={`text-sm leading-snug truncate
+                              ${isSelected ? 'text-white' : 'text-[rgba(255,255,255,0.7)] group-hover:text-[rgba(255,255,255,0.85)]'}`}>
+                              {email.subject || '(Sin asunto)'}
+                            </p>
+                            {email.has_attachments && (
+                              <Paperclip className="w-3 h-3 text-[rgba(255,255,255,0.2)] flex-shrink-0 mt-0.5" />
+                            )}
+                          </div>
+                          <p className="text-xs text-[rgba(255,255,255,0.25)] truncate leading-relaxed">
+                            {email.snippet || ''}
+                          </p>
+                          {priority && priority !== 'INFORMATIVO' && (
+                            <div className="mt-2">
+                              <PriorityChip label={priority} />
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </button>
-                );
-              })
+                    </motion.button>
+                  );
+                })}
+              </div>
             )}
           </ScrollArea>
         </div>
 
-        {/* RIGHT PANEL */}
-        <div className="hidden md:flex md:w-[65%] flex-col">
-          {selectedEmail?.email ? (
-            <ScrollArea className="flex-1 p-6">
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                <h2 className="text-xl text-slate-100 mb-4">
-                  {selectedEmail.email.subject}
-                </h2>
+        {/* ══ RIGHT — Detalle ═══════════════════════════════ */}
+        <div className="hidden md:flex md:flex-1 flex-col overflow-hidden"
+          style={{ background: 'rgba(8,8,12,0.7)' }}>
 
-                {/* BOTONES */}
-                <div className="flex gap-3 mb-6">
-                  <Button
-                    onClick={handleSummarize}
-                    disabled={summaryLoading}
-                    className="bg-slate-700 hover:bg-slate-600 text-white flex items-center gap-2"
-                  >
-                    {summaryLoading
-                      ? <Loader2 className="w-4 h-4 animate-spin" />
-                      : <Sparkles className="w-4 h-4" />}
-                    Resumir
-                  </Button>
-
-                  <Button
-                    onClick={() => setShowReplyBox(prev => !prev)}
-                    className="bg-blue-600 hover:bg-blue-500 text-white flex items-center gap-2"
-                  >
-                    <Send className="w-4 h-4" />
-                    Responder
-                  </Button>
-                </div>
-
-                {/* CUERPO DEL EMAIL */}
-                <div className="rounded-xl p-6 overflow-auto max-h-[75vh] mb-6 bg-slate-900/70 backdrop-blur-xl border border-slate-700">
-                  <div
-                    className="email-content text-slate-200 whitespace-pre-wrap leading-relaxed"
-                    dangerouslySetInnerHTML={{
-                      __html: renderEmailBody(),
-                    }}
-                  />
-                </div>
-
-                {/* RESUMEN IA */}
-                {summary && (
-                  <div className="
-                    glass-subtle 
-                    rounded-xl 
-                    p-6 
-                    mb-6
-                    border border-blue-500/20
-                    shadow-[0_0_35px_rgba(29,78,216,0.22)]
-                    sm:shadow-[0_0_50px_rgba(29,78,216,0.12)]
-                    hover:shadow-[0_0_70px_rgba(29,78,216,0.25)]
-                  ">
-
-                    <div className="flex items-center gap-2 mb-3">
-
-                      <Sparkles className="w-4 h-4 text-amber-400 drop-shadow-[0_0_6px_rgba(251,191,36,0.6)]" />                      <p className="text-blue-400 text-sm font-medium tracking-wide">
-                        Resumen generado por Executive
-                      </p>
-
+          <AnimatePresence mode="wait">
+            {selectedEmail?.email ? (
+              <motion.div
+                key={selectedEmail.email.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                className="flex flex-col h-full"
+              >
+                {/* Header del email */}
+                <div className="px-8 py-5 border-b border-[rgba(255,255,255,0.05)] flex-shrink-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-lg font-light text-white leading-snug mb-2 tracking-tight">
+                        {selectedEmail.email.subject || '(Sin asunto)'}
+                      </h2>
+                      <div className="flex items-center gap-3">
+                        {selectedEmail.priority?.priority_label && (
+                          <PriorityChip label={selectedEmail.priority.priority_label} />
+                        )}
+                        {selectedEmail.email.has_attachments && (
+                          <span className="flex items-center gap-1 text-[10px] text-[rgba(255,255,255,0.25)] uppercase tracking-[0.08em]">
+                            <Paperclip className="w-3 h-3" /> Adjunto
+                          </span>
+                        )}
+                      </div>
                     </div>
 
-                    <p className="text-slate-200 whitespace-pre-wrap leading-relaxed">
-                      {summary}
-                    </p>
+                    {/* Acciones */}
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <button
+                        onClick={handleSummarize}
+                        disabled={summaryLoading}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs
+                          bg-[rgba(201,178,124,0.08)] text-[rgba(201,178,124,0.7)]
+                          border border-[rgba(201,178,124,0.2)]
+                          hover:bg-[rgba(201,178,124,0.14)] hover:text-[#C9B27C]
+                          transition-all duration-200 disabled:opacity-40"
+                      >
+                        {summaryLoading
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Sparkles className="w-3.5 h-3.5" />}
+                        Resumir
+                      </button>
 
+                      <button
+                        onClick={() => setShowReplyBox(prev => !prev)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs
+                          border transition-all duration-200
+                          ${showReplyBox
+                            ? 'bg-[rgba(255,255,255,0.08)] text-[rgba(255,255,255,0.6)] border-[rgba(255,255,255,0.12)]'
+                            : 'bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.4)] border-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.07)] hover:text-[rgba(255,255,255,0.6)]'
+                          }`}
+                      >
+                        <Send className="w-3.5 h-3.5" />
+                        Responder
+                      </button>
+                    </div>
                   </div>
-                )}
+                </div>
 
-                {/* RESPUESTA IA */}
-                {showReplyBox && (
-                  <div className="glass-subtle rounded-xl p-4">
-                    <Textarea
-                      value={draftInstructions}
-                      onChange={(e) => setDraftInstructions(e.target.value)}
-                      placeholder="Escribe las instrucciones para generar la respuesta..."
-                      className="mb-4"
-                    />
+                <ScrollArea className="flex-1 px-8 py-6">
+                  <div className="space-y-5 max-w-2xl">
 
-                    <Button
-                      onClick={handleDraftReply}
-                      disabled={draftsLoading}
-                      className="bg-blue-600 hover:bg-blue-500 text-white"
-                    >
-                      {draftsLoading ? "Generando..." : "Generar respuesta"}
-                    </Button>
-
-                    {drafts.length > 0 && (
-                      <div className="mt-4 space-y-4">
-                        {drafts.map((draft, index) => (
-                          <div key={index} className="bg-slate-800 p-4 rounded-lg text-slate-200 whitespace-pre-wrap">
-                            {draft}
+                    {/* Resumen IA */}
+                    <AnimatePresence>
+                      {summary && (
+                        <motion.div
+                          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.97 }}
+                          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                          className="relative rounded-2xl p-5 overflow-hidden
+                            bg-[rgba(201,178,124,0.04)] border border-[rgba(201,178,124,0.15)]"
+                        >
+                          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.4)] to-transparent" />
+                          <div className="flex items-center gap-2 mb-3">
+                            <div className="w-5 h-5 rounded-lg flex items-center justify-center
+                              bg-[rgba(201,178,124,0.1)]">
+                              <svg width="10" height="10" viewBox="0 0 22 22" fill="none">
+                                <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
+                                  fill="#C9B27C" />
+                              </svg>
+                            </div>
+                            <p className="text-xs text-[#C9B27C] uppercase tracking-[0.1em]">Lucy — Resumen</p>
+                            <button
+                              onClick={() => setSummary(null)}
+                              className="ml-auto text-[rgba(255,255,255,0.2)] hover:text-[rgba(255,255,255,0.5)] transition-colors"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
+                          <p className="text-sm text-[rgba(255,255,255,0.7)] leading-relaxed"
+                            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1rem' }}>
+                            {summary}
+                          </p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
+                    {/* Cuerpo email */}
+                    <div className="rounded-2xl p-6
+                      bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+                      <div
+                        className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed whitespace-pre-wrap"
+                        style={{ fontFamily: 'DM Sans, sans-serif' }}
+                        dangerouslySetInnerHTML={{ __html: renderEmailBody() }}
+                      />
+                    </div>
+
+                    {/* Reply box */}
+                    <AnimatePresence>
+                      {showReplyBox && (
+                        <motion.div
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 8 }}
+                          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                          className="rounded-2xl p-5
+                            bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.07)]"
+                        >
+                          <p className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.1em] mb-3">
+                            Instrucciones para Lucy
+                          </p>
+                          <textarea
+                            value={draftInstructions}
+                            onChange={(e) => setDraftInstructions(e.target.value)}
+                            placeholder="Ej: Confirmar la reunión para el jueves por la tarde…"
+                            rows={3}
+                            className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]
+                              rounded-xl px-4 py-3 text-sm text-[rgba(255,255,255,0.7)]
+                              placeholder:text-[rgba(255,255,255,0.2)] resize-none outline-none
+                              focus:border-[rgba(201,178,124,0.3)] focus:bg-[rgba(255,255,255,0.04)]
+                              transition-all duration-200 mb-3"
+                          />
+                          <button
+                            onClick={handleDraftReply}
+                            disabled={draftsLoading || !draftInstructions.trim()}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs
+                              bg-[rgba(201,178,124,0.1)] text-[#C9B27C]
+                              border border-[rgba(201,178,124,0.25)]
+                              hover:bg-[rgba(201,178,124,0.16)] transition-all duration-200
+                              disabled:opacity-30 disabled:cursor-not-allowed"
+                          >
+                            {draftsLoading
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <Sparkles className="w-3.5 h-3.5" />}
+                            {draftsLoading ? 'Generando…' : 'Generar respuesta'}
+                          </button>
+
+                          {/* Drafts */}
+                          <AnimatePresence>
+                            {drafts.length > 0 && (
+                              <motion.div
+                                initial={{ opacity: 0, y: 6 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                className="mt-4 space-y-3"
+                              >
+                                {drafts.map((draft, i) => (
+                                  <div key={i}
+                                    className="rounded-xl p-4 text-sm text-[rgba(255,255,255,0.65)] leading-relaxed
+                                      bg-[rgba(201,178,124,0.04)] border border-[rgba(201,178,124,0.1)]
+                                      whitespace-pre-wrap">
+                                    {draft}
+                                  </div>
+                                ))}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                  </div>
+                </ScrollArea>
               </motion.div>
-            </ScrollArea>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-slate-500">
-              Selecciona un correo para verlo
-            </div>
-          )}
+            ) : (
+              <motion.div
+                key="empty"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex-1 flex flex-col items-center justify-center gap-5"
+              >
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center
+                  bg-[rgba(201,178,124,0.06)] border border-[rgba(201,178,124,0.12)]">
+                  <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+                    <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
+                      fill="rgba(201,178,124,0.3)" />
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm text-[rgba(255,255,255,0.2)] mb-1">Selecciona un correo</p>
+                  <p className="text-xs text-[rgba(255,255,255,0.1)]">Lucy analizará su contenido</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
       </div>

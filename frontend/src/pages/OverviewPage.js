@@ -7,8 +7,7 @@ import { t } from '../i18n';
 import axios from 'axios';
 
 import {
-  Inbox, CheckCircle, Clock, Paperclip,
-  Sparkles, Link2
+  Inbox, Clock, Paperclip, Sparkles, Link2
 } from 'lucide-react';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,10 +16,139 @@ import { disconnectGmail } from '../services/mailService';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
-/* ───────────────────────────────────────────────── */
-/* Briefing Overlay                                  */
-/* ───────────────────────────────────────────────── */
+/* ─────────────────────────────────────────────────────────
+   WELCOME OVERLAY
+   Primera pantalla — espera clic del usuario para hablar
+   (resuelve autoplay policy del navegador)
+───────────────────────────────────────────────────────── */
+function WelcomeOverlay({ onStart, onSkip, greeting }) {
+  const [pulse, setPulse] = useState(false);
 
+  useEffect(() => {
+    const t = setTimeout(() => setPulse(true), 400);
+    return () => clearTimeout(t);
+  }, []);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.6 }}
+      className="fixed inset-0 z-50 flex items-center justify-center"
+      style={{ background: 'rgba(4,4,8,0.96)', backdropFilter: 'blur(32px)' }}
+    >
+      <motion.div
+        initial={{ opacity: 0, y: 40, scale: 0.94 }}
+        animate={{ opacity: 1, y: 0, scale: 1 }}
+        exit={{ opacity: 0, y: -20, scale: 0.97 }}
+        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+        className="max-w-sm w-full mx-8 text-center flex flex-col items-center gap-10"
+      >
+        {/* Icono Lucy con anillos */}
+        <div className="relative flex items-center justify-center">
+          {pulse && (
+            <>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: [0, 0.15, 0], scale: [0.8, 1.6, 2] }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'easeOut' }}
+                className="absolute w-24 h-24 rounded-full border border-[#C9B27C]"
+              />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: [0, 0.1, 0], scale: [0.8, 1.4, 1.8] }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'easeOut', delay: 0.6 }}
+                className="absolute w-24 h-24 rounded-full border border-[#C9B27C]"
+              />
+            </>
+          )}
+          <div className="relative w-20 h-20 rounded-3xl flex items-center justify-center
+            bg-[rgba(201,178,124,0.08)] border border-[rgba(201,178,124,0.25)]
+            shadow-[0_0_60px_rgba(201,178,124,0.12)]">
+            <svg width="28" height="28" viewBox="0 0 22 22" fill="none">
+              <path
+                d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
+                fill="#C9B27C"
+              />
+            </svg>
+          </div>
+        </div>
+
+        {/* Texto */}
+        <div className="space-y-3">
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.6 }}
+            className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.18em]"
+          >
+            {greeting}
+          </motion.p>
+          <motion.h2
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.45, duration: 0.6 }}
+            className="text-white font-light leading-tight"
+            style={{
+              fontFamily: "'Cormorant Garamond', serif",
+              fontSize: '2rem',
+              fontStyle: 'italic'
+            }}
+          >
+            Soy Lucy, tu secretaria.
+          </motion.h2>
+          <motion.p
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.6 }}
+            className="text-sm text-[rgba(255,255,255,0.3)] leading-relaxed"
+          >
+            Tengo tu briefing listo.<br />Toca para escucharlo.
+          </motion.p>
+        </div>
+
+        {/* Botones */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.75, duration: 0.6 }}
+          className="flex flex-col items-center gap-4 w-full"
+        >
+          <button
+            onClick={onStart}
+            className="group relative w-full py-4 rounded-2xl
+              bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.3)]
+              text-[#C9B27C] text-sm uppercase tracking-[0.12em] font-medium
+              hover:bg-[rgba(201,178,124,0.18)] hover:border-[rgba(201,178,124,0.5)]
+              hover:shadow-[0_0_40px_rgba(201,178,124,0.15)]
+              transition-all duration-300 overflow-hidden"
+          >
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.4)] to-transparent" />
+            <span className="flex items-center justify-center gap-2">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                <polygon points="5 3 19 12 5 21 5 3" />
+              </svg>
+              Escuchar briefing
+            </span>
+          </button>
+
+          <button
+            onClick={onSkip}
+            className="text-xs text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.4)]
+              uppercase tracking-[0.1em] transition-colors duration-200"
+          >
+            Entrar sin audio →
+          </button>
+        </motion.div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
+/* ─────────────────────────────────────────────────────────
+   BRIEFING OVERLAY
+───────────────────────────────────────────────────────── */
 function BriefingOverlay({ text, onDismiss, isSpeaking }) {
   return (
     <motion.div
@@ -38,12 +166,13 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         className="max-w-xl w-full mx-6 text-center flex flex-col items-center gap-8"
       >
-        {/* Lucy icon con pulso */}
         <div className="relative flex items-center justify-center">
           {isSpeaking && (
             <>
-              <div className="absolute w-24 h-24 rounded-full border border-[rgba(201,178,124,0.15)] animate-ping" style={{ animationDuration: '2s' }} />
-              <div className="absolute w-16 h-16 rounded-full border border-[rgba(201,178,124,0.25)] animate-ping" style={{ animationDuration: '1.5s', animationDelay: '0.3s' }} />
+              <div className="absolute w-24 h-24 rounded-full border border-[rgba(201,178,124,0.15)] animate-ping"
+                style={{ animationDuration: '2s' }} />
+              <div className="absolute w-16 h-16 rounded-full border border-[rgba(201,178,124,0.25)] animate-ping"
+                style={{ animationDuration: '1.5s', animationDelay: '0.3s' }} />
             </>
           )}
           <div className={`
@@ -61,22 +190,20 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
           </div>
         </div>
 
-        {/* Label */}
         <div>
           <p className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.15em] mb-2">
-            Buenos días
+            Briefing matutino
           </p>
           <p className="text-xs text-[rgba(201,178,124,0.5)] uppercase tracking-[0.1em]">
             {isSpeaking ? 'Lucy está hablando…' : 'Briefing listo'}
           </p>
         </div>
 
-        {/* Texto */}
         {text && (
           <motion.p
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.6 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
             className="font-light text-[rgba(255,255,255,0.75)] leading-relaxed text-xl max-w-md"
             style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}
           >
@@ -84,7 +211,6 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
           </motion.p>
         )}
 
-        {/* Ondas de audio */}
         {isSpeaking && (
           <div className="flex items-end gap-1 h-6">
             {[...Array(7)].map((_, i) => (
@@ -99,7 +225,6 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
           </div>
         )}
 
-        {/* Dismiss */}
         <button
           onClick={onDismiss}
           className="text-xs text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.45)]
@@ -112,10 +237,9 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
   );
 }
 
-/* ───────────────────────────────────────────────── */
-/* Stat Card                                         */
-/* ───────────────────────────────────────────────── */
-
+/* ─────────────────────────────────────────────────────────
+   STAT CARD
+───────────────────────────────────────────────────────── */
 const StatCard = ({ icon, label, value, highlight, onClick, delay = 0 }) => (
   <motion.button
     initial={{ opacity: 0, y: 16 }}
@@ -147,30 +271,27 @@ const StatCard = ({ icon, label, value, highlight, onClick, delay = 0 }) => (
   </motion.button>
 );
 
-/* ───────────────────────────────────────────────── */
-/* Overview Page                                     */
-/* ───────────────────────────────────────────────── */
-
+/* ─────────────────────────────────────────────────────────
+   OVERVIEW PAGE
+───────────────────────────────────────────────────────── */
 export default function OverviewPage() {
   const { language, token } = useAuth();
   const navigate = useNavigate();
 
   const {
-    voiceState, startListening, cancel, speak,
     ttsEnabled, setTtsEnabled,
     wakeWordEnabled, wakeWordActive,
     handsFreeModeActive, activateHandsFreeMode,
-    lastInteraction, STATES
+    lastInteraction, cancel
   } = useVoice();
 
-  const [emails, setEmails] = useState([]);
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [gmailConnected, setGmailConnected] = useState(false);
   const [gmailEmail, setGmailEmail] = useState('');
   const [gmailLoading, setGmailLoading] = useState(true);
 
-  // Briefing
+  const [showWelcome, setShowWelcome] = useState(false);
   const [briefingVisible, setBriefingVisible] = useState(false);
   const [briefingText, setBriefingText] = useState('');
   const [briefingIsSpeaking, setBriefingIsSpeaking] = useState(false);
@@ -185,7 +306,6 @@ export default function OverviewPage() {
       const emailsRes = await axios.get(`${API}/gmail/messages`, { headers });
       const emailsData = emailsRes.data?.data || emailsRes.data || [];
       const list = Array.isArray(emailsData) ? emailsData : [];
-      setEmails(list);
       setStats({
         total: list.length,
         prioritarios: list.filter(e => e.priority?.priority_label === 'PRIORITARIO').length,
@@ -193,8 +313,6 @@ export default function OverviewPage() {
         with_attachments: list.filter(e => e.email?.has_attachments).length,
       });
     } catch (err) {
-      console.error('Fetch error:', err);
-      setEmails([]);
       setStats(null);
     } finally {
       setLoading(false);
@@ -213,7 +331,7 @@ export default function OverviewPage() {
         setGmailConnected(!!d.gmail_connected);
         setGmailEmail(d.gmail_email || '');
       } catch (err) {
-        console.error('Gmail status error:', err);
+        console.error(err);
       } finally {
         setGmailLoading(false);
       }
@@ -225,11 +343,25 @@ export default function OverviewPage() {
     if (token) fetchData();
   }, [fetchData, token]);
 
-  /* ── Briefing helper ── */
+  /* ── Mostrar welcome overlay una vez por día ── */
+  useEffect(() => {
+    if (!token || gmailLoading || !gmailConnected || loading || briefingDoneRef.current) return;
+    const todayKey = `lucy_briefing_${new Date().toDateString()}`;
+    if (sessionStorage.getItem(todayKey)) return;
+    briefingDoneRef.current = true;
+    const timer = setTimeout(() => setShowWelcome(true), 600);
+    return () => clearTimeout(timer);
+  }, [token, gmailLoading, gmailConnected, loading]);
+
+  /* ── Briefing — se lanza SOLO tras clic del usuario ── */
   const runBriefing = useCallback(async (promptText = 'buenos días Lucy, dame mi briefing matutino') => {
+    setShowWelcome(false);
     setBriefingVisible(true);
     setBriefingIsSpeaking(true);
     setBriefingText('');
+    const todayKey = `lucy_briefing_${new Date().toDateString()}`;
+    sessionStorage.setItem(todayKey, '1');
+
     try {
       const res = await axios.post(
         `${API}/assistant`,
@@ -252,7 +384,7 @@ export default function OverviewPage() {
           briefingAudioRef.current = audio;
           audio.onended = () => setBriefingIsSpeaking(false);
           audio.onerror = () => setBriefingIsSpeaking(false);
-          await audio.play();
+          await audio.play(); // ✅ funciona porque viene de clic del usuario
         } else {
           setBriefingIsSpeaking(false);
         }
@@ -265,19 +397,11 @@ export default function OverviewPage() {
     }
   }, [token, ttsEnabled]);
 
-  /* ── Briefing matutino automático — una vez por día ── */
-  useEffect(() => {
-    if (!token || gmailLoading || !gmailConnected || loading || briefingDoneRef.current) return;
-
+  const handleSkip = () => {
     const todayKey = `lucy_briefing_${new Date().toDateString()}`;
-    if (sessionStorage.getItem(todayKey)) return;
-
-    briefingDoneRef.current = true;
     sessionStorage.setItem(todayKey, '1');
-
-    const timer = setTimeout(() => runBriefing(), 900);
-    return () => clearTimeout(timer);
-  }, [token, gmailLoading, gmailConnected, loading, runBriefing]);
+    setShowWelcome(false);
+  };
 
   const dismissBriefing = () => {
     if (briefingAudioRef.current) {
@@ -297,7 +421,7 @@ export default function OverviewPage() {
       const url = res.data?.data?.auth_url || res.data?.auth_url;
       if (url) window.location.href = url;
     } catch (err) {
-      console.error('Gmail connect error:', err);
+      console.error(err);
     }
   };
 
@@ -306,10 +430,9 @@ export default function OverviewPage() {
       await disconnectGmail();
       setGmailConnected(false);
       setGmailEmail('');
-      setEmails([]);
       setStats({ total: 0, prioritarios: 0, seguimiento: 0, with_attachments: 0 });
     } catch (err) {
-      console.error('Disconnect error', err);
+      console.error(err);
     }
   };
 
@@ -322,7 +445,16 @@ export default function OverviewPage() {
 
   return (
     <Layout>
-      {/* ── Briefing overlay ── */}
+      <AnimatePresence>
+        {showWelcome && (
+          <WelcomeOverlay
+            greeting={getGreeting()}
+            onStart={() => runBriefing()}
+            onSkip={handleSkip}
+          />
+        )}
+      </AnimatePresence>
+
       <AnimatePresence>
         {briefingVisible && (
           <BriefingOverlay
@@ -421,7 +553,6 @@ export default function OverviewPage() {
 
               <div className="p-8 flex flex-col gap-7">
 
-                {/* Header Lucy */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <div className="relative">
@@ -433,7 +564,9 @@ export default function OverviewPage() {
                             fill={wakeWordActive ? '#C9B27C' : 'rgba(201,178,124,0.6)'} />
                         </svg>
                       </div>
-                      {wakeWordActive && <div className="absolute -inset-1 rounded-2xl border border-[rgba(201,178,124,0.3)] animate-ping" />}
+                      {wakeWordActive && (
+                        <div className="absolute -inset-1 rounded-2xl border border-[rgba(201,178,124,0.3)] animate-ping" />
+                      )}
                     </div>
                     <div>
                       <h3 className="text-base font-medium text-white tracking-wide">Lucy</h3>
@@ -444,7 +577,6 @@ export default function OverviewPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {/* Repetir briefing */}
                     <button
                       onClick={() => runBriefing('repite mi briefing matutino')}
                       className="w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200
@@ -458,7 +590,6 @@ export default function OverviewPage() {
                       </svg>
                     </button>
 
-                    {/* TTS toggle */}
                     <button
                       onClick={() => setTtsEnabled(prev => !prev)}
                       className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-200
@@ -475,7 +606,6 @@ export default function OverviewPage() {
 
                 <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.06)] to-transparent -mx-8" />
 
-                {/* Modos */}
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={handsFreeModeActive ? cancel : undefined}
@@ -512,7 +642,6 @@ export default function OverviewPage() {
                   </button>
                 </div>
 
-                {/* Última respuesta */}
                 <AnimatePresence>
                   {lastInteraction && (
                     <motion.div
@@ -531,7 +660,6 @@ export default function OverviewPage() {
             </motion.div>
           </>
         )}
-
       </div>
     </Layout>
   );

@@ -2,10 +2,56 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
 import { LayoutDashboard, Mail, LogOut, Globe, ChevronDown } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from './ui/dropdown-menu';
-import { Button } from './ui/button';
+import { useState, useRef, useEffect } from 'react';
 import { TrialBanner, TrialExpiredOverlay } from './TrialBanner';
 
+/* ─── Dropdown propio — sin dependencia de Radix/slate ───── */
+function Dropdown({ trigger, children }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  return (
+    <div ref={ref} className="relative">
+      <div onClick={() => setOpen(o => !o)}>{trigger}</div>
+      {open && (
+        <div
+          className="absolute right-0 top-full mt-2 min-w-[160px] rounded-2xl overflow-hidden z-50
+            bg-[rgba(10,10,16,0.95)] border border-[rgba(255,255,255,0.08)]
+            shadow-[0_16px_48px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+          onClick={() => setOpen(false)}
+        >
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DropdownItem({ onClick, children, active }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-2 px-4 py-3 text-sm text-left
+        transition-colors duration-150
+        ${active
+          ? 'text-[#C9B27C] bg-[rgba(201,178,124,0.06)]'
+          : 'text-[rgba(255,255,255,0.5)] hover:text-[rgba(255,255,255,0.85)] hover:bg-[rgba(255,255,255,0.04)]'
+        }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ─── Layout ──────────────────────────────────────────────── */
 const Layout = ({ children }) => {
   const { user, logout, language, updateLanguage } = useAuth();
   const location = useLocation();
@@ -22,115 +68,160 @@ const Layout = ({ children }) => {
 
   const isActive = (path) => location.pathname === path;
 
-  const getNavClass = (path) => {
-    let cls = 'flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium ';
-    if (isActive(path)) {
-      cls += 'bg-blue-500/20 text-blue-400 border border-blue-500/30';
-    } else {
-      cls += 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/50';
-    }
-    return cls;
-  };
+  const userName = user?.name || '';
+  const userInitial = userName.charAt(0).toUpperCase() || 'U';
 
   return (
-    <div className="min-h-screen">
-      <div className="bg-neural" />
+    <div className="min-h-screen" style={{ background: '#080A0F' }}>
 
-      <header className="backdrop-blur-md bg-transparent border-b border-white/5 sticky top-0 z-50">
+      {/* ── Header ────────────────────────────────────────── */}
+      <header
+        className="sticky top-0 z-50"
+        style={{
+          background: 'rgba(8,10,15,0.85)',
+          backdropFilter: 'blur(20px)',
+          borderBottom: '1px solid rgba(255,255,255,0.05)',
+        }}
+      >
         <TrialBanner />
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center justify-between h-24 py-2">
-            <Link to="/app" className="flex items-center gap-3" data-testid="logo-link">
-              {/* Logo eliminado por ausencia de archivo LogoEmail.png */}
+
+        <div className="max-w-6xl mx-auto px-5">
+          <div className="flex items-center justify-between h-16">
+
+            {/* Logo Lucy */}
+            <Link
+              to="/app"
+              className="flex items-center gap-3 group"
+              data-testid="logo-link"
+            >
+              <div className="w-7 h-7 rounded-lg flex items-center justify-center
+                bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.2)]
+                group-hover:border-[rgba(201,178,124,0.4)] transition-all duration-300">
+                <svg width="12" height="12" viewBox="0 0 22 22" fill="none">
+                  <path
+                    d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
+                    fill="#C9B27C"
+                  />
+                </svg>
+              </div>
+              <span
+                className="text-[rgba(255,255,255,0.85)] font-light tracking-wide text-sm
+                  group-hover:text-white transition-colors duration-200"
+                style={{ fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.04em' }}
+              >
+                Lucy
+                <span className="text-[rgba(201,178,124,0.6)]">.</span>
+              </span>
             </Link>
 
+            {/* Nav central */}
             <nav className="flex items-center gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
+                const active = isActive(item.path);
                 return (
                   <Link
                     key={item.path}
                     to={item.path}
-                    className={getNavClass(item.path)}
-                    data-testid={'nav-' + (item.path.replace('/', '') || 'overview')}
+                    data-testid={'nav-' + (item.path.replace('/app', '') || 'overview')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs uppercase
+                      tracking-[0.08em] font-medium transition-all duration-200
+                      ${active
+                        ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.25)]'
+                        : 'text-[rgba(255,255,255,0.35)] border border-transparent hover:text-[rgba(255,255,255,0.65)] hover:bg-[rgba(255,255,255,0.04)]'
+                      }`}
                   >
-                    <Icon className="w-4 h-4" strokeWidth={1.5} />
+                    <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
                     <span className="hidden sm:inline">{item.label}</span>
                   </Link>
                 );
               })}
             </nav>
 
+            {/* Derecha — idioma + usuario */}
             <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 gap-1"
+
+              {/* Selector de idioma */}
+              <Dropdown
+                trigger={
+                  <button
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs
+                      text-[rgba(255,255,255,0.3)] border border-transparent
+                      hover:text-[rgba(255,255,255,0.6)] hover:bg-[rgba(255,255,255,0.04)]
+                      transition-all duration-200"
                     data-testid="language-selector"
                   >
-                    <Globe className="w-4 h-4" strokeWidth={1.5} />
-                    <span className="hidden sm:inline uppercase text-xs">{language}</span>
-                    <ChevronDown className="w-3 h-3" />
-                  </Button>
-                </DropdownMenuTrigger>
+                    <Globe className="w-3.5 h-3.5" strokeWidth={1.5} />
+                    <span className="hidden sm:inline uppercase tracking-wider">{language}</span>
+                    <ChevronDown className="w-3 h-3 opacity-50" />
+                  </button>
+                }
+              >
+                {languages.map((lang) => (
+                  <DropdownItem
+                    key={lang.code}
+                    onClick={() => updateLanguage(lang.code)}
+                    active={language === lang.code}
+                  >
+                    {lang.label}
+                  </DropdownItem>
+                ))}
+              </Dropdown>
 
-                <DropdownMenuContent className="bg-slate-900 border-slate-700">
-                  {languages.map((lang) => (
-                    <DropdownMenuItem
-                      key={lang.code}
-                      onClick={() => updateLanguage(lang.code)}
-                      className={
-                        'cursor-pointer hover:bg-slate-800 hover:text-slate-100 ' +
-                        (language === lang.code ? 'text-blue-400' : 'text-slate-300')
-                      }
-                      data-testid={'lang-' + lang.code}
-                    >
-                      {lang.label}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 gap-2"
+              {/* Menú usuario */}
+              <Dropdown
+                trigger={
+                  <button
+                    className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-xl
+                      border border-transparent hover:border-[rgba(255,255,255,0.08)]
+                      hover:bg-[rgba(255,255,255,0.03)] transition-all duration-200"
                     data-testid="user-menu"
                   >
-                    <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">
-                      <span className="text-sm font-medium text-slate-300">
-                        {user && user.name ? user.name.charAt(0).toUpperCase() : 'U'}
+                    {/* Avatar inicial */}
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center
+                      bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.2)]">
+                      <span className="text-xs font-medium text-[#C9B27C]">
+                        {userInitial}
                       </span>
                     </div>
-                    <span className="hidden sm:inline text-sm">
-                      {user ? user.name : ''}
+                    <span className="hidden sm:inline text-xs text-[rgba(255,255,255,0.45)]">
+                      {userName}
                     </span>
-                    <ChevronDown className="w-3 h-3" />
-                  </Button>
-                </DropdownMenuTrigger>
+                    <ChevronDown className="w-3 h-3 text-[rgba(255,255,255,0.2)]" />
+                  </button>
+                }
+              >
+                {/* Info usuario */}
+                <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
+                  <p className="text-xs text-[rgba(255,255,255,0.6)] font-medium">{userName}</p>
+                  <p className="text-[10px] text-[rgba(255,255,255,0.25)] mt-0.5 uppercase tracking-wider">
+                    Cuenta activa
+                  </p>
+                </div>
 
-                <DropdownMenuContent className="bg-slate-900 border-slate-700">
-                  <DropdownMenuItem
-                    onClick={logout}
-                    className="cursor-pointer text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-                    data-testid="logout-btn"
-                  >
-                    <LogOut className="w-4 h-4 mr-2" strokeWidth={1.5} />
-                    {t(language, 'logout')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+                <DropdownItem
+                  onClick={logout}
+                  data-testid="logout-btn"
+                >
+                  <LogOut className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  {t(language, 'logout')}
+                </DropdownItem>
+              </Dropdown>
+
             </div>
           </div>
         </div>
+
+        {/* Línea dorada inferior muy sutil */}
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.15)] to-transparent" />
       </header>
 
+      {/* ── Main ──────────────────────────────────────────── */}
       <main className="relative">
         {children}
         <TrialExpiredOverlay />
       </main>
+
     </div>
   );
 };

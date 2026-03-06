@@ -1,11 +1,11 @@
-@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@300;400;500;600&family=Inter:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ============================= */
-/* Base System — Lucy            */
+/* Design Tokens — Lucy          */
 /* ============================= */
 
 :root {
@@ -14,20 +14,30 @@
   --surface-secondary: #111520;
   --surface-glass: rgba(255, 255, 255, 0.03);
   --surface-glass-hover: rgba(255, 255, 255, 0.055);
-  --blue-structural: #0F1C2E;
-  --blue-accent: #1D4ED8;
-  --blue-glow: rgba(29, 78, 216, 0.18);
+
   --champagne: #C9B27C;
   --champagne-dim: rgba(201, 178, 124, 0.6);
+  --champagne-faint: rgba(201, 178, 124, 0.12);
+
   --text-primary: #EEF0F4;
   --text-secondary: rgba(255, 255, 255, 0.45);
   --text-tertiary: rgba(255, 255, 255, 0.25);
+
   --border-subtle: rgba(255, 255, 255, 0.06);
   --border-input: rgba(255, 255, 255, 0.09);
   --border-input-focus: rgba(201, 178, 124, 0.45);
+  --border-champagne: rgba(201, 178, 124, 0.2);
+
   --input-bg: rgba(255, 255, 255, 0.04);
   --input-bg-focus: rgba(255, 255, 255, 0.065);
+
+  --glow-champagne: rgba(201, 178, 124, 0.08);
+  --glow-champagne-md: rgba(201, 178, 124, 0.15);
 }
+
+/* ============================= */
+/* Reset & Base                  */
+/* ============================= */
 
 * {
   margin: 0;
@@ -36,7 +46,7 @@
 }
 
 body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--background-base);
   color: var(--text-primary);
   min-height: 100vh;
@@ -50,9 +60,36 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: 'Manrope', sans-serif;
-  font-weight: 400;
-  letter-spacing: -0.025em;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 300;
+  letter-spacing: -0.02em;
+}
+
+.editorial {
+  font-family: 'Cormorant Garamond', serif;
+  font-style: italic;
+}
+
+/* ============================= */
+/* Scrollbar                     */
+/* ============================= */
+
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(201, 178, 124, 0.2);
 }
 
 /* ============================= */
@@ -97,16 +134,20 @@ h6 {
   width: 52px;
   height: 52px;
   border-radius: 16px;
-  background: linear-gradient(135deg, rgba(201, 178, 124, 0.15), rgba(201, 178, 124, 0.04));
-  border: 1px solid rgba(201, 178, 124, 0.2);
+  background: linear-gradient(135deg,
+      rgba(201, 178, 124, 0.15),
+      rgba(201, 178, 124, 0.04));
+  border: 1px solid rgba(201, 178, 124, 0.22);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 30px rgba(201, 178, 124, 0.08);
+  box-shadow:
+    0 0 30px rgba(201, 178, 124, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .auth-brand h1 {
-  font-family: 'Manrope', sans-serif;
+  font-family: 'DM Sans', sans-serif;
   font-size: 2.4rem;
   font-weight: 300;
   letter-spacing: 0.08em;
@@ -132,9 +173,8 @@ h6 {
   background: rgba(255, 255, 255, 0.025);
   border: 1px solid rgba(255, 255, 255, 0.07);
   box-shadow:
-    0 1px 0 0 rgba(255, 255, 255, 0.04) inset,
-    0 32px 64px rgba(0, 0, 0, 0.45),
-    0 0 0 0 transparent;
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 32px 64px rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
   text-align: left;
@@ -189,17 +229,12 @@ h6 {
   z-index: 2;
 }
 
-/* ===================================================== */
-/* AUTH INPUT — Dark Glass (máxima especificidad)        */
-/* ===================================================== */
+/* ============================= */
+/* Auth Input — Dark Glass       */
+/* ============================= */
 
 .auth-input,
-.auth-input.auth-input,
-input.auth-input,
 .auth-input-wrapper input,
-.auth-input-wrapper .auth-input,
-div.auth-input-wrapper>input,
-.auth-form .auth-input,
 .auth-form input[type="email"],
 .auth-form input[type="password"],
 .auth-form input[type="text"] {
@@ -213,14 +248,13 @@ div.auth-input-wrapper>input,
   border: 1px solid var(--border-input) !important;
   border-radius: 12px !important;
   color: var(--text-primary) !important;
-  font-family: 'Inter', sans-serif !important;
+  font-family: 'DM Sans', sans-serif !important;
   font-size: 0.9rem !important;
   font-weight: 400 !important;
-  line-height: 1 !important;
   outline: none !important;
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.03),
-    inset 0 -1px 0 0 rgba(0, 0, 0, 0.2) !important;
+    inset 0 1px 0 rgba(255, 255, 255, 0.03),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2) !important;
   transition:
     border-color 0.25s ease,
     background-color 0.25s ease,
@@ -235,33 +269,27 @@ div.auth-input-wrapper>input,
   font-size: 0.88rem !important;
 }
 
-/* Focus state — champagne glow */
 .auth-input:focus,
 .auth-input:focus-visible,
 .auth-form input:focus,
 .auth-form input:focus-visible,
-.auth-input-wrapper input:focus,
-.auth-input-wrapper input:focus-visible {
+.auth-input-wrapper input:focus {
   background: var(--input-bg-focus) !important;
   background-color: var(--input-bg-focus) !important;
   border-color: var(--border-input-focus) !important;
   box-shadow:
-    inset 0 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
     0 0 0 3px rgba(201, 178, 124, 0.07),
     0 0 20px rgba(201, 178, 124, 0.06) !important;
   outline: none !important;
-  ring: none !important;
 }
 
-/* Focus hace que el icono brille levemente */
 .auth-input-wrapper:focus-within .auth-input-icon {
   color: var(--champagne-dim);
 }
 
-/* Autofill override — evita el fondo azul/blanco del navegador */
+/* Autofill override */
 .auth-input:-webkit-autofill,
-.auth-input:-webkit-autofill:hover,
-.auth-input:-webkit-autofill:focus,
 .auth-form input:-webkit-autofill,
 .auth-form input:-webkit-autofill:hover,
 .auth-form input:-webkit-autofill:focus {
@@ -278,8 +306,8 @@ div.auth-input-wrapper>input,
 .auth-error {
   padding: 0.75rem 1rem;
   border-radius: 10px;
-  border: 1px solid rgba(255, 80, 80, 0.3);
-  background: rgba(80, 0, 0, 0.2);
+  border: 1px solid rgba(255, 80, 80, 0.25);
+  background: rgba(60, 0, 0, 0.25);
   color: rgba(255, 160, 160, 0.9);
   font-size: 0.82rem;
   line-height: 1.5;
@@ -359,7 +387,7 @@ div.auth-input-wrapper>input,
 }
 
 /* ============================= */
-/* Video Background Auth         */
+/* Video Background              */
 /* ============================= */
 
 .ecs-auth-video-bg {
@@ -369,12 +397,11 @@ div.auth-input-wrapper>input,
   height: 100%;
   object-fit: cover;
   z-index: 0;
-  opacity: 0.14;
+  opacity: 0.12;
   pointer-events: none;
-  filter: saturate(0.6);
+  filter: saturate(0.4) brightness(0.7);
 }
 
-/* Overlay gradiente sobre el vídeo */
 .auth-shell::before {
   content: '';
   position: absolute;
@@ -382,7 +409,7 @@ div.auth-input-wrapper>input,
   z-index: 1;
   background:
     radial-gradient(ellipse 70% 60% at 50% 100%, rgba(201, 178, 124, 0.05) 0%, transparent 70%),
-    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(8, 10, 15, 0.6) 0%, transparent 80%);
+    radial-gradient(ellipse 80% 50% at 50% 0%, rgba(8, 10, 15, 0.7) 0%, transparent 80%);
   pointer-events: none;
 }
 
@@ -404,8 +431,37 @@ div.auth-input-wrapper>input,
   -webkit-backdrop-filter: blur(20px);
 }
 
-.halo-active {
-  border-color: rgba(29, 78, 216, 0.3) !important;
+/* ============================= */
+/* Lucy State Utilities          */
+/* ============================= */
+
+.lucy-active {
+  border-color: rgba(201, 178, 124, 0.35) !important;
+  box-shadow: 0 0 20px rgba(201, 178, 124, 0.1) !important;
+}
+
+.lucy-glow {
+  box-shadow: 0 0 40px rgba(201, 178, 124, 0.12);
+}
+
+/* ============================= */
+/* Email Content                 */
+/* ============================= */
+
+.email-content a {
+  color: var(--champagne-dim);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.email-content a:hover {
+  color: var(--champagne);
+}
+
+.email-content img {
+  max-width: 100%;
+  border-radius: 8px;
+  opacity: 0.85;
 }
 
 /* ============================= */
