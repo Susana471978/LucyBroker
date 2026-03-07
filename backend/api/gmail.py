@@ -485,4 +485,16 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         enriched = await fetch_enriched_messages(user, db, max_results=max_results, label=label)
         return build_response(request, data=enriched, legacy=enriched)
 
+    @router.post("/gmail/disconnect")
+    async def gmail_disconnect(
+        request: Request,
+        user: Dict[str, Any] = Depends(get_current_user),
+    ):
+        await db.users.update_one(
+            {"id": user["id"]},
+            {"$unset": {"gmail_tokens": ""}, "$set": {"gmail_connected": False}},
+        )
+        data = {"gmail_connected": False}
+        return build_response(request, data=data, legacy=data)
+
     return router

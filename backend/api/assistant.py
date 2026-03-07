@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from backend.core.dependencies import get_current_user
 from backend.api.gmail import fetch_enriched_messages
+from backend.api.calendar import fetch_today_events
 from backend.core.database import db
 from backend.services.executive_memory import set_memory, get_memory
 from backend.services.contact_memory import get_all_contacts, build_contact_insight
@@ -76,6 +77,31 @@ def _build_contacts_context(contacts: list) -> str:
     return "\n".join(lines)
 
 
+def _build_calendar_context(events: list) -> str:
+    if not events:
+        return "Agenda de hoy: libre, sin eventos programados."
+    lines = ["Agenda de hoy:"]
+    for e in events:
+        if e.get("all_day"):
+            time_str = "Todo el día"
+        else:
+            raw = e.get("start", "")
+            try:
+                from datetime import datetime as dt
+                parsed = dt.fromisoformat(raw)
+                time_str = parsed.strftime("%H:%M")
+            except Exception:
+                time_str = raw[:16].replace("T", " ")
+        attendees = ", ".join(e.get("attendees", [])[:3])
+        line = f"  · {time_str} — {e.get('title', '')}"
+        if attendees:
+            line += f" (con {attendees})"
+        if e.get("meet_link"):
+            line += " [Google Meet]"
+        lines.append(line)
+    return "\n".join(lines)
+
+
 # =====================================================
 # ENDPOINT PRINCIPAL — CEREBRO ÚNICO
 # =====================================================
@@ -108,6 +134,10 @@ async def assistant_endpoint(
         exec_memory = await get_memory(db, user["id"])
         contacts = await get_all_contacts(db, user["id"], limit=5)
 
+        # Contexto de agenda
+        calendar_events = await fetch_today_events(user)
+        calendar_context = _build_calendar_context(calendar_events)
+
         inbox_context = _build_inbox_context(items, counts)
         contacts_context = _build_contacts_context(contacts)
 
@@ -136,14 +166,17 @@ async def assistant_endpoint(
         elif any(k in text_lower for k in ["todo", "todos", "limpiar", "ver todo"]):
             actions = [AssistantAction(type="clear_filters", payload={})]
 
-        # Generar respuesta con LLM real
-        prompt = f"""Eres SyntexIA Executive, el asistente inteligente de correo de {user.get('name', 'el usuario')}.
+        # Generar respuesta con LLM
+        prompt = f"""Eres Lucy, la secretaria personal ejecutiva de {user.get('name', 'el usuario')}.
 
-Personalidad: profesional, directo, conciso. Hablas como un asistente ejecutivo de confianza.
+Personalidad: elegante, directa, concisa. Hablas como una secretaria de confianza de alto nivel.
 Siempre en español. Máximo 3 frases. Sin listas ni encabezados. Lenguaje natural y conversacional.
+Cuando des el briefing matutino, integra correos y agenda en un resumen fluido y natural.
 
 BANDEJA ACTUAL:
 {inbox_context}
+
+{calendar_context}
 
 {contacts_context}
 
@@ -152,6 +185,7 @@ BANDEJA ACTUAL:
 El usuario dice: "{user_text}"
 
 Responde de forma natural usando los datos reales de arriba.
+Si pide el briefing, dale un resumen integrado de correos y agenda del día.
 Si pide navegar o filtrar, confirma la acción brevemente.
 Si pide resumir o responder un correo concreto, dile que lo seleccione en la bandeja.
 """
