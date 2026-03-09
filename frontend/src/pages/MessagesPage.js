@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Paperclip, Send, Sparkles, Loader2,
   Clock, AlertCircle, Info, ChevronRight,
-  Mail, X, FileText
+  Mail, X, FileText, Mic, MicOff
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -18,6 +18,7 @@ import Layout from '../components/Layout';
 import { fetchEmails as fetchEmailsService } from '../services/mailService';
 import { summarizeEmail, generateDraft } from '../services/aiService';
 import apiClient from '../services/apiClient';
+import { useVoice } from '../voice/VoiceProvider';
 
 /* ─── TTS ejecutivo ───────────────────────────────────── */
 const speakExecutive = (text) => {
@@ -160,6 +161,8 @@ export default function MessagesPage() {
   const [draftInstructions, setDraftInstructions] = useState('');
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [attachmentSummaries, setAttachmentSummaries] = useState([]);
+  const { startListening, voiceState, STATES } = useVoice();
+  const [voiceListening, setVoiceListening] = useState(false);
 
   /* ── fetch ── */
   const fetchEmails = useCallback(async () => {
@@ -228,6 +231,24 @@ export default function MessagesPage() {
     } finally {
       setDraftsLoading(false);
     }
+  };
+
+  const handleVoiceDictate = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'es-ES';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+    setVoiceListening(true);
+    recognition.onresult = (e) => {
+      const text = e.results[0][0].transcript;
+      setDraftInstructions(prev => (prev ? prev + ' ' + text : text));
+      setVoiceListening(false);
+    };
+    recognition.onerror = () => setVoiceListening(false);
+    recognition.onend = () => setVoiceListening(false);
+    recognition.start();
   };
 
   const handleAttachmentSummary = (filename, summaryText) => {
@@ -510,17 +531,34 @@ export default function MessagesPage() {
                           <p className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.1em] mb-3">
                             Instrucciones para Lucy
                           </p>
-                          <textarea
-                            value={draftInstructions}
-                            onChange={(e) => setDraftInstructions(e.target.value)}
-                            placeholder="Ej: Confirmar la reunión para el jueves por la tarde…"
-                            rows={3}
-                            className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]
-                              rounded-xl px-4 py-3 text-sm text-[rgba(255,255,255,0.7)]
-                              placeholder:text-[rgba(255,255,255,0.2)] resize-none outline-none
-                              focus:border-[rgba(201,178,124,0.3)] focus:bg-[rgba(255,255,255,0.04)]
-                              transition-all duration-200 mb-3"
-                          />
+                          <div className="relative mb-3">
+                            <textarea
+                              value={draftInstructions}
+                              onChange={(e) => setDraftInstructions(e.target.value)}
+                              placeholder="Ej: Confirmar la reunión para el jueves por la tarde…"
+                              rows={3}
+                              className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]
+                                rounded-xl px-4 py-3 pr-12 text-sm text-[rgba(255,255,255,0.7)]
+                                placeholder:text-[rgba(255,255,255,0.2)] resize-none outline-none
+                                focus:border-[rgba(201,178,124,0.3)] focus:bg-[rgba(255,255,255,0.04)]
+                                transition-all duration-200"
+                            />
+                            <button
+                              onClick={handleVoiceDictate}
+                              disabled={voiceListening}
+                              title="Dictar instrucciones por voz"
+                              className={`absolute bottom-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center
+                                transition-all duration-200
+                                ${voiceListening
+                                  ? 'bg-[rgba(201,178,124,0.2)] text-[#C9B27C] border border-[rgba(201,178,124,0.4)] animate-pulse'
+                                  : 'bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.25)] border border-[rgba(255,255,255,0.08)] hover:text-[#C9B27C] hover:border-[rgba(201,178,124,0.3)]'
+                                }`}
+                            >
+                              {voiceListening
+                                ? <MicOff className="w-3.5 h-3.5" />
+                                : <Mic className="w-3.5 h-3.5" />}
+                            </button>
+                          </div>
                           <button
                             onClick={handleDraftReply}
                             disabled={draftsLoading || !draftInstructions.trim()}
