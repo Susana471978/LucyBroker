@@ -127,6 +127,62 @@ def _extract_best_body(payload: Dict[str, Any]) -> Tuple[str, str]:
     return (html, text)
 
 
+def _extract_attachments(payload):
+    SUPPORTED = {
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/plain", "text/csv",
+    }
+    attachments = []
+    for part in _iter_parts(payload):
+        disposition = ""
+        for h in (part.get("headers") or []):
+            if h.get("name", "").lower() == "content-disposition":
+                disposition = h.get("value", "").lower()
+        mime = part.get("mimeType", "")
+        body = part.get("body") or {}
+        attachment_id = body.get("attachmentId", "")
+        filename = part.get("filename", "")
+        size = body.get("size", 0)
+        if not attachment_id or not filename:
+            continue
+        if "inline" in disposition and mime.startswith("image/"):
+            continue
+        attachments.append({"id": attachment_id, "name": filename, "size": size, "mime_type": mime})
+    return attachments
+
+
+def _extract_attachments(payload):
+    SUPPORTED = {
+        "application/pdf",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.ms-excel",
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        "text/plain", "text/csv",
+    }
+    attachments = []
+    for part in _iter_parts(payload):
+        disposition = ""
+        for h in (part.get("headers") or []):
+            if h.get("name", "").lower() == "content-disposition":
+                disposition = h.get("value", "").lower()
+        mime = part.get("mimeType", "")
+        body = part.get("body") or {}
+        attachment_id = body.get("attachmentId", "")
+        filename = part.get("filename", "")
+        size = body.get("size", 0)
+        if not attachment_id or not filename:
+            continue
+        if "inline" in disposition and mime.startswith("image/"):
+            continue
+        attachments.append({"id": attachment_id, "name": filename, "size": size, "mime_type": mime})
+    return attachments
+
+
 def _strip_html_to_text(html: str) -> str:
     """
     Convierte HTML a texto. Si bs4 está disponible lo usa; si no, fallback por regex.
@@ -348,7 +404,7 @@ async def fetch_enriched_messages(
             # Además guardamos en Mongo un campo extra `body_text` para IA/depuración.
             body=body_for_ui or _text_to_safe_html(snippet or ""),
             labels=detail.get("labelIds", []) or [],
-            has_attachments=False,
+            has_attachments=len(_extract_attachments(payload)) > 0,
             attachments=[],
         )
 
@@ -368,6 +424,10 @@ async def fetch_enriched_messages(
                     **email_dict,
                     # 🔥 EXTRA: texto limpio para IA y para debug
                     "body_text": text_for_ai,
+                    "attachments_raw": _extract_attachments(payload),
+                    "has_attachments": len(_extract_attachments(payload)) > 0,
+                    "attachments_raw": _extract_attachments(payload),
+                    "has_attachments": len(_extract_attachments(payload)) > 0,
                     "updated_at": now,
                 },
                 "$setOnInsert": {"created_at": now},

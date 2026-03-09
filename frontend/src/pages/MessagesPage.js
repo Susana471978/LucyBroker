@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Paperclip, Send, Sparkles, Loader2,
   Clock, AlertCircle, Info, ChevronRight,
-  Mail, X
+  Mail, X, FileText
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -17,6 +17,7 @@ import Layout from '../components/Layout';
 
 import { fetchEmails as fetchEmailsService } from '../services/mailService';
 import { summarizeEmail, generateDraft } from '../services/aiService';
+import apiClient from '../services/apiClient';
 
 /* ─── TTS ejecutivo ───────────────────────────────────── */
 const speakExecutive = (text) => {
@@ -73,6 +74,74 @@ const FilterPill = ({ active, onClick, label }) => (
   </button>
 );
 
+/* ─── Attachment row ──────────────────────────────────── */
+const AttachmentRow = ({ attachment, emailId, onSummary }) => {
+  const [loading, setLoading] = useState(false);
+
+  const handleSummarize = async () => {
+    setLoading(true);
+    try {
+      const res = await apiClient.post('/ai/summarize-attachment', {
+        email_id: emailId,
+        attachment_id: attachment.id,
+        filename: attachment.name,
+        mime_type: attachment.mime_type,
+      });
+      const summary = res.data?.data?.summary || res.data?.summary || '';
+      if (summary) onSummary(attachment.name, summary);
+    } catch (err) {
+      console.error('Attachment summarize error:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatSize = (bytes) => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isSummarizable = [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    'text/plain',
+    'text/csv',
+  ].includes(attachment.mime_type) ||
+    /\.(pdf|doc|docx|txt|csv)$/i.test(attachment.name);
+
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl
+      bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.06)]">
+      <FileText className="w-4 h-4 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+      <div className="flex-1 min-w-0">
+        <p className="text-xs text-[rgba(255,255,255,0.65)] truncate">{attachment.name}</p>
+        {attachment.size > 0 && (
+          <p className="text-[10px] text-[rgba(255,255,255,0.2)]">{formatSize(attachment.size)}</p>
+        )}
+      </div>
+      {isSummarizable && (
+        <button
+          onClick={handleSummarize}
+          disabled={loading}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-[0.08em]
+            bg-[rgba(201,178,124,0.08)] text-[rgba(201,178,124,0.6)]
+            border border-[rgba(201,178,124,0.15)]
+            hover:bg-[rgba(201,178,124,0.14)] hover:text-[#C9B27C]
+            transition-all duration-200 disabled:opacity-40 flex-shrink-0"
+        >
+          {loading
+            ? <Loader2 className="w-3 h-3 animate-spin" />
+            : <Sparkles className="w-3 h-3" />}
+          {loading ? 'Analizando…' : 'Resumir'}
+        </button>
+      )}
+    </div>
+  );
+};
+
 /* ─── Main ────────────────────────────────────────────── */
 export default function MessagesPage() {
   const { language } = useAuth();
@@ -90,6 +159,7 @@ export default function MessagesPage() {
   const [draftsLoading, setDraftsLoading] = useState(false);
   const [draftInstructions, setDraftInstructions] = useState('');
   const [showReplyBox, setShowReplyBox] = useState(false);
+  const [attachmentSummaries, setAttachmentSummaries] = useState([]);
 
   /* ── fetch ── */
   const fetchEmails = useCallback(async () => {
@@ -123,7 +193,11 @@ export default function MessagesPage() {
 
   const handleSelectEmail = (email) => {
     setSelectedEmail(email);
-    setSummary(null); setDrafts([]); setDraftInstructions(''); setShowReplyBox(false);
+    setSummary(null);
+    setDrafts([]);
+    setDraftInstructions('');
+    setShowReplyBox(false);
+    setAttachmentSummaries([]);
     try { window.speechSynthesis.cancel(); } catch (_) { }
   };
 
@@ -156,11 +230,26 @@ export default function MessagesPage() {
     }
   };
 
+  const handleAttachmentSummary = (filename, summaryText) => {
+    setAttachmentSummaries(prev => {
+      const exists = prev.findIndex(s => s.filename === filename);
+      if (exists >= 0) {
+        const updated = [...prev];
+        updated[exists] = { filename, summary: summaryText };
+        return updated;
+      }
+      return [...prev, { filename, summary: summaryText }];
+    });
+    speakExecutive(`Resumen de ${filename}. ${summaryText}`);
+  };
+
   const renderEmailBody = () => {
     const body = selectedEmail?.email?.body || '';
     if (body && !body.includes('<')) return body.replace(/\n/g, '<br/>');
     return body || '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
   };
+
+  const currentAttachments = selectedEmail?.email?.attachments || [];
 
   /* ── UI ── */
   return (
@@ -171,7 +260,6 @@ export default function MessagesPage() {
         <div className="w-full md:w-[38%] flex flex-col border-r border-[rgba(255,255,255,0.05)]"
           style={{ background: 'rgba(6,6,10,0.6)' }}>
 
-          {/* Filtros */}
           <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-2 flex-wrap">
             <FilterPill active={filter === 'all' && !attachmentsOnly} onClick={() => handleFilterChange('all')} label="Todos" />
             <FilterPill active={filter === 'PRIORITARIO'} onClick={() => handleFilterChange('PRIORITARIO')} label="Prioritarios" />
@@ -179,7 +267,6 @@ export default function MessagesPage() {
             <FilterPill active={attachmentsOnly} onClick={() => handleFilterChange('attachments')} label="Adjuntos" />
           </div>
 
-          {/* Lista */}
           <ScrollArea className="flex-1">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
@@ -265,7 +352,7 @@ export default function MessagesPage() {
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="flex flex-col h-full"
               >
-                {/* Header del email */}
+                {/* Header */}
                 <div className="px-8 py-5 border-b border-[rgba(255,255,255,0.05)] flex-shrink-0">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -284,7 +371,6 @@ export default function MessagesPage() {
                       </div>
                     </div>
 
-                    {/* Acciones */}
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={handleSummarize}
@@ -320,7 +406,7 @@ export default function MessagesPage() {
                 <ScrollArea className="flex-1 px-8 py-6">
                   <div className="space-y-5 max-w-2xl">
 
-                    {/* Resumen IA */}
+                    {/* Resumen email */}
                     <AnimatePresence>
                       {summary && (
                         <motion.div
@@ -333,18 +419,14 @@ export default function MessagesPage() {
                         >
                           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.4)] to-transparent" />
                           <div className="flex items-center gap-2 mb-3">
-                            <div className="w-5 h-5 rounded-lg flex items-center justify-center
-                              bg-[rgba(201,178,124,0.1)]">
+                            <div className="w-5 h-5 rounded-lg flex items-center justify-center bg-[rgba(201,178,124,0.1)]">
                               <svg width="10" height="10" viewBox="0 0 22 22" fill="none">
-                                <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
-                                  fill="#C9B27C" />
+                                <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z" fill="#C9B27C" />
                               </svg>
                             </div>
                             <p className="text-xs text-[#C9B27C] uppercase tracking-[0.1em]">Lucy — Resumen</p>
-                            <button
-                              onClick={() => setSummary(null)}
-                              className="ml-auto text-[rgba(255,255,255,0.2)] hover:text-[rgba(255,255,255,0.5)] transition-colors"
-                            >
+                            <button onClick={() => setSummary(null)}
+                              className="ml-auto text-[rgba(255,255,255,0.2)] hover:text-[rgba(255,255,255,0.5)] transition-colors">
                               <X className="w-3.5 h-3.5" />
                             </button>
                           </div>
@@ -356,9 +438,58 @@ export default function MessagesPage() {
                       )}
                     </AnimatePresence>
 
+                    {/* Resúmenes de adjuntos */}
+                    <AnimatePresence>
+                      {attachmentSummaries.map((as) => (
+                        <motion.div
+                          key={as.filename}
+                          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, scale: 0.97 }}
+                          transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                          className="relative rounded-2xl p-5 overflow-hidden
+                            bg-[rgba(255,255,255,0.02)] border border-[rgba(201,178,124,0.12)]"
+                        >
+                          <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.25)] to-transparent" />
+                          <div className="flex items-center gap-2 mb-3">
+                            <FileText className="w-4 h-4 text-[rgba(201,178,124,0.5)]" />
+                            <p className="text-xs text-[rgba(201,178,124,0.7)] uppercase tracking-[0.1em] truncate flex-1">
+                              {as.filename}
+                            </p>
+                            <button
+                              onClick={() => setAttachmentSummaries(prev => prev.filter(s => s.filename !== as.filename))}
+                              className="text-[rgba(255,255,255,0.2)] hover:text-[rgba(255,255,255,0.5)] transition-colors flex-shrink-0"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <p className="text-sm text-[rgba(255,255,255,0.65)] leading-relaxed"
+                            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1rem' }}>
+                            {as.summary}
+                          </p>
+                        </motion.div>
+                      ))}
+                    </AnimatePresence>
+
+                    {/* Lista adjuntos */}
+                    <AnimatePresence>
+                      {currentAttachments.length > 0 && (
+                        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
+                          <p className="text-[10px] text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] mb-2">Adjuntos</p>
+                          {currentAttachments.map((att) => (
+                            <AttachmentRow
+                              key={att.id}
+                              attachment={att}
+                              emailId={selectedEmail.email.id}
+                              onSummary={handleAttachmentSummary}
+                            />
+                          ))}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     {/* Cuerpo email */}
-                    <div className="rounded-2xl p-6
-                      bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+                    <div className="rounded-2xl p-6 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
                       <div
                         className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed whitespace-pre-wrap"
                         style={{ fontFamily: 'DM Sans, sans-serif' }}
@@ -374,8 +505,7 @@ export default function MessagesPage() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 8 }}
                           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                          className="rounded-2xl p-5
-                            bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.07)]"
+                          className="rounded-2xl p-5 bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.07)]"
                         >
                           <p className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.1em] mb-3">
                             Instrucciones para Lucy
@@ -400,25 +530,16 @@ export default function MessagesPage() {
                               hover:bg-[rgba(201,178,124,0.16)] transition-all duration-200
                               disabled:opacity-30 disabled:cursor-not-allowed"
                           >
-                            {draftsLoading
-                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              : <Sparkles className="w-3.5 h-3.5" />}
+                            {draftsLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
                             {draftsLoading ? 'Generando…' : 'Generar respuesta'}
                           </button>
 
-                          {/* Drafts */}
                           <AnimatePresence>
                             {drafts.length > 0 && (
-                              <motion.div
-                                initial={{ opacity: 0, y: 6 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="mt-4 space-y-3"
-                              >
+                              <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="mt-4 space-y-3">
                                 {drafts.map((draft, i) => (
-                                  <div key={i}
-                                    className="rounded-xl p-4 text-sm text-[rgba(255,255,255,0.65)] leading-relaxed
-                                      bg-[rgba(201,178,124,0.04)] border border-[rgba(201,178,124,0.1)]
-                                      whitespace-pre-wrap">
+                                  <div key={i} className="rounded-xl p-4 text-sm text-[rgba(255,255,255,0.65)] leading-relaxed
+                                    bg-[rgba(201,178,124,0.04)] border border-[rgba(201,178,124,0.1)] whitespace-pre-wrap">
                                     {draft}
                                   </div>
                                 ))}
@@ -433,12 +554,8 @@ export default function MessagesPage() {
                 </ScrollArea>
               </motion.div>
             ) : (
-              <motion.div
-                key="empty"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="flex-1 flex flex-col items-center justify-center gap-5"
-              >
+              <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="flex-1 flex flex-col items-center justify-center gap-5">
                 <div className="w-14 h-14 rounded-2xl flex items-center justify-center
                   bg-[rgba(201,178,124,0.06)] border border-[rgba(201,178,124,0.12)]">
                   <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
