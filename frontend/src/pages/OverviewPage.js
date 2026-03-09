@@ -216,7 +216,7 @@ function MemoryWidgetInline() {
 export default function OverviewPage() {
   const { language, token, user } = useAuth();
   const navigate = useNavigate();
-  const { ttsEnabled, setTtsEnabled, wakeWordEnabled, wakeWordActive, handsFreeModeActive, activateHandsFreeMode, lastInteraction, cancel } = useVoice();
+  const { ttsEnabled, setTtsEnabled, wakeWordEnabled, setWakeWordEnabled, wakeWordActive, handsFreeModeActive, activateHandsFreeMode, lastInteraction, cancel } = useVoice();
 
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -295,6 +295,7 @@ export default function OverviewPage() {
 
   const runBriefing = useCallback(async (promptText = 'buenos dias Lucy, dame mi briefing matutino') => {
     setShowWelcome(false); setBriefingVisible(true); setBriefingIsSpeaking(true); setBriefingText('');
+    setWakeWordEnabled(false);
     sessionStorage.setItem(`lucy_briefing_${new Date().toDateString()}`, '1');
     try {
       const res = await axios.post(`${API}/assistant`, { text: promptText }, { headers: { Authorization: `Bearer ${token}` } });
@@ -305,8 +306,8 @@ export default function OverviewPage() {
         if (ttsRes.ok) {
           const audio = new Audio(URL.createObjectURL(await ttsRes.blob()));
           briefingAudioRef.current = audio;
-          audio.onended = () => setBriefingIsSpeaking(false);
-          audio.onerror = () => setBriefingIsSpeaking(false);
+          audio.onended = () => { setBriefingIsSpeaking(false); setWakeWordEnabled(true); };
+          audio.onerror = () => { setBriefingIsSpeaking(false); setWakeWordEnabled(true); };
           await audio.play();
         } else { setBriefingIsSpeaking(false); }
       } else { setBriefingIsSpeaking(false); }

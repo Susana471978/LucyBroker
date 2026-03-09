@@ -161,7 +161,7 @@ export default function MessagesPage() {
   const [draftInstructions, setDraftInstructions] = useState('');
   const [showReplyBox, setShowReplyBox] = useState(false);
   const [attachmentSummaries, setAttachmentSummaries] = useState([]);
-  const { startListening, voiceState, STATES } = useVoice();
+  const { startListening, voiceState, STATES, setWakeWordEnabled } = useVoice();
   const [voiceListening, setVoiceListening] = useState(false);
 
   /* ── fetch ── */
@@ -236,19 +236,23 @@ export default function MessagesPage() {
   const handleVoiceDictate = () => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) return;
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'es-ES';
-    recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
-    setVoiceListening(true);
-    recognition.onresult = (e) => {
-      const text = e.results[0][0].transcript;
-      setDraftInstructions(prev => (prev ? prev + ' ' + text : text));
-      setVoiceListening(false);
-    };
-    recognition.onerror = () => setVoiceListening(false);
-    recognition.onend = () => setVoiceListening(false);
-    recognition.start();
+    setWakeWordEnabled(false);
+    setTimeout(() => {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'es-ES';
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+      setVoiceListening(true);
+      recognition.onresult = (e) => {
+        const text = e.results[0][0].transcript;
+        setDraftInstructions(prev => (prev ? prev + ' ' + text : text));
+        setVoiceListening(false);
+        setWakeWordEnabled(true);
+      };
+      recognition.onerror = () => { setVoiceListening(false); setWakeWordEnabled(true); };
+      recognition.onend = () => { setVoiceListening(false); setWakeWordEnabled(true); };
+      recognition.start();
+    }, 400);
   };
 
   const handleAttachmentSummary = (filename, summaryText) => {
@@ -409,7 +413,7 @@ export default function MessagesPage() {
                       </button>
 
                       <button
-                        onClick={() => setShowReplyBox(prev => !prev)}
+                        onClick={() => setShowReplyBox(prev => { const next = !prev; setWakeWordEnabled(!next); return next; })}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs
                           border transition-all duration-200
                           ${showReplyBox
