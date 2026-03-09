@@ -7,6 +7,7 @@ import OverviewPage from "./pages/OverviewPage";
 import MessagesPage from "./pages/MessagesPage";
 import LandingPage from "./pages/LandingPage";
 import VoiceProvider from "./voice/VoiceProvider";
+import TasksPage from "./pages/TaskPage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -60,11 +61,19 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-
+      <Route
+        path="/app/tasks"
+        element={
+          <ProtectedRoute>
+            <TasksPage />
+          </ProtectedRoute>
+        }
+      />
       {/* Redirects */}
       <Route path="/landing" element={<Navigate to="/" replace />} />
       <Route path="/messages" element={<Navigate to="/app/messages" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
+
     </Routes>
   );
 };

@@ -102,6 +102,17 @@ def _build_calendar_context(events: list) -> str:
     return "\n".join(lines)
 
 
+def _build_tasks_context(tasks: list) -> str:
+    if not tasks:
+        return ""
+    lines = ["Tareas pendientes:"]
+    for t in tasks:
+        due = f" · Vence: {t['due_date']}" if t.get("due_date") else ""
+        priority_mark = " ⚡" if t.get("priority") == "high" else ""
+        lines.append(f"  · {t['title']}{priority_mark}{due}")
+    return "\n".join(lines)
+
+
 # =====================================================
 # ENDPOINT PRINCIPAL — CEREBRO ÚNICO
 # =====================================================
@@ -138,6 +149,14 @@ async def assistant_endpoint(
         calendar_events = await fetch_today_events(user)
         calendar_context = _build_calendar_context(calendar_events)
 
+        # Contexto de tareas pendientes
+        try:
+            from backend.api.tasks import get_pending_tasks
+            pending_tasks = await get_pending_tasks(user["id"])
+        except Exception:
+            pending_tasks = []
+        tasks_context = _build_tasks_context(pending_tasks)
+
         inbox_context = _build_inbox_context(items, counts)
         contacts_context = _build_contacts_context(contacts)
 
@@ -155,6 +174,8 @@ async def assistant_endpoint(
 
         if any(k in text_lower for k in ["mensajes", "correos", "bandeja", "ir a mensajes"]):
             actions = [AssistantAction(type="go_to", payload={"screen": "messages"})]
+        elif any(k in text_lower for k in ["tareas", "pendientes", "ir a tareas"]):
+            actions = [AssistantAction(type="go_to", payload={"screen": "tasks"})]
         elif any(k in text_lower for k in ["resumen", "overview", "inicio", "panel"]):
             actions = [AssistantAction(type="go_to", payload={"screen": "overview"})]
         elif any(k in text_lower for k in ["prioritario", "urgente", "importante"]):
@@ -167,17 +188,19 @@ async def assistant_endpoint(
             actions = [AssistantAction(type="clear_filters", payload={})]
 
         # Generar respuesta con LLM
+        tasks_block = f"\n{tasks_context}" if tasks_context else ""
+
         prompt = f"""Eres Lucy, la secretaria personal ejecutiva de {user.get('name', 'el usuario')}.
 
 Personalidad: elegante, directa, concisa. Hablas como una secretaria de confianza de alto nivel.
 Siempre en español. Máximo 3 frases. Sin listas ni encabezados. Lenguaje natural y conversacional.
-Cuando des el briefing matutino, integra correos y agenda en un resumen fluido y natural.
+Cuando des el briefing matutino, integra correos, agenda y tareas pendientes en un resumen fluido y natural.
 
 BANDEJA ACTUAL:
 {inbox_context}
 
 {calendar_context}
-
+{tasks_block}
 {contacts_context}
 
 {memory_context}
@@ -185,9 +208,10 @@ BANDEJA ACTUAL:
 El usuario dice: "{user_text}"
 
 Responde de forma natural usando los datos reales de arriba.
-Si pide el briefing, dale un resumen integrado de correos y agenda del día.
+Si pide el briefing, dale un resumen integrado de correos, agenda y tareas del día.
 Si pide navegar o filtrar, confirma la acción brevemente.
 Si pide resumir o responder un correo concreto, dile que lo seleccione en la bandeja.
+Si menciona tareas, puedes resumirle las pendientes o indicarle que vaya a la sección de tareas.
 """
 
         assistant_text = await generate_llm_response(prompt)

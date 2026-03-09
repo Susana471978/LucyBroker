@@ -37,6 +37,7 @@ from backend.services.executive_memory import ensure_ttl_index
 # AI
 # =========================
 from backend.api.ai import router as ai_router
+from backend.api.tasks import router as tasks_router
 
 from backend.api.contacts import router as contacts_router
 
@@ -233,6 +234,9 @@ api_router.include_router(_calendar_router)
 
 # AI router ✅ (esto garantiza /api/ai/...)
 api_router.include_router(ai_router)
+
+# TASKS router
+api_router.include_router(tasks_router)
 
 
 # ======================================================
