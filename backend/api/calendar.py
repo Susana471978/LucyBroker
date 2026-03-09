@@ -1,17 +1,14 @@
 # backend/api/calendar.py
-#
-# Google Calendar integration para Lucy
-# Mismo patrón que api/gmail.py — create_calendar_router(db, get_current_user)
-#
 
 from __future__ import annotations
 
 import os
+import warnings
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
 
 from google_auth_oauthlib.flow import Flow
@@ -25,19 +22,12 @@ from backend.utils.logger import logger
 BASE_DIR = Path(__file__).resolve().parent.parent
 CREDENTIALS_FILE = BASE_DIR / "credentials" / "google_oauth.json"
 
-# ─── Scopes Calendar (readonly es suficiente para Lucy) ───
 CALENDAR_SCOPES = [
-    "https://www.googleapis.com/auth/calendar.readonly",
+    "https://www.googleapis.com/auth/calendar",
 ]
 
-# Permite OAuth en http local
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
-os.environ.setdefault("OAUTHLIB_RELAX_TOKEN_SCOPE", "1")
 
-
-# =========================================================
-# FLOW
-# =========================================================
 
 def _get_calendar_flow(redirect_uri: str, state: str | None = None) -> Flow:
     return Flow.from_client_secrets_file(
@@ -48,26 +38,17 @@ def _get_calendar_flow(redirect_uri: str, state: str | None = None) -> Flow:
     )
 
 
-# =========================================================
-# HELPERS
-# =========================================================
-
 def _parse_event(event: Dict[str, Any]) -> Dict[str, Any]:
-    """Normaliza un evento de Google Calendar para el frontend."""
     start = event.get("start", {})
     end = event.get("end", {})
-
-    # dateTime para eventos con hora, date para eventos de día completo
     start_dt = start.get("dateTime") or start.get("date") or ""
     end_dt = end.get("dateTime") or end.get("date") or ""
-
     attendees = event.get("attendees") or []
     attendee_names = [
         a.get("displayName") or a.get("email", "")
         for a in attendees
         if not a.get("self")
     ]
-
     return {
         "id": event.get("id", ""),
         "title": event.get("summary", "(Sin título)"),
@@ -84,17 +65,11 @@ def _parse_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def fetch_today_events(user: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """
-    Devuelve los eventos de hoy del calendario principal del usuario.
-    Usado por el briefing matutino de Lucy.
-    """
     if not user.get("calendar_connected"):
         return []
-
     tokens = user.get("calendar_tokens") or {}
     if not tokens.get("token"):
         return []
-
     try:
         creds = Credentials(
             token=tokens.get("token"),
@@ -104,14 +79,10 @@ async def fetch_today_events(user: Dict[str, Any]) -> List[Dict[str, Any]]:
             client_secret=tokens.get("client_secret"),
             scopes=tokens.get("scopes") or CALENDAR_SCOPES,
         )
-
         service = build_service("calendar", "v3", credentials=creds)
-
-        # Rango: hoy desde medianoche hasta fin del día
         now = datetime.now(timezone.utc)
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end_of_day = start_of_day + timedelta(days=1)
-
         events_result = service.events().list(
             calendarId="primary",
             timeMin=start_of_day.isoformat(),
@@ -120,12 +91,9 @@ async def fetch_today_events(user: Dict[str, Any]) -> List[Dict[str, Any]]:
             singleEvents=True,
             orderBy="startTime",
         ).execute()
-
-        events = events_result.get("items", []) or []
-        return [_parse_event(e) for e in events]
-
+        return [_parse_event(e) for e in (events_result.get("items", []) or [])]
     except Exception:
-        logger.exception("Error fetching calendar events")
+        logger.exception("Error fetching today events")
         return []
 
 
@@ -134,16 +102,11 @@ async def fetch_upcoming_events(
     days: int = 7,
     max_results: int = 20,
 ) -> List[Dict[str, Any]]:
-    """
-    Devuelve los próximos eventos (por defecto 7 días).
-    """
     if not user.get("calendar_connected"):
         return []
-
     tokens = user.get("calendar_tokens") or {}
     if not tokens.get("token"):
         return []
-
     try:
         creds = Credentials(
             token=tokens.get("token"),
@@ -153,12 +116,9 @@ async def fetch_upcoming_events(
             client_secret=tokens.get("client_secret"),
             scopes=tokens.get("scopes") or CALENDAR_SCOPES,
         )
-
         service = build_service("calendar", "v3", credentials=creds)
-
         now = datetime.now(timezone.utc)
         end = now + timedelta(days=days)
-
         events_result = service.events().list(
             calendarId="primary",
             timeMin=now.isoformat(),
@@ -167,18 +127,11 @@ async def fetch_upcoming_events(
             singleEvents=True,
             orderBy="startTime",
         ).execute()
-
-        events = events_result.get("items", []) or []
-        return [_parse_event(e) for e in events]
-
+        return [_parse_event(e) for e in (events_result.get("items", []) or [])]
     except Exception:
         logger.exception("Error fetching upcoming events")
         return []
 
-
-# =========================================================
-# ROUTER FACTORY
-# =========================================================
 
 def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
     router = APIRouter(tags=["calendar"])
@@ -188,27 +141,13 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         "http://127.0.0.1:8000/api/calendar/callback",
     )
 
-    # ─── STATUS ───────────────────────────────────────────
-
     @router.get("/calendar/status")
-    async def calendar_status(
-        request: Request,
-        user: Dict[str, Any] = Depends(get_current_user),
-    ):
-        """Estado de conexión del calendario."""
-        data = {
-            "calendar_connected": bool(user.get("calendar_connected", False)),
-        }
+    async def calendar_status(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
+        data = {"calendar_connected": bool(user.get("calendar_connected", False))}
         return build_response(request, data=data, legacy=data)
 
-    # ─── OAUTH START ──────────────────────────────────────
-
     @router.get("/calendar/auth")
-    async def calendar_auth(
-        request: Request,
-        user: Dict[str, Any] = Depends(get_current_user),
-    ):
-        """Inicia el flujo OAuth de Google Calendar."""
+    async def calendar_auth(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
         flow = _get_calendar_flow(REDIRECT_URI, state=user["id"])
         auth_url, _state = flow.authorization_url(
             access_type="offline",
@@ -218,24 +157,14 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         data = {"auth_url": auth_url}
         return build_response(request, data=data, legacy=data)
 
-    # ─── OAUTH CALLBACK ───────────────────────────────────
-
     @router.get("/calendar/callback")
-    async def calendar_callback(
-        code: str,
-        state: str = Query(...),
-    ):
-        """
-        Callback OAuth — state = user_id
-        Guarda tokens en db.users bajo calendar_tokens.
-        """
+    async def calendar_callback(code: str, state: str = Query(...)):
         flow = _get_calendar_flow(REDIRECT_URI, state=state)
-        import warnings
+        # Google devuelve gmail+calendar scopes juntos — ignoramos el warning de scope
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             flow.fetch_token(code=code)
         creds = flow.credentials
-
         tokens = {
             "token": creds.token,
             "refresh_token": creds.refresh_token,
@@ -244,52 +173,26 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
             "client_secret": creds.client_secret,
             "scopes": list(creds.scopes) if creds.scopes else CALENDAR_SCOPES,
         }
-
         await db.users.update_one(
             {"id": state},
-            {
-                "$set": {
-                    "calendar_tokens": tokens,
-                    "calendar_connected": True,
-                }
-            },
+            {"$set": {"calendar_tokens": tokens, "calendar_connected": True}},
         )
-
         frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
         return RedirectResponse(url=f"{frontend_url}/app")
 
-    # ─── DISCONNECT ───────────────────────────────────────
-
     @router.post("/calendar/disconnect")
-    async def calendar_disconnect(
-        request: Request,
-        user: Dict[str, Any] = Depends(get_current_user),
-    ):
-        """Desconecta el calendario del usuario."""
+    async def calendar_disconnect(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
         await db.users.update_one(
             {"id": user["id"]},
-            {
-                "$unset": {"calendar_tokens": ""},
-                "$set": {"calendar_connected": False},
-            },
+            {"$unset": {"calendar_tokens": ""}, "$set": {"calendar_connected": False}},
         )
         data = {"calendar_connected": False}
         return build_response(request, data=data, legacy=data)
 
-    # ─── EVENTS TODAY ─────────────────────────────────────
-
     @router.get("/calendar/today")
-    async def calendar_today(
-        request: Request,
-        user: Dict[str, Any] = Depends(get_current_user),
-    ):
-        """
-        Eventos de hoy — usado por el briefing matutino de Lucy.
-        """
+    async def calendar_today(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
         events = await fetch_today_events(user)
         return build_response(request, data=events, legacy=events)
-
-    # ─── UPCOMING EVENTS ──────────────────────────────────
 
     @router.get("/calendar/upcoming")
     async def calendar_upcoming(
@@ -298,10 +201,63 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         days: int = Query(7, ge=1, le=30),
         max_results: int = Query(20, ge=1, le=50),
     ):
-        """
-        Próximos eventos (default 7 días).
-        """
         events = await fetch_upcoming_events(user, days=days, max_results=max_results)
         return build_response(request, data=events, legacy=events)
+
+    @router.post("/calendar/events")
+    async def calendar_create_event(
+        request: Request,
+        user: Dict[str, Any] = Depends(get_current_user),
+    ):
+        """
+        Crea un evento en el calendario principal del usuario.
+        Body: { title, date, start_time, end_time, description?, location?, attendees? }
+        """
+        body = await request.json()
+        title = body.get("title", "").strip()
+        date = body.get("date", "")          # "2026-03-10"
+        start_time = body.get("start_time", "09:00")   # "HH:MM"
+        end_time = body.get("end_time", "10:00")
+        description = body.get("description", "")
+        location = body.get("location", "")
+        attendees_raw = body.get("attendees", [])        # ["email@x.com", ...]
+
+        if not title or not date:
+            raise HTTPException(status_code=400, detail="title y date son obligatorios")
+
+        if not user.get("calendar_connected"):
+            raise HTTPException(status_code=400, detail="Calendario no conectado")
+
+        tokens = user.get("calendar_tokens") or {}
+        creds = Credentials(
+            token=tokens.get("token"),
+            refresh_token=tokens.get("refresh_token"),
+            token_uri=tokens.get("token_uri"),
+            client_id=tokens.get("client_id"),
+            client_secret=tokens.get("client_secret"),
+            scopes=tokens.get("scopes") or CALENDAR_SCOPES,
+        )
+
+        service = build_service("calendar", "v3", credentials=creds)
+
+        event_body: Dict[str, Any] = {
+            "summary": title,
+            "start": {"dateTime": f"{date}T{start_time}:00", "timeZone": "Europe/Madrid"},
+            "end":   {"dateTime": f"{date}T{end_time}:00",   "timeZone": "Europe/Madrid"},
+        }
+        if description:
+            event_body["description"] = description
+        if location:
+            event_body["location"] = location
+        if attendees_raw:
+            event_body["attendees"] = [{"email": e} for e in attendees_raw if "@" in e]
+
+        try:
+            created = service.events().insert(calendarId="primary", body=event_body).execute()
+            result = _parse_event(created)
+            return build_response(request, data=result, legacy=result)
+        except Exception as exc:
+            logger.exception("Error creating calendar event")
+            raise HTTPException(status_code=500, detail=str(exc))
 
     return router

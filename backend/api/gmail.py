@@ -17,6 +17,7 @@ from datetime import datetime, timezone
 
 from backend.models import EmailEvent
 from backend.services.rules_engine import calculate_priority
+from backend.services.contact_memory import record_interaction
 from backend.utils.response import build_response
 
 
@@ -373,6 +374,28 @@ async def fetch_enriched_messages(
             },
             upsert=True,
         )
+
+        # Registrar contacto en contact_memory automáticamente
+        try:
+            from_raw = headers.get("from", "")
+            import re as _re
+            email_match = _re.search(r'[\w\.\+\-]+@[\w\.\-]+', from_raw)
+            contact_email = email_match.group(0).lower() if email_match else from_raw.lower()
+            name_match = _re.match(r'^"?([^"<]+)"?\s*<', from_raw)
+            contact_name = name_match.group(1).strip() if name_match else contact_email
+            priority_label = priority.model_dump().get("priority_label", "INFORMATIVO")
+            is_vip = priority_label == "PRIORITARIO"
+            await record_interaction(
+                db=db,
+                user_id=user["id"],
+                contact_email=contact_email,
+                contact_name=contact_name,
+                subject=email_event.subject,
+                action="read",
+                is_vip=is_vip,
+            )
+        except Exception as _ce:
+            pass  # nunca romper el flujo principal
 
         enriched.append(
             {

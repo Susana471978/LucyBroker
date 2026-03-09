@@ -1,4 +1,4 @@
-import { Volume2, VolumeX } from 'lucide-react';
+import { Volume2, VolumeX, Radio } from 'lucide-react';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +10,7 @@ import { Inbox, Clock, Paperclip, Sparkles, Link2, Calendar } from 'lucide-react
 import Layout from '../components/Layout';
 import { disconnectGmail } from '../services/mailService';
 import { getCalendarStatus, connectCalendar, disconnectCalendar, getTodayEvents, formatEventTime } from '../services/calendarService';
+import CalendarDrawer from '../components/CalendarDrawer';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
@@ -124,6 +125,8 @@ export default function OverviewPage() {
   const [calendarConnected, setCalendarConnected] = useState(false);
   const [calendarLoading, setCalendarLoading] = useState(true);
   const [todayEvents, setTodayEvents] = useState([]);
+  const [radar, setRadar] = useState([]);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
   const [briefingVisible, setBriefingVisible] = useState(false);
   const [briefingText, setBriefingText] = useState('');
@@ -174,6 +177,13 @@ export default function OverviewPage() {
   useEffect(() => { if (token) fetchData(); }, [fetchData, token]);
 
   useEffect(() => {
+    if (!token) return;
+    axios.get(`${API}/contacts/radar?days_silent=5&limit=5`, { headers: { Authorization: `Bearer ${token}` } })
+      .then(res => { const d = res.data?.data || res.data; setRadar(Array.isArray(d) ? d : []); })
+      .catch(() => setRadar([]));
+  }, [token]);
+
+  useEffect(() => {
     if (!token || gmailLoading || !gmailConnected || loading || briefingDoneRef.current) return;
     const todayKey = `lucy_briefing_${new Date().toDateString()}`;
     if (sessionStorage.getItem(todayKey)) return;
@@ -221,6 +231,7 @@ export default function OverviewPage() {
 
   return (
     <Layout>
+      <CalendarDrawer open={showCalendar} onClose={() => setShowCalendar(false)} />
       <AnimatePresence>
         {showWelcome && <WelcomeOverlay greeting={getGreeting()} onStart={() => runBriefing()} onSkip={handleSkip} />}
       </AnimatePresence>
@@ -274,7 +285,6 @@ export default function OverviewPage() {
         {/* CUERPO */}
         <div className="max-w-5xl mx-auto px-8 py-10">
 
-          {/* Sin correo conectado */}
           {!gmailLoading && !gmailConnected && (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.6 }}
               className="mb-10 rounded-2xl p-8 border border-[rgba(201,178,124,0.12)] bg-[rgba(201,178,124,0.03)]">
@@ -290,7 +300,6 @@ export default function OverviewPage() {
             </motion.div>
           )}
 
-          {/* Panel principal */}
           {isReady && stats && (
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
@@ -373,7 +382,54 @@ export default function OverviewPage() {
                   </div>
                 </motion.div>
 
-                {/* Eventos del dia */}
+                {/* RADAR DE OPORTUNIDADES */}
+                <AnimatePresence>
+                  {radar.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                      transition={{ delay: 0.5, duration: 0.6 }}
+                      className="rounded-2xl overflow-hidden"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <div className="px-6 py-4 border-b border-[rgba(255,255,255,0.04)] flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Radio className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
+                          <p className="text-xs text-[rgba(255,255,255,0.3)] uppercase tracking-[0.1em]">Radar de oportunidades</p>
+                        </div>
+                        <p className="text-xs text-[rgba(201,178,124,0.4)]">{radar.length} contacto{radar.length !== 1 ? 's' : ''}</p>
+                      </div>
+                      <div className="divide-y divide-[rgba(255,255,255,0.03)]">
+                        {radar.map((contact, i) => (
+                          <motion.div key={contact.contact_email} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.55 + i * 0.05 }}
+                            className="px-6 py-4 flex items-start gap-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                            <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-medium"
+                              style={{ background: contact.is_vip ? 'rgba(201,178,124,0.12)' : 'rgba(255,255,255,0.04)', color: contact.is_vip ? '#C9B27C' : 'rgba(255,255,255,0.3)', border: contact.is_vip ? '1px solid rgba(201,178,124,0.2)' : '1px solid rgba(255,255,255,0.06)' }}>
+                              {(contact.contact_name || contact.contact_email || '?')[0].toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <p className="text-sm text-[rgba(255,255,255,0.7)] truncate">{contact.contact_name || contact.contact_email}</p>
+                                {contact.is_vip && <span className="text-[10px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)] flex-shrink-0">VIP</span>}
+                                {contact.has_pending_action && <span className="text-[10px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full bg-[rgba(239,68,68,0.08)] text-red-400 border border-[rgba(239,68,68,0.15)] flex-shrink-0">Pendiente</span>}
+                              </div>
+                              <p className="text-xs text-[rgba(255,255,255,0.2)] truncate">{contact.reasons?.[0] || ''}</p>
+                              {contact.last_subject && (
+                                <p className="text-xs text-[rgba(255,255,255,0.15)] truncate mt-0.5">"{contact.last_subject}"</p>
+                              )}
+                            </div>
+                            <div className="flex-shrink-0 text-right">
+                              {contact.days_since_contact != null && (
+                                <p className="text-xs text-[rgba(201,178,124,0.4)] tabular-nums">{contact.days_since_contact}d</p>
+                              )}
+                              <p className="text-xs text-[rgba(255,255,255,0.12)] mt-0.5">{contact.interaction_count}x</p>
+                            </div>
+                          </motion.div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Agenda de hoy */}
                 {calendarConnected && todayEvents.length > 0 && (
                   <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.6 }}
                     className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
@@ -382,7 +438,13 @@ export default function OverviewPage() {
                         <Calendar className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
                         <p className="text-xs text-[rgba(255,255,255,0.3)] uppercase tracking-[0.1em]">Agenda de hoy</p>
                       </div>
-                      <p className="text-xs text-[rgba(201,178,124,0.4)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</p>
+                      <div className="flex items-center gap-3">
+                        <button onClick={() => setShowCalendar(true)}
+                          className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">
+                          Ver todo →
+                        </button>
+                        <p className="text-xs text-[rgba(201,178,124,0.4)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</p>
+                      </div>
                     </div>
                     <div className="divide-y divide-[rgba(255,255,255,0.03)]">
                       {todayEvents.map((event, i) => (
@@ -459,11 +521,16 @@ export default function OverviewPage() {
                         <div className={`w-1.5 h-1.5 rounded-full ${calendarConnected ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-[rgba(255,255,255,0.15)]'}`} />
                         <span className="text-sm text-[rgba(255,255,255,0.4)]">Agenda</span>
                       </div>
-                      {calendarConnected ? (
-                        <button onClick={handleCalendarDisconnect} className="text-xs text-[rgba(255,255,255,0.15)] hover:text-[rgba(255,255,255,0.4)] transition-colors">Desconectar</button>
-                      ) : (
-                        <button onClick={handleCalendarConnect} className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">Conectar</button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {calendarConnected && (
+                          <button onClick={() => setShowCalendar(true)} className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">Ver agenda</button>
+                        )}
+                        {calendarConnected ? (
+                          <button onClick={handleCalendarDisconnect} className="text-xs text-[rgba(255,255,255,0.15)] hover:text-[rgba(255,255,255,0.4)] transition-colors">Desconectar</button>
+                        ) : (
+                          <button onClick={handleCalendarConnect} className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">Conectar</button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -471,7 +538,6 @@ export default function OverviewPage() {
             </div>
           )}
 
-          {/* Loading */}
           {(loading || gmailLoading) && (
             <div className="flex items-center justify-center py-24">
               <div className="flex items-center gap-3">
