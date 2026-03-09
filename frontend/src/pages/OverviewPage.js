@@ -6,7 +6,8 @@ import { useVoice } from '../voice/VoiceProvider';
 import { t } from '../i18n';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Inbox, Clock, Paperclip, Sparkles, Link2, Calendar } from 'lucide-react';
+import { Inbox, Clock, Paperclip, Sparkles, Link2, Calendar, Brain, Plus, X, Loader2 } from 'lucide-react';
+import apiClient from '../services/apiClient';
 import Layout from '../components/Layout';
 import { disconnectGmail } from '../services/mailService';
 import { getCalendarStatus, connectCalendar, disconnectCalendar, getTodayEvents, formatEventTime } from '../services/calendarService';
@@ -108,6 +109,106 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
           {isSpeaking ? 'Saltar →' : 'Entrar al panel →'}
         </button>
       </motion.div>
+    </motion.div>
+  );
+}
+
+
+const MEMORY_CATEGORIES = [
+  { value: 'proyecto', label: 'Proyecto' },
+  { value: 'cliente', label: 'Cliente' },
+  { value: 'preferencia', label: 'Preferencia' },
+  { value: 'general', label: 'General' },
+];
+
+function MemoryWidgetInline() {
+  const [notes, setNotes] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [text, setText] = useState('');
+  const [category, setCategory] = useState('general');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    apiClient.get('/memory')
+      .then(res => setNotes(res.data?.data?.notes || res.data?.notes || []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAdd = async () => {
+    if (!text.trim()) return;
+    setSaving(true);
+    try {
+      const res = await apiClient.post('/memory', { text: text.trim(), category });
+      setNotes(res.data?.data?.notes || res.data?.notes || []);
+      setText(''); setShowForm(false);
+    } catch(e) { console.error(e); } finally { setSaving(false); }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      const res = await apiClient.delete(`/memory/${id}`);
+      setNotes(res.data?.data?.notes || res.data?.notes || []);
+    } catch(e) { console.error(e); }
+  };
+
+  const CAT = {
+    proyecto:    'text-blue-400 bg-[rgba(96,165,250,0.08)] border-[rgba(96,165,250,0.2)]',
+    cliente:     'text-[#C9B27C] bg-[rgba(201,178,124,0.08)] border-[rgba(201,178,124,0.2)]',
+    preferencia: 'text-purple-400 bg-[rgba(192,132,252,0.08)] border-[rgba(192,132,252,0.2)]',
+    general:     'text-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.06)]',
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.65, duration: 0.6 }}
+      className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+      <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.04)] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Brain className="w-3.5 h-3.5 text-[rgba(201,178,124,0.4)]" />
+          <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Memoria de Lucy</p>
+        </div>
+        <button onClick={() => setShowForm(p => !p)} className="text-[rgba(255,255,255,0.2)] hover:text-[#C9B27C] transition-colors">
+          <Plus className="w-3.5 h-3.5" />
+        </button>
+      </div>
+      <AnimatePresence>
+        {showForm && (
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+            className="px-4 pt-3 pb-2 border-b border-[rgba(255,255,255,0.04)] overflow-hidden">
+            <textarea autoFocus value={text} onChange={e => setText(e.target.value)}
+              placeholder="Ej: Emergent es mi cliente más importante"
+              rows={2}
+              className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl px-3 py-2 text-xs text-[rgba(255,255,255,0.65)] placeholder:text-[rgba(255,255,255,0.15)] resize-none outline-none mb-2 focus:border-[rgba(201,178,124,0.25)] transition-all" />
+            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+              {MEMORY_CATEGORIES.map(c => (
+                <button key={c.value} onClick={() => setCategory(c.value)}
+                  className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-[0.07em] border transition-all ${category === c.value ? "bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border-[rgba(201,178,124,0.3)]" : "text-[rgba(255,255,255,0.2)] border-[rgba(255,255,255,0.06)]"}`}>
+                  {c.label}
+                </button>
+              ))}
+            </div>
+            <button onClick={handleAdd} disabled={saving || !text.trim()}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.08em] bg-[rgba(201,178,124,0.08)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)] hover:bg-[rgba(201,178,124,0.14)] transition-all disabled:opacity-30">
+              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Guardar
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+      <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+        {loading ? (
+          <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 text-[rgba(201,178,124,0.3)] animate-spin" /></div>
+        ) : notes.length === 0 ? (
+          <p className="text-xs text-[rgba(255,255,255,0.12)] text-center py-4 italic">Lucy no recuerda nada aún.</p>
+        ) : notes.map(note => (
+          <div key={note.id} className={`group flex items-start gap-2 px-3 py-2 rounded-xl border ${CAT[note.category] || CAT.general}`}>
+            <p className="flex-1 text-xs leading-relaxed">{note.text}</p>
+            <button onClick={() => handleDelete(note.id)} className="opacity-0 group-hover:opacity-100 text-[rgba(255,255,255,0.15)] hover:text-[rgba(255,100,100,0.5)] transition-all flex-shrink-0 mt-0.5">
+              <X className="w-3 h-3" />
+            </button>
+          </div>
+        ))}
+      </div>
     </motion.div>
   );
 }
@@ -534,6 +635,7 @@ export default function OverviewPage() {
                     </div>
                   </div>
                 </motion.div>
+                <MemoryWidgetInline />
               </div>
             </div>
           )}
