@@ -117,7 +117,7 @@ const Layout = ({ children }) => {
             </Link>
 
             {/* Nav central */}
-            <nav className="flex items-center gap-1">
+            <nav className="flex items-center gap-0.5 sm:gap-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.path);
@@ -126,7 +126,7 @@ const Layout = ({ children }) => {
                     key={item.path}
                     to={item.path}
                     data-testid={'nav-' + (item.path.replace('/app', '') || 'overview')}
-                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs uppercase
+                    className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl text-xs uppercase
                       tracking-[0.08em] font-medium transition-all duration-200
                       ${active
                         ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.25)]'
@@ -141,7 +141,7 @@ const Layout = ({ children }) => {
             </nav>
 
             {/* Derecha — idioma + usuario */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1 sm:gap-2">
 
               {/* Selector de idioma */}
               <Dropdown

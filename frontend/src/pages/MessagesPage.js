@@ -64,7 +64,7 @@ const PriorityChip = ({ label }) => {
 const FilterPill = ({ active, onClick, label }) => (
   <button
     onClick={onClick}
-    className={`px-4 py-1.5 rounded-full text-xs uppercase tracking-[0.08em] font-medium
+    className={`px-3 sm:px-4 py-1.5 rounded-full text-[11px] sm:text-xs uppercase tracking-[0.08em] font-medium
       transition-all duration-200
       ${active
         ? 'bg-[rgba(201,178,124,0.12)] text-[#C9B27C] border border-[rgba(201,178,124,0.3)]'
@@ -285,7 +285,7 @@ export default function MessagesPage() {
         <div className="w-full md:w-[38%] flex flex-col border-r border-[rgba(255,255,255,0.05)]"
           style={{ background: 'rgba(6,6,10,0.6)' }}>
 
-          <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-2 flex-wrap">
+          <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <FilterPill active={filter === 'all' && !attachmentsOnly} onClick={() => handleFilterChange('all')} label="Todos" />
             <FilterPill active={filter === 'PRIORITARIO'} onClick={() => handleFilterChange('PRIORITARIO')} label="Prioritarios" />
             <FilterPill active={filter === 'SEGUIMIENTO'} onClick={() => handleFilterChange('SEGUIMIENTO')} label="Seguimiento" />

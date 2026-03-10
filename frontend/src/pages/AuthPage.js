@@ -1,19 +1,100 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, ArrowRight, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
+import lucyVideo from '../assets/Lucy.mp4';
 
-import videoBg from "../assets/video-fondo-ecs.mp4";
+// ── Partículas doradas ────────────────────────────────────────────────────────
+function ParticleCanvas() {
+  const canvasRef = useRef(null);
+  const animRef = useRef(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const resize = () => { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const GOLD = ['rgba(201,178,124,', 'rgba(230,210,160,', 'rgba(180,155,100,'];
+    const particles = Array.from({ length: 60 }, () => ({
+      x: Math.random() * 800, y: Math.random() * 900,
+      r: Math.random() * 1.6 + 0.3,
+      vx: (Math.random() - 0.5) * 0.22,
+      vy: -(Math.random() * 0.35 + 0.08),
+      alpha: Math.random() * 0.6 + 0.1,
+      dAlpha: (Math.random() - 0.5) * 0.007,
+      color: GOLD[Math.floor(Math.random() * GOLD.length)],
+      drift: Math.random() * Math.PI * 2,
+      dDrift: Math.random() * 0.014 + 0.004,
+    }));
+
+    const draw = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach(p => {
+        p.drift += p.dDrift;
+        p.x += p.vx + Math.sin(p.drift) * 0.16;
+        p.y += p.vy;
+        p.alpha += p.dAlpha;
+        if (p.alpha > 0.85 || p.alpha < 0.05) p.dAlpha *= -1;
+        if (p.y < -5) { p.y = canvas.height + 5; p.x = Math.random() * canvas.width; }
+        if (p.x < -5) p.x = canvas.width + 5;
+        if (p.x > canvas.width + 5) p.x = -5;
+
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        ctx.fillStyle = `${p.color}${p.alpha.toFixed(2)})`;
+        ctx.fill();
+
+        if (p.r > 1.2) {
+          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3.5);
+          g.addColorStop(0, `${p.color}${(p.alpha * 0.35).toFixed(2)})`);
+          g.addColorStop(1, `${p.color}0)`);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.r * 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = g;
+          ctx.fill();
+        }
+      });
+      animRef.current = requestAnimationFrame(draw);
+    };
+
+    draw();
+    return () => { cancelAnimationFrame(animRef.current); window.removeEventListener('resize', resize); };
+  }, []);
+
+  return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 3 }} />;
+}
+
+function LucyVideoSide() {
+  return (
+    <div className="lucy-left-col">
+      <div className="lucy-video-wrapper">
+        <video className="lucy-video" src={lucyVideo} autoPlay loop muted playsInline />
+        <div className="lucy-video-overlay" />
+        <ParticleCanvas />
+        {/* Texto superpuesto en la parte baja del vídeo */}
+        <div className="lucy-label">
+          <h1 className="lucy-title">Lucy</h1>
+          <p className="lucy-tagline">
+            Tu secretaria ejecutiva.<br />
+            Inteligencia al servicio de tu tiempo.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function AuthPage() {
-
   const { login, register, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
-
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -26,193 +107,329 @@ export default function AuthPage() {
     event.preventDefault();
     setError('');
     setLoading(true);
-
     try {
       if (isAuthenticated) logout();
-
-      if (isRegister) {
-        await register(email, password, name);
-      } else {
-        await login(email, password);
-      }
-
+      if (isRegister) { await register(email, password, name); }
+      else { await login(email, password); }
       navigate('/app');
-
     } catch (err) {
-      setError(
-        err.response?.data?.detail ||
-        (isRegister ? 'Error al registrarse' : 'Error al iniciar sesión')
-      );
-    } finally {
-      setLoading(false);
-    }
+      setError(err.response?.data?.detail || (isRegister ? 'Error al registrarse' : 'Error al iniciar sesión'));
+    } finally { setLoading(false); }
   };
 
   return (
-    <div className="auth-shell relative min-h-screen overflow-hidden">
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap');
 
-      {/* Video de fondo */}
-      <video
-        autoPlay
-        loop
-        muted
-        playsInline
-        className="ecs-auth-video-bg"
-      >
-        <source src={videoBg} type="video/mp4" />
-      </video>
+        .auth-root {
+          min-height: 100vh;
+          background: #080A0F;
+          display: flex;
+          align-items: stretch;
+          overflow: hidden;
+          font-family: 'DM Sans', sans-serif;
+        }
 
-      {/* Contenido */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-        className="auth-stack relative z-10"
-      >
+        .auth-root::before {
+          content: '';
+          position: fixed;
+          inset: 0;
+          background-image:
+            linear-gradient(rgba(201,178,124,0.018) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(201,178,124,0.018) 1px, transparent 1px);
+          background-size: 64px 64px;
+          pointer-events: none;
+          z-index: 0;
+        }
 
-        {/* Brand */}
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.15, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-          className="auth-brand"
-        >
+        .auth-top-line {
+          position: fixed;
+          top: 0; left: 0; right: 0;
+          height: 1px;
+          background: linear-gradient(to right, transparent, rgba(201,178,124,0.35) 30%, rgba(201,178,124,0.35) 70%, transparent);
+          z-index: 20;
+        }
 
-          <div className="auth-brand-icon">
-            {/* Icono Lucy — estrella/diamante minimalista */}
-            <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-              <path
-                d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
-                fill="rgba(201,178,124,0.9)"
-                stroke="rgba(201,178,124,0.4)"
-                strokeWidth="0.5"
-              />
-            </svg>
-          </div>
+        /* ── LADO IZQUIERDO ── */
+        .lucy-left-col {
+          flex: 1.2;
+          display: flex;
+          flex-direction: column;
+          min-height: 100vh;
+        }
 
-          <h1>Lucy</h1>
+        /* El wrapper ocupa TODO el alto — el texto va dentro, anclado abajo */
+        .lucy-video-wrapper {
+          flex: 1;
+          position: relative;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          justify-content: flex-end;
+        }
 
-          <p>
-            Tu secretaria ejecutiva.<br />
-            Inteligencia al servicio de tu tiempo.
-          </p>
+        .lucy-video {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: center 20%;
+          z-index: 1;
+        }
 
+        .lucy-video-overlay {
+          position: absolute;
+          inset: 0;
+          background:
+            linear-gradient(to right,  #080A0F 0%, transparent 14%, transparent 86%, #080A0F 100%),
+            linear-gradient(to bottom, #080A0F 0%, transparent 8%, transparent 75%, #080A0F 100%);
+          z-index: 2;
+          pointer-events: none;
+        }
+
+        /* Texto anclado al fondo del vídeo — z-index por encima del overlay */
+        .lucy-label {
+          position: relative;
+          z-index: 4;
+          text-align: center;
+          padding: 0 1rem 2.5rem;
+        }
+
+        .lucy-title {
+          font-family: 'Cormorant Garamond', serif;
+          font-size: 4rem;
+          font-weight: 300;
+          color: rgba(255,255,255,0.96);
+          letter-spacing: -0.01em;
+          line-height: 1;
+          margin: 0 0 0.55rem;
+          text-shadow:
+            0 0 25px rgba(201,178,124,0.65),
+            0 0 55px rgba(201,178,124,0.3),
+            0 2px 8px rgba(0,0,0,0.5);
+        }
+
+        .lucy-tagline {
+          font-size: 0.62rem;
+          color: rgba(255,255,255,0.55);
+          text-transform: uppercase;
+          letter-spacing: 0.2em;
+          line-height: 1.9;
+          margin: 0;
+          text-shadow: 0 1px 10px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7);
+        }
+
+        /* ── DIVISOR ── */
+        .auth-divider {
+          width: 1px;
+          align-self: stretch;
+          background: linear-gradient(
+            to bottom,
+            transparent,
+            rgba(201,178,124,0.1) 20%,
+            rgba(201,178,124,0.18) 50%,
+            rgba(201,178,124,0.1) 80%,
+            transparent
+          );
+          flex-shrink: 0;
+          z-index: 10;
+        }
+
+        /* ── FORMULARIO ── */
+        .auth-form-side {
+          flex: 0.8;
+          display: flex;
+          flex-direction: column;
+          justify-content: center;
+          padding: 3rem 4rem;
+          position: relative;
+          z-index: 10;
+          min-width: 340px;
+        }
+
+        .auth-form-title {
+          font-size: 0.6rem;
+          color: rgba(201,178,124,0.5);
+          text-transform: uppercase;
+          letter-spacing: 0.22em;
+          margin-bottom: 2rem;
+        }
+
+        .auth-field { margin-bottom: 1.2rem; }
+
+        .auth-field-label {
+          display: block;
+          font-size: 0.6rem;
+          text-transform: uppercase;
+          letter-spacing: 0.18em;
+          color: rgba(255,255,255,0.2);
+          margin-bottom: 0.5rem;
+        }
+
+        .auth-input-wrapper { position: relative; }
+
+        .auth-input-icon {
+          position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
+          width: 13px; height: 13px; color: rgba(255,255,255,0.18);
+          pointer-events: none; z-index: 1;
+        }
+
+        .auth-input {
+          background: rgba(255,255,255,0.02) !important;
+          border: 1px solid rgba(255,255,255,0.07) !important;
+          color: rgba(255,255,255,0.7) !important;
+          padding-left: 2.75rem !important;
+          transition: all 0.2s !important;
+          font-size: 0.85rem !important;
+          font-family: 'DM Sans', sans-serif !important;
+          border-radius: 0.875rem !important;
+        }
+        .auth-input::placeholder { color: rgba(255,255,255,0.08) !important; }
+        .auth-input:focus {
+          border-color: rgba(201,178,124,0.3) !important;
+          background: rgba(201,178,124,0.02) !important;
+          box-shadow: 0 0 0 3px rgba(201,178,124,0.05) !important;
+          outline: none !important;
+        }
+
+        .auth-submit {
+          width: 100%;
+          background: rgba(201,178,124,0.1) !important;
+          border: 1px solid rgba(201,178,124,0.28) !important;
+          color: #C9B27C !important;
+          font-size: 0.65rem !important;
+          font-family: 'DM Sans', sans-serif !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.15em !important;
+          transition: all 0.25s !important;
+          position: relative; overflow: hidden;
+          border-radius: 0.875rem !important;
+        }
+        .auth-submit::before {
+          content: ''; position: absolute; inset-x: 0; top: 0; height: 1px;
+          background: linear-gradient(to right, transparent, rgba(201,178,124,0.5), transparent);
+        }
+        .auth-submit:hover:not(:disabled) {
+          background: rgba(201,178,124,0.18) !important;
+          border-color: rgba(201,178,124,0.45) !important;
+          box-shadow: 0 0 28px rgba(201,178,124,0.1) !important;
+        }
+        .auth-submit:disabled { opacity: 0.35 !important; }
+
+        .auth-error {
+          font-size: 0.72rem; color: rgba(239,100,100,0.8);
+          background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.1);
+          border-radius: 0.75rem; padding: 0.6rem 0.875rem; margin-bottom: 1rem;
+        }
+
+        .auth-toggle {
+          margin-top: 1.25rem; font-size: 0.68rem;
+          color: rgba(255,255,255,0.15); text-align: center;
+        }
+        .auth-toggle span { color: rgba(201,178,124,0.55); cursor: pointer; transition: color 0.15s; }
+        .auth-toggle span:hover { color: #C9B27C; }
+
+        @media (max-width: 768px) {
+          .auth-root { flex-direction: column; }
+          .lucy-left-col { min-height: 55vh; flex: none; }
+          .lucy-title { font-size: 2.8rem; }
+          .auth-divider { display: none; }
+          .auth-form-side { flex: none; padding: 2rem 1.5rem; min-width: unset; }
+        }
+      `}</style>
+
+      <div className="auth-root">
+        <div className="auth-top-line" />
+
+        <motion.div style={{ flex: '1.2', display: 'flex', flexDirection: 'column' }}
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
+          <LucyVideoSide />
         </motion.div>
 
-        {/* Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 24 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.25, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-          className="auth-card"
-        >
+        <motion.div className="auth-divider"
+          initial={{ scaleY: 0, opacity: 0 }} animate={{ scaleY: 1, opacity: 1 }}
+          transition={{ delay: 0.6, duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+          style={{ transformOrigin: 'top' }} />
 
-          <h2>
-            {isRegister ? 'Crear cuenta' : 'Acceder'}
-          </h2>
+        <motion.div className="auth-form-side"
+          initial={{ opacity: 0, x: 32 }} animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3, duration: 1, ease: [0.16, 1, 0.3, 1] }}>
+          <AnimatePresence mode="wait">
+            <motion.div key={isRegister ? 'register' : 'login'}
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }} transition={{ duration: 0.3 }}>
 
-          <form onSubmit={handleSubmit} className="auth-form">
+              <p className="auth-form-title">{isRegister ? 'Crear cuenta' : 'Acceder'}</p>
 
-            {isRegister && (
-              <div className="auth-field">
-                <label className="auth-field-label">Nombre</label>
-                <div className="auth-input-wrapper">
-                  <Input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Tu nombre"
-                    required
-                    className="auth-input !h-[3.2rem] !rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
-                    style={{ paddingLeft: '1rem' }}
-                  />
+              <form onSubmit={handleSubmit}>
+                {isRegister && (
+                  <div className="auth-field">
+                    <label className="auth-field-label">Nombre</label>
+                    <div className="auth-input-wrapper">
+                      <Input type="text" value={name} onChange={(e) => setName(e.target.value)}
+                        placeholder="Tu nombre" required
+                        className="auth-input !h-[3.2rem] focus-visible:ring-0 focus-visible:ring-offset-0"
+                        style={{ paddingLeft: '1rem' }} />
+                    </div>
+                  </div>
+                )}
+
+                <div className="auth-field">
+                  <label className="auth-field-label">Correo electrónico</label>
+                  <div className="auth-input-wrapper">
+                    <Mail className="auth-input-icon" strokeWidth={1.3} />
+                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                      placeholder="hola@tuempresa.com" autoComplete="email" required
+                      className="auth-input !h-[3.2rem] focus-visible:ring-0 focus-visible:ring-offset-0" />
+                  </div>
                 </div>
-              </div>
-            )}
 
-            <div className="auth-field">
-              <label className="auth-field-label">Correo electrónico</label>
-              <div className="auth-input-wrapper">
-                <Mail className="auth-input-icon" strokeWidth={1.4} />
-                <Input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="hola@tuempresa.com"
-                  autoComplete="email"
-                  required
-                  className="auth-input !h-[3.2rem] !rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-              </div>
-            </div>
+                <div className="auth-field">
+                  <label className="auth-field-label">Contraseña</label>
+                  <div className="auth-input-wrapper">
+                    <Lock className="auth-input-icon" strokeWidth={1.3} />
+                    <Input type={showPassword ? 'text' : 'password'} value={password}
+                      onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                      autoComplete={isRegister ? 'new-password' : 'current-password'} required
+                      className="auth-input !h-[3.2rem] !pr-12 focus-visible:ring-0 focus-visible:ring-offset-0" />
+                    <button type="button" onClick={() => setShowPassword(p => !p)}
+                      style={{
+                        position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)',
+                        color: 'rgba(255,255,255,0.2)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer'
+                      }}>
+                      {showPassword ? <EyeOff className="w-4 h-4" strokeWidth={1.3} /> : <Eye className="w-4 h-4" strokeWidth={1.3} />}
+                    </button>
+                  </div>
+                </div>
 
-            <div className="auth-field">
-              <label className="auth-field-label">Contraseña</label>
-              <div className="auth-input-wrapper relative">
-                <Lock className="auth-input-icon" strokeWidth={1.4} />
-                <Input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  placeholder="••••••••"
-                  autoComplete={isRegister ? 'new-password' : 'current-password'}
-                  required
-                  className="auth-input !h-[3.2rem] !rounded-xl !pr-12 focus-visible:ring-0 focus-visible:ring-offset-0"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.55)] transition-colors z-10"
-                >
-                  {showPassword
-                    ? <EyeOff className="w-4 h-4" strokeWidth={1.4} />
-                    : <Eye className="w-4 h-4" strokeWidth={1.4} />
-                  }
-                </button>
-              </div>
-            </div>
+                {error && (
+                  <motion.div initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }} className="auth-error">
+                    {error}
+                  </motion.div>
+                )}
 
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="auth-error"
-              >
-                {error}
-              </motion.div>
-            )}
+                <Button type="submit" disabled={loading}
+                  className="auth-submit !h-[3.2rem] focus-visible:ring-0 focus-visible:ring-offset-0"
+                  style={{ marginTop: '0.5rem' }}>
+                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
+                    <>{isRegister ? 'Crear cuenta' : 'Entrar'}<ArrowRight className="w-4 h-4 ml-2" style={{ opacity: 0.5 }} /></>
+                  )}
+                </Button>
+              </form>
 
-            <Button
-              type="submit"
-              disabled={loading}
-              className="auth-submit !h-[3.2rem] !rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
-            >
-              {loading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <>
-                  {isRegister ? 'Crear cuenta' : 'Entrar'}
-                  <ArrowRight className="w-4 h-4 ml-2 opacity-60" />
-                </>
-              )}
-            </Button>
-
-          </form>
-
-          <p className="auth-secondary-link">
-            {isRegister ? '¿Ya tienes cuenta?' : '¿Primera vez?'}{' '}
-            <span
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setError('');
-              }}
-            >
-              {isRegister ? 'Iniciar sesión' : 'Crear cuenta'}
-            </span>
-          </p>
-
+              <p className="auth-toggle">
+                {isRegister ? '¿Ya tienes cuenta?' : '¿Primera vez?'}{' '}
+                <span onClick={() => { setIsRegister(p => !p); setError(''); }}>
+                  {isRegister ? 'Iniciar sesión' : 'Crear cuenta'}
+                </span>
+              </p>
+            </motion.div>
+          </AnimatePresence>
         </motion.div>
-      </motion.div>
-    </div>
+      </div>
+    </>
   );
 }

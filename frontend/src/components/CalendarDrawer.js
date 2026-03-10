@@ -119,8 +119,8 @@ export default function CalendarDrawer({ open, onClose }) {
                     <motion.div
                         initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 28, stiffness: 260 }}
-                        className="fixed right-0 top-0 bottom-0 z-50 flex flex-col"
-                        style={{ width: '380px', background: '#0C0E14', borderLeft: '1px solid rgba(201,178,124,0.1)' }}>
+                        className="fixed right-0 top-0 bottom-0 z-50 flex flex-col w-full sm:w-[380px]"
+                        style={{ background: '#0C0E14', borderLeft: '1px solid rgba(201,178,124,0.1)' }}>
 
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-5 border-b border-[rgba(255,255,255,0.05)]">

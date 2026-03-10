@@ -412,7 +412,7 @@ export default function LandingPage() {
         <section className="lp-features" id="features">
           <div className="lp-features-header">
             <p className="lp-section-label">Capacidades</p>
-            <h2>Todo lo que necesitas.<br /><em>Nada que no necesitas.</em></h2>
+            <h2>Una nueva forma de gestionar tu tiempo,<br /><em>tus correos y tus decisiones.</em></h2>
           </div>
           <div className="lp-features-grid">
             {[

@@ -113,7 +113,6 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
   );
 }
 
-
 const MEMORY_CATEGORIES = [
   { value: 'proyecto', label: 'Proyecto' },
   { value: 'cliente', label: 'Cliente' },
@@ -121,7 +120,15 @@ const MEMORY_CATEGORIES = [
   { value: 'general', label: 'General' },
 ];
 
-function MemoryWidgetInline() {
+const CAT_STYLES = {
+  proyecto: { dot: 'bg-blue-400', label: 'Proyecto', text: 'text-blue-400', border: 'border-[rgba(96,165,250,0.15)]' },
+  cliente: { dot: 'bg-[#C9B27C]', label: 'Cliente', text: 'text-[#C9B27C]', border: 'border-[rgba(201,178,124,0.15)]' },
+  preferencia: { dot: 'bg-purple-400', label: 'Preferencia', text: 'text-purple-400', border: 'border-[rgba(192,132,252,0.15)]' },
+  general: { dot: 'bg-[rgba(255,255,255,0.2)]', label: 'General', text: 'text-[rgba(255,255,255,0.3)]', border: 'border-[rgba(255,255,255,0.06)]' },
+};
+
+// ── MEMORIA — sección ancho completo, debajo del grid ──────────────────────
+function MemorySection() {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -132,7 +139,7 @@ function MemoryWidgetInline() {
   useEffect(() => {
     apiClient.get('/memory')
       .then(res => setNotes(res.data?.data?.notes || res.data?.notes || []))
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setLoading(false));
   }, []);
 
@@ -143,71 +150,136 @@ function MemoryWidgetInline() {
       const res = await apiClient.post('/memory', { text: text.trim(), category });
       setNotes(res.data?.data?.notes || res.data?.notes || []);
       setText(''); setShowForm(false);
-    } catch(e) { console.error(e); } finally { setSaving(false); }
+    } catch (e) { console.error(e); } finally { setSaving(false); }
   };
 
   const handleDelete = async (id) => {
     try {
       const res = await apiClient.delete(`/memory/${id}`);
       setNotes(res.data?.data?.notes || res.data?.notes || []);
-    } catch(e) { console.error(e); }
-  };
-
-  const CAT = {
-    proyecto:    'text-blue-400 bg-[rgba(96,165,250,0.08)] border-[rgba(96,165,250,0.2)]',
-    cliente:     'text-[#C9B27C] bg-[rgba(201,178,124,0.08)] border-[rgba(201,178,124,0.2)]',
-    preferencia: 'text-purple-400 bg-[rgba(192,132,252,0.08)] border-[rgba(192,132,252,0.2)]',
-    general:     'text-[rgba(255,255,255,0.4)] bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.06)]',
+    } catch (e) { console.error(e); }
   };
 
   return (
-    <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.65, duration: 0.6 }}
-      className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-      <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.04)] flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Brain className="w-3.5 h-3.5 text-[rgba(201,178,124,0.4)]" />
-          <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Memoria de Lucy</p>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.65, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+      className="relative rounded-2xl overflow-hidden"
+      style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.14)' }}>
+
+      {/* Línea dorada superior — diferencia visual respecto al resto de cards */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.6)] to-transparent" />
+
+      {/* Header */}
+      <div className="px-4 sm:px-8 pt-7 pb-5 flex items-center justify-between flex-wrap gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(201,178,124,0.07)', border: '1px solid rgba(201,178,124,0.18)' }}>
+            <Brain className="w-4 h-4 text-[rgba(201,178,124,0.7)]" />
+          </div>
+          <div>
+            <p className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.15em]">Memoria de Lucy</p>
+            <p className="text-xs text-[rgba(255,255,255,0.12)] mt-0.5"
+              style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>
+              Lo que Lucy sabe de ti — siempre presente en cada respuesta.
+            </p>
+          </div>
         </div>
-        <button onClick={() => setShowForm(p => !p)} className="text-[rgba(255,255,255,0.2)] hover:text-[#C9B27C] transition-colors">
-          <Plus className="w-3.5 h-3.5" />
-        </button>
+        {(!loading && notes.length > 0 || showForm) && (
+          <button
+            onClick={() => setShowForm(p => !p)}
+            className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[10px] uppercase tracking-[0.1em] border transition-all duration-200 flex-shrink-0 ${showForm ? 'bg-[rgba(201,178,124,0.1)] border-[rgba(201,178,124,0.3)] text-[#C9B27C]' : 'bg-transparent border-[rgba(255,255,255,0.07)] text-[rgba(255,255,255,0.2)] hover:text-[#C9B27C] hover:border-[rgba(201,178,124,0.2)]'}`}>
+            <Plus className="w-3 h-3" />
+            Añadir memoria
+          </button>
+        )}
       </div>
+
+      {/* Formulario expandible */}
       <AnimatePresence>
         {showForm && (
-          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
-            className="px-4 pt-3 pb-2 border-b border-[rgba(255,255,255,0.04)] overflow-hidden">
-            <textarea autoFocus value={text} onChange={e => setText(e.target.value)}
-              placeholder="Ej: Emergent es mi cliente más importante"
-              rows={2}
-              className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.07)] rounded-xl px-3 py-2 text-xs text-[rgba(255,255,255,0.65)] placeholder:text-[rgba(255,255,255,0.15)] resize-none outline-none mb-2 focus:border-[rgba(201,178,124,0.25)] transition-all" />
-            <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-              {MEMORY_CATEGORIES.map(c => (
-                <button key={c.value} onClick={() => setCategory(c.value)}
-                  className={`px-2 py-0.5 rounded-full text-[10px] uppercase tracking-[0.07em] border transition-all ${category === c.value ? "bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border-[rgba(201,178,124,0.3)]" : "text-[rgba(255,255,255,0.2)] border-[rgba(255,255,255,0.06)]"}`}>
-                  {c.label}
+          <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+            className="overflow-hidden border-t border-[rgba(201,178,124,0.08)]">
+            <div className="px-4 sm:px-8 py-5 flex flex-col sm:flex-row items-start gap-3 sm:gap-6">
+              <textarea
+                autoFocus value={text} onChange={e => setText(e.target.value)}
+                placeholder="Ej: Emergent es mi cliente más importante y prefieren comunicación directa…"
+                rows={2}
+                className="flex-1 bg-[rgba(255,255,255,0.02)] border border-[rgba(201,178,124,0.12)] rounded-xl px-4 py-3 text-sm text-[rgba(255,255,255,0.6)] placeholder:text-[rgba(255,255,255,0.1)] resize-none outline-none focus:border-[rgba(201,178,124,0.3)] transition-all leading-relaxed"
+                style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }} />
+              <div className="flex flex-col items-start sm:items-end gap-3 flex-shrink-0 w-full sm:w-auto">
+                <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                  {MEMORY_CATEGORIES.map(c => {
+                    const s = CAT_STYLES[c.value] || CAT_STYLES.general;
+                    return (
+                      <button key={c.value} onClick={() => setCategory(c.value)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-[0.08em] border transition-all ${category === c.value ? `${s.text} bg-[rgba(255,255,255,0.04)] ${s.border}` : 'text-[rgba(255,255,255,0.18)] border-transparent hover:border-[rgba(255,255,255,0.06)]'}`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button onClick={handleAdd} disabled={saving || !text.trim()}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs uppercase tracking-[0.08em] bg-[rgba(201,178,124,0.08)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)] hover:bg-[rgba(201,178,124,0.14)] transition-all disabled:opacity-30">
+                  {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                  Guardar
                 </button>
-              ))}
+              </div>
             </div>
-            <button onClick={handleAdd} disabled={saving || !text.trim()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] uppercase tracking-[0.08em] bg-[rgba(201,178,124,0.08)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)] hover:bg-[rgba(201,178,124,0.14)] transition-all disabled:opacity-30">
-              {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Guardar
-            </button>
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="p-3 space-y-2 max-h-64 overflow-y-auto">
+
+      {/* Contenido */}
+      <div className="border-t border-[rgba(201,178,124,0.06)]">
         {loading ? (
-          <div className="flex justify-center py-4"><Loader2 className="w-4 h-4 text-[rgba(201,178,124,0.3)] animate-spin" /></div>
+          <div className="flex justify-center py-10">
+            <Loader2 className="w-4 h-4 text-[rgba(201,178,124,0.3)] animate-spin" />
+          </div>
         ) : notes.length === 0 ? (
-          <p className="text-xs text-[rgba(255,255,255,0.12)] text-center py-4 italic">Lucy no recuerda nada aún.</p>
-        ) : notes.map(note => (
-          <div key={note.id} className={`group flex items-start gap-2 px-3 py-2 rounded-xl border ${CAT[note.category] || CAT.general}`}>
-            <p className="flex-1 text-xs leading-relaxed">{note.text}</p>
-            <button onClick={() => handleDelete(note.id)} className="opacity-0 group-hover:opacity-100 text-[rgba(255,255,255,0.15)] hover:text-[rgba(255,100,100,0.5)] transition-all flex-shrink-0 mt-0.5">
-              <X className="w-3 h-3" />
+          /* Estado vacío — horizontal, aprovecha el ancho */
+          <div className="px-4 sm:px-8 py-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-10">
+            <div className="flex-1">
+              <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '1.15rem' }}
+                className="text-[rgba(255,255,255,0.28)] leading-relaxed mb-1.5">
+                Todo lo que me cuentes, lo usaré para trabajar mejor para ti.
+              </p>
+              <p className="text-xs text-[rgba(255,255,255,0.1)] leading-relaxed max-w-lg">
+                Tus preferencias, clientes clave, proyectos activos — Lucy los tendrá siempre en mente al responder.
+              </p>
+            </div>
+            <button onClick={() => setShowForm(true)}
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs uppercase tracking-[0.1em] text-[rgba(201,178,124,0.5)] hover:text-[#C9B27C] border border-[rgba(201,178,124,0.12)] hover:border-[rgba(201,178,124,0.3)] hover:bg-[rgba(201,178,124,0.05)] transition-all">
+              <Plus className="w-3.5 h-3.5" />
+              Primera memoria
             </button>
           </div>
-        ))}
+        ) : (
+          /* Notas en grid de 2 o 3 columnas — aprovecha el ancho completo */
+          <div className="px-4 sm:px-6 py-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+              {notes.map((note, i) => {
+                const s = CAT_STYLES[note.category] || CAT_STYLES.general;
+                return (
+                  <motion.div key={note.id}
+                    initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
+                    className={`group flex items-start gap-3 px-4 py-3 rounded-xl border ${s.border} hover:bg-[rgba(255,255,255,0.02)] transition-all`}>
+                    <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-2 ${s.dot}`} />
+                    <p className="flex-1 text-sm text-[rgba(255,255,255,0.45)] leading-relaxed"
+                      style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>
+                      {note.text}
+                    </p>
+                    <button onClick={() => handleDelete(note.id)}
+                      className="opacity-0 group-hover:opacity-100 text-[rgba(255,255,255,0.1)] hover:text-[rgba(255,100,100,0.5)] transition-all flex-shrink-0 mt-1">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </motion.div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
     </motion.div>
   );
@@ -312,7 +384,7 @@ export default function OverviewPage() {
         } else { setBriefingIsSpeaking(false); }
       } else { setBriefingIsSpeaking(false); }
     } catch { setBriefingIsSpeaking(false); }
-  }, [token, ttsEnabled]);
+  }, [token, ttsEnabled, setWakeWordEnabled]);
 
   const handleSkip = () => { sessionStorage.setItem(`lucy_briefing_${new Date().toDateString()}`, '1'); setShowWelcome(false); };
   const dismissBriefing = () => { if (briefingAudioRef.current) { briefingAudioRef.current.pause(); briefingAudioRef.current = null; } setBriefingVisible(false); setBriefingIsSpeaking(false); };
@@ -350,11 +422,11 @@ export default function OverviewPage() {
           <div className="absolute inset-0 opacity-[0.015]" style={{
             backgroundImage: `repeating-linear-gradient(0deg, transparent, transparent 40px, rgba(201,178,124,0.5) 40px, rgba(201,178,124,0.5) 41px)`
           }} />
-          <div className="max-w-5xl mx-auto px-8 py-12 relative">
+          <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8 sm:py-12 relative">
             <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.7 }}
-              className="flex items-center justify-between mb-8">
+              className="flex items-center justify-between mb-6 sm:mb-8 flex-wrap gap-3">
               <p className="text-xs text-[rgba(201,178,124,0.5)] uppercase tracking-[0.2em] font-medium capitalize">{formatDate()}</p>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
                 <button onClick={() => setTtsEnabled(prev => !prev)}
                   className={`flex items-center gap-2 text-xs uppercase tracking-[0.1em] transition-all duration-200 px-3 py-1.5 rounded-lg border ${ttsEnabled ? 'text-[#C9B27C] border-[rgba(201,178,124,0.2)] bg-[rgba(201,178,124,0.06)]' : 'text-[rgba(255,255,255,0.2)] border-[rgba(255,255,255,0.06)]'}`}>
                   {ttsEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
@@ -385,11 +457,11 @@ export default function OverviewPage() {
         </motion.div>
 
         {/* CUERPO */}
-        <div className="max-w-5xl mx-auto px-8 py-10">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 py-10">
 
           {!gmailLoading && !gmailConnected && (
             <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.6 }}
-              className="mb-10 rounded-2xl p-8 border border-[rgba(201,178,124,0.12)] bg-[rgba(201,178,124,0.03)]">
+              className="mb-10 rounded-2xl p-5 sm:p-8 border border-[rgba(201,178,124,0.12)] bg-[rgba(201,178,124,0.03)]">
               <p className="text-xs text-[rgba(201,178,124,0.5)] uppercase tracking-[0.15em] mb-3">Para empezar</p>
               <p className="text-[rgba(255,255,255,0.45)] leading-relaxed mb-6"
                 style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.15rem', fontStyle: 'italic' }}>
@@ -403,241 +475,304 @@ export default function OverviewPage() {
           )}
 
           {isReady && stats && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="space-y-6">
 
-              {/* Columna izquierda */}
-              <div className="lg:col-span-2 space-y-5">
+              {/* ── GRID PRINCIPAL: Carta + Sidebar ─────────────────────── */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                {/* Carta de Lucy */}
-                <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                  className="relative rounded-2xl overflow-hidden"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.35)] to-transparent" />
-                  <div className="p-8">
-                    <div className="flex items-center gap-3 mb-6">
-                      <div className={`relative w-9 h-9 rounded-xl flex items-center justify-center bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.2)] transition-all duration-500 ${wakeWordActive ? 'shadow-[0_0_20px_rgba(201,178,124,0.3)]' : ''}`}>
-                        <svg width="14" height="14" viewBox="0 0 22 22" fill="none">
-                          <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z" fill={wakeWordActive ? '#C9B27C' : 'rgba(201,178,124,0.7)'} />
-                        </svg>
-                        {wakeWordActive && <div className="absolute -inset-1 rounded-2xl border border-[rgba(201,178,124,0.3)] animate-ping" />}
+                {/* Columna izquierda */}
+                <div className="lg:col-span-2 space-y-5">
+
+                  {/* Carta de Lucy */}
+                  <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    className="relative rounded-2xl overflow-hidden"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.35)] to-transparent" />
+                    <div className="p-8">
+                      <div className="flex items-center gap-3 mb-6">
+                        <div className={`relative w-9 h-9 rounded-xl flex items-center justify-center bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.2)] transition-all duration-500 ${wakeWordActive ? 'shadow-[0_0_20px_rgba(201,178,124,0.3)]' : ''}`}>
+                          <svg width="14" height="14" viewBox="0 0 22 22" fill="none">
+                            <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z" fill={wakeWordActive ? '#C9B27C' : 'rgba(201,178,124,0.7)'} />
+                          </svg>
+                          {wakeWordActive && <div className="absolute -inset-1 rounded-2xl border border-[rgba(201,178,124,0.3)] animate-ping" />}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-white">Lucy</p>
+                          <p className="text-xs text-[rgba(255,255,255,0.25)]">
+                            {wakeWordActive ? 'Escuchando...' : wakeWordEnabled ? 'Di "Hola Lucy"' : 'Tu secretaria personal'}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-white">Lucy</p>
-                        <p className="text-xs text-[rgba(255,255,255,0.25)]">
-                          {wakeWordActive ? 'Escuchando...' : wakeWordEnabled ? 'Di "Hola Lucy"' : 'Tu secretaria personal'}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="space-y-4 mb-7">
-                      <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', lineHeight: 1.75, fontStyle: 'italic' }}
-                        className="text-[rgba(255,255,255,0.6)]">
-                        {stats.total === 0 ? (
-                          <>Tu bandeja esta vacia. Sin pendientes.</>
-                        ) : stats.prioritarios > 0 ? (
-                          <>Tienes <span className="text-[#C9B27C] not-italic font-medium">{stats.total} mensajes</span> en tu bandeja.{' '}
-                            <span className="text-white not-italic">{stats.prioritarios} requieren tu atencion</span> hoy.{stats.seguimiento > 0 && <> {stats.seguimiento} en seguimiento.</>}</>
-                        ) : (
-                          <>Tienes <span className="text-[#C9B27C] not-italic font-medium">{stats.total} mensajes</span> en tu bandeja.{stats.seguimiento > 0 && <> <span className="text-white not-italic">{stats.seguimiento} en seguimiento</span>.</>}</>
-                        )}
-                      </p>
-                      {calendarConnected && (
+                      <div className="space-y-4 mb-7">
                         <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', lineHeight: 1.75, fontStyle: 'italic' }}
                           className="text-[rgba(255,255,255,0.6)]">
-                          {todayEvents.length === 0 ? (
-                            <>Tu agenda esta libre hoy.</>
-                          ) : todayEvents.length === 1 ? (
-                            <>Un compromiso en agenda: <span className="text-white not-italic">{todayEvents[0].title}</span>{!todayEvents[0].all_day && <> a las <span className="text-[#C9B27C] not-italic">{formatEventTime(todayEvents[0].start)}</span></>}.</>
+                          {stats.total === 0 ? (
+                            <>Tu bandeja esta vacia. Sin pendientes.</>
+                          ) : stats.prioritarios > 0 ? (
+                            <>Tienes <span className="text-[#C9B27C] not-italic font-medium">{stats.total} mensajes</span> en tu bandeja.{' '}
+                              <span className="text-white not-italic">{stats.prioritarios} requieren tu atencion</span> hoy.{stats.seguimiento > 0 && <> {stats.seguimiento} en seguimiento.</>}</>
                           ) : (
-                            <><span className="text-[#C9B27C] not-italic font-medium">{todayEvents.length} eventos</span> en agenda. Primero: <span className="text-white not-italic">{todayEvents[0].title}</span>{!todayEvents[0].all_day && <> a las <span className="text-[#C9B27C] not-italic">{formatEventTime(todayEvents[0].start)}</span></>}.</>
+                            <>Tienes <span className="text-[#C9B27C] not-italic font-medium">{stats.total} mensajes</span> en tu bandeja.{stats.seguimiento > 0 && <> <span className="text-white not-italic">{stats.seguimiento} en seguimiento</span>.</>}</>
                           )}
                         </p>
-                      )}
+                        {calendarConnected && (
+                          <p style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.2rem', lineHeight: 1.75, fontStyle: 'italic' }}
+                            className="text-[rgba(255,255,255,0.6)]">
+                            {todayEvents.length === 0 ? (
+                              <>Tu agenda esta libre hoy.</>
+                            ) : todayEvents.length === 1 ? (
+                              <>Un compromiso en agenda: <span className="text-white not-italic">{todayEvents[0].title}</span>{!todayEvents[0].all_day && <> a las <span className="text-[#C9B27C] not-italic">{formatEventTime(todayEvents[0].start)}</span></>}.</>
+                            ) : (
+                              <><span className="text-[#C9B27C] not-italic font-medium">{todayEvents.length} eventos</span> en agenda. Primero: <span className="text-white not-italic">{todayEvents[0].title}</span>{!todayEvents[0].all_day && <> a las <span className="text-[#C9B27C] not-italic">{formatEventTime(todayEvents[0].start)}</span></>}.</>
+                            )}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.05)] to-transparent mb-6" />
+
+                      {/* Modos */}
+                      <div className="space-y-2">
+                        <p className="text-[10px] text-[rgba(255,255,255,0.12)] uppercase tracking-[0.18em] mb-3">Cómo quieres trabajar hoy</p>
+                        <button
+                          onClick={handsFreeModeActive ? cancel : undefined}
+                          className={`w-full group flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all duration-300 ${!handsFreeModeActive ? 'bg-[rgba(201,178,124,0.05)] border-[rgba(201,178,124,0.2)]' : 'bg-transparent border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.08)]'}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300 ${!handsFreeModeActive ? 'bg-[rgba(201,178,124,0.12)] border border-[rgba(201,178,124,0.25)]' : 'bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]'}`}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={!handsFreeModeActive ? '#C9B27C' : 'rgba(255,255,255,0.25)'} strokeWidth="1.8">
+                                <rect x="2" y="3" width="20" height="14" rx="2" /><path d="M8 21h8M12 17v4" />
+                              </svg>
+                            </div>
+                            <div className="text-left">
+                              <p className={`text-sm transition-colors duration-200 ${!handsFreeModeActive ? 'text-[rgba(255,255,255,0.8)]' : 'text-[rgba(255,255,255,0.3)]'}`}>Escritorio</p>
+                              <p className="text-[11px] text-[rgba(255,255,255,0.18)] mt-0.5">Revisión visual, resúmenes al pulsar</p>
+                            </div>
+                          </div>
+                          {!handsFreeModeActive && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#C9B27C] shadow-[0_0_6px_rgba(201,178,124,0.7)]" />
+                              <span className="text-[10px] text-[#C9B27C] uppercase tracking-[0.1em]">Activo</span>
+                            </div>
+                          )}
+                        </button>
+
+                        <button
+                          onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
+                          className={`w-full group flex items-center justify-between px-4 py-3.5 rounded-xl border transition-all duration-300 ${handsFreeModeActive ? 'bg-[rgba(52,211,153,0.04)] border-[rgba(52,211,153,0.18)]' : 'bg-transparent border-[rgba(255,255,255,0.04)] hover:border-[rgba(255,255,255,0.08)]'}`}>
+                          <div className="flex items-center gap-3">
+                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 transition-all duration-300 ${handsFreeModeActive ? 'bg-[rgba(52,211,153,0.08)] border border-[rgba(52,211,153,0.2)]' : 'bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]'}`}>
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={handsFreeModeActive ? 'rgba(52,211,153,0.8)' : 'rgba(255,255,255,0.25)'} strokeWidth="1.8">
+                                <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />
+                              </svg>
+                            </div>
+                            <div className="text-left">
+                              <p className={`text-sm transition-colors duration-200 ${handsFreeModeActive ? 'text-[rgba(255,255,255,0.8)]' : 'text-[rgba(255,255,255,0.3)]'}`}>Manos libres</p>
+                              <p className="text-[11px] text-[rgba(255,255,255,0.18)] mt-0.5">Lucy te lee en voz alta mientras trabajas</p>
+                            </div>
+                          </div>
+                          {handsFreeModeActive && (
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.7)] animate-pulse" />
+                              <span className="text-[10px] text-emerald-400 uppercase tracking-[0.1em]">Activo</span>
+                            </div>
+                          )}
+                        </button>
+                      </div>
+
+                      <AnimatePresence>
+                        {lastInteraction && (
+                          <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                            className="mt-4 rounded-xl px-4 py-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+                            <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.07em] mb-1.5">Lucy respondio</p>
+                            <p className="text-sm text-[rgba(255,255,255,0.55)] leading-relaxed">{lastInteraction}</p>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </div>
+                  </motion.div>
 
-                    <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.05)] to-transparent mb-6" />
+                  {/* RADAR DE OPORTUNIDADES */}
+                  <AnimatePresence>
+                    {radar.length > 0 && (
+                      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                        transition={{ delay: 0.5, duration: 0.6 }}
+                        className="rounded-2xl overflow-hidden"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <div className="px-6 py-4 border-b border-[rgba(255,255,255,0.04)] flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Radio className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
+                            <p className="text-xs text-[rgba(255,255,255,0.3)] uppercase tracking-[0.1em]">Radar de oportunidades</p>
+                          </div>
+                          <p className="text-xs text-[rgba(201,178,124,0.4)]">{radar.length} contacto{radar.length !== 1 ? 's' : ''}</p>
+                        </div>
+                        <div className="divide-y divide-[rgba(255,255,255,0.03)]">
+                          {radar.map((contact, i) => (
+                            <motion.div key={contact.contact_email} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: 0.55 + i * 0.05 }}
+                              className="px-6 py-4 flex items-start gap-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                              <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-medium"
+                                style={{ background: contact.is_vip ? 'rgba(201,178,124,0.12)' : 'rgba(255,255,255,0.04)', color: contact.is_vip ? '#C9B27C' : 'rgba(255,255,255,0.3)', border: contact.is_vip ? '1px solid rgba(201,178,124,0.2)' : '1px solid rgba(255,255,255,0.06)' }}>
+                                {(contact.contact_name || contact.contact_email || '?')[0].toUpperCase()}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <p className="text-sm text-[rgba(255,255,255,0.7)] truncate">{contact.contact_name || contact.contact_email}</p>
+                                  {contact.is_vip && <span className="text-[10px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)] flex-shrink-0">VIP</span>}
+                                  {contact.has_pending_action && <span className="text-[10px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full bg-[rgba(239,68,68,0.08)] text-red-400 border border-[rgba(239,68,68,0.15)] flex-shrink-0">Pendiente</span>}
+                                </div>
+                                <p className="text-xs text-[rgba(255,255,255,0.2)] truncate">{contact.reasons?.[0] || ''}</p>
+                                {contact.last_subject && (
+                                  <p className="text-xs text-[rgba(255,255,255,0.15)] truncate mt-0.5">"{contact.last_subject}"</p>
+                                )}
+                              </div>
+                              <div className="flex-shrink-0 text-right">
+                                {contact.days_since_contact != null && (
+                                  <p className="text-xs text-[rgba(201,178,124,0.4)] tabular-nums">{contact.days_since_contact}d</p>
+                                )}
+                                <p className="text-xs text-[rgba(255,255,255,0.12)] mt-0.5">{contact.interaction_count}x</p>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <button onClick={handsFreeModeActive ? cancel : undefined}
-                        className={`rounded-xl p-4 text-left border transition-all duration-300 ${!handsFreeModeActive ? 'bg-[rgba(201,178,124,0.06)] border-[rgba(201,178,124,0.18)]' : 'bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)]'}`}>
-                        <p className="text-sm font-medium text-[rgba(255,255,255,0.7)] mb-1">Modo Escritorio</p>
-                        <p className="text-xs text-[rgba(255,255,255,0.25)] leading-relaxed">Resumenes con un clic.</p>
-                        {!handsFreeModeActive && <div className="mt-2 text-xs text-[#C9B27C] flex items-center gap-1.5"><span className="w-1 h-1 rounded-full bg-[#C9B27C]" />Activo</div>}
-                      </button>
-                      <button onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
-                        className={`rounded-xl p-4 text-left border transition-all duration-300 ${handsFreeModeActive ? 'bg-[rgba(52,211,153,0.05)] border-[rgba(52,211,153,0.15)]' : 'bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.04)]'}`}>
-                        <p className="text-sm font-medium text-[rgba(255,255,255,0.7)] mb-1">Manos Libres</p>
-                        <p className="text-xs text-[rgba(255,255,255,0.25)] leading-relaxed">Lucy te lee en voz alta.</p>
-                        {handsFreeModeActive && <div className="mt-2 text-xs text-emerald-400 flex items-center gap-1.5 animate-pulse"><span className="w-1 h-1 rounded-full bg-emerald-400" />Activo</div>}
-                      </button>
-                    </div>
-
-                    <AnimatePresence>
-                      {lastInteraction && (
-                        <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                          className="mt-4 rounded-xl px-4 py-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
-                          <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.07em] mb-1.5">Lucy respondio</p>
-                          <p className="text-sm text-[rgba(255,255,255,0.55)] leading-relaxed">{lastInteraction}</p>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </motion.div>
-
-                {/* RADAR DE OPORTUNIDADES */}
-                <AnimatePresence>
-                  {radar.length > 0 && (
-                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      transition={{ delay: 0.5, duration: 0.6 }}
-                      className="rounded-2xl overflow-hidden"
-                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {/* Agenda de hoy */}
+                  {calendarConnected && todayEvents.length > 0 && (
+                    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.6 }}
+                      className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <div className="px-6 py-4 border-b border-[rgba(255,255,255,0.04)] flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <Radio className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
-                          <p className="text-xs text-[rgba(255,255,255,0.3)] uppercase tracking-[0.1em]">Radar de oportunidades</p>
+                          <Calendar className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
+                          <p className="text-xs text-[rgba(255,255,255,0.3)] uppercase tracking-[0.1em]">Agenda de hoy</p>
                         </div>
-                        <p className="text-xs text-[rgba(201,178,124,0.4)]">{radar.length} contacto{radar.length !== 1 ? 's' : ''}</p>
+                        <div className="flex items-center gap-3">
+                          <button onClick={() => setShowCalendar(true)} className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">Ver todo →</button>
+                          <p className="text-xs text-[rgba(201,178,124,0.4)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</p>
+                        </div>
                       </div>
                       <div className="divide-y divide-[rgba(255,255,255,0.03)]">
-                        {radar.map((contact, i) => (
-                          <motion.div key={contact.contact_email} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: 0.55 + i * 0.05 }}
-                            className="px-6 py-4 flex items-start gap-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors">
-                            <div className="w-8 h-8 rounded-xl flex-shrink-0 flex items-center justify-center text-xs font-medium"
-                              style={{ background: contact.is_vip ? 'rgba(201,178,124,0.12)' : 'rgba(255,255,255,0.04)', color: contact.is_vip ? '#C9B27C' : 'rgba(255,255,255,0.3)', border: contact.is_vip ? '1px solid rgba(201,178,124,0.2)' : '1px solid rgba(255,255,255,0.06)' }}>
-                              {(contact.contact_name || contact.contact_email || '?')[0].toUpperCase()}
+                        {todayEvents.map((event, i) => (
+                          <motion.div key={event.id || i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 + i * 0.06 }}
+                            className="px-6 py-3.5 flex items-center gap-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors">
+                            <div className="w-12 text-right flex-shrink-0">
+                              <span className="text-xs text-[rgba(201,178,124,0.55)] tabular-nums font-medium">
+                                {event.all_day ? 'Todo el dia' : formatEventTime(event.start)}
+                              </span>
                             </div>
+                            <div className="w-px h-8 bg-[rgba(201,178,124,0.15)] flex-shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <p className="text-sm text-[rgba(255,255,255,0.7)] truncate">{contact.contact_name || contact.contact_email}</p>
-                                {contact.is_vip && <span className="text-[10px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)] flex-shrink-0">VIP</span>}
-                                {contact.has_pending_action && <span className="text-[10px] uppercase tracking-[0.08em] px-1.5 py-0.5 rounded-full bg-[rgba(239,68,68,0.08)] text-red-400 border border-[rgba(239,68,68,0.15)] flex-shrink-0">Pendiente</span>}
-                              </div>
-                              <p className="text-xs text-[rgba(255,255,255,0.2)] truncate">{contact.reasons?.[0] || ''}</p>
-                              {contact.last_subject && (
-                                <p className="text-xs text-[rgba(255,255,255,0.15)] truncate mt-0.5">"{contact.last_subject}"</p>
-                              )}
+                              <p className="text-sm text-[rgba(255,255,255,0.7)] truncate">{event.title}</p>
+                              {event.location && <p className="text-xs text-[rgba(255,255,255,0.2)] truncate mt-0.5">{event.location}</p>}
                             </div>
-                            <div className="flex-shrink-0 text-right">
-                              {contact.days_since_contact != null && (
-                                <p className="text-xs text-[rgba(201,178,124,0.4)] tabular-nums">{contact.days_since_contact}d</p>
-                              )}
-                              <p className="text-xs text-[rgba(255,255,255,0.12)] mt-0.5">{contact.interaction_count}x</p>
-                            </div>
+                            {event.meet_link && (
+                              <a href={event.meet_link} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
+                                className="flex-shrink-0 text-xs text-[rgba(201,178,124,0.4)] hover:text-[#C9B27C] border border-[rgba(201,178,124,0.12)] hover:border-[rgba(201,178,124,0.3)] px-2.5 py-1 rounded-lg transition-all">
+                                Meet
+                              </a>
+                            )}
                           </motion.div>
                         ))}
                       </div>
                     </motion.div>
                   )}
-                </AnimatePresence>
+                </div>
 
-                {/* Agenda de hoy */}
-                {calendarConnected && todayEvents.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55, duration: 0.6 }}
+                {/* Columna derecha */}
+                <div className="space-y-4">
+                  <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45, duration: 0.6 }}
                     className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="px-6 py-4 border-b border-[rgba(255,255,255,0.04)] flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
-                        <p className="text-xs text-[rgba(255,255,255,0.3)] uppercase tracking-[0.1em]">Agenda de hoy</p>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <button onClick={() => setShowCalendar(true)}
-                          className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">
-                          Ver todo →
-                        </button>
-                        <p className="text-xs text-[rgba(201,178,124,0.4)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</p>
-                      </div>
+                    <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.04)]">
+                      <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Tu bandeja</p>
                     </div>
                     <div className="divide-y divide-[rgba(255,255,255,0.03)]">
-                      {todayEvents.map((event, i) => (
-                        <motion.div key={event.id || i} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.6 + i * 0.06 }}
-                          className="px-6 py-3.5 flex items-center gap-4 hover:bg-[rgba(255,255,255,0.02)] transition-colors">
-                          <div className="w-12 text-right flex-shrink-0">
-                            <span className="text-xs text-[rgba(201,178,124,0.55)] tabular-nums font-medium">
-                              {event.all_day ? 'Todo el dia' : formatEventTime(event.start)}
-                            </span>
+                      {[
+                        { label: 'Total', value: stats.total, icon: <Inbox className="w-3.5 h-3.5" />, onClick: () => navigate('/app/messages'), gold: true },
+                        { label: 'Prioritarios', value: stats.prioritarios, icon: <Sparkles className="w-3.5 h-3.5" />, onClick: () => navigate('/app/messages?filter=PRIORITARIO') },
+                        { label: 'Seguimiento', value: stats.seguimiento, icon: <Clock className="w-3.5 h-3.5" />, onClick: () => navigate('/app/messages?filter=SEGUIMIENTO') },
+                        { label: 'Con adjuntos', value: stats.with_attachments, icon: <Paperclip className="w-3.5 h-3.5" />, onClick: () => navigate('/app/messages?filter=attachments') },
+                      ].map(({ label, value, icon, onClick, gold }) => (
+                        <button key={label} onClick={onClick}
+                          className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-[rgba(255,255,255,0.02)] transition-colors group">
+                          <div className="flex items-center gap-2.5">
+                            <span className={`${gold ? 'text-[rgba(201,178,124,0.5)]' : 'text-[rgba(255,255,255,0.2)]'} group-hover:text-[rgba(255,255,255,0.4)] transition-colors`}>{icon}</span>
+                            <span className="text-sm text-[rgba(255,255,255,0.35)] group-hover:text-[rgba(255,255,255,0.55)] transition-colors">{label}</span>
                           </div>
-                          <div className="w-px h-8 bg-[rgba(201,178,124,0.15)] flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm text-[rgba(255,255,255,0.7)] truncate">{event.title}</p>
-                            {event.location && <p className="text-xs text-[rgba(255,255,255,0.2)] truncate mt-0.5">{event.location}</p>}
-                          </div>
-                          {event.meet_link && (
-                            <a href={event.meet_link} target="_blank" rel="noopener noreferrer" onClick={e => e.stopPropagation()}
-                              className="flex-shrink-0 text-xs text-[rgba(201,178,124,0.4)] hover:text-[#C9B27C] border border-[rgba(201,178,124,0.12)] hover:border-[rgba(201,178,124,0.3)] px-2.5 py-1 rounded-lg transition-all">
-                              Meet
-                            </a>
-                          )}
-                        </motion.div>
+                          <span className={`text-lg font-light tabular-nums ${gold ? 'text-[#C9B27C]' : 'text-[rgba(255,255,255,0.6)]'}`}>{value}</span>
+                        </button>
                       ))}
                     </div>
                   </motion.div>
-                )}
-              </div>
 
-              {/* Columna derecha */}
-              <div className="space-y-4">
-                <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.45, duration: 0.6 }}
-                  className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.04)]">
-                    <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Tu bandeja</p>
-                  </div>
-                  <div className="divide-y divide-[rgba(255,255,255,0.03)]">
-                    {[
-                      { label: 'Total', value: stats.total, icon: <Inbox className="w-3.5 h-3.5" />, onClick: () => navigate('/app/messages'), gold: true },
-                      { label: 'Prioritarios', value: stats.prioritarios, icon: <Sparkles className="w-3.5 h-3.5" />, onClick: () => navigate('/app/messages?filter=PRIORITARIO') },
-                      { label: 'Seguimiento', value: stats.seguimiento, icon: <Clock className="w-3.5 h-3.5" />, onClick: () => navigate('/app/messages?filter=SEGUIMIENTO') },
-                      { label: 'Con adjuntos', value: stats.with_attachments, icon: <Paperclip className="w-3.5 h-3.5" />, onClick: () => navigate('/app/messages?filter=attachments') },
-                    ].map(({ label, value, icon, onClick, gold }) => (
-                      <button key={label} onClick={onClick}
-                        className="w-full px-5 py-3.5 flex items-center justify-between hover:bg-[rgba(255,255,255,0.02)] transition-colors group">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`${gold ? 'text-[rgba(201,178,124,0.5)]' : 'text-[rgba(255,255,255,0.2)]'} group-hover:text-[rgba(255,255,255,0.4)] transition-colors`}>{icon}</span>
-                          <span className="text-sm text-[rgba(255,255,255,0.35)] group-hover:text-[rgba(255,255,255,0.55)] transition-colors">{label}</span>
+                  <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.55, duration: 0.6 }}
+                    className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.04)]">
+                      <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Servicios</p>
+                    </div>
+                    <div className="p-3 space-y-1.5">
+
+                      {/* Correo */}
+                      <div className={`flex items-center justify-between px-3 py-3 rounded-xl border transition-all duration-200 ${gmailConnected ? 'bg-[rgba(255,255,255,0.015)] border-[rgba(255,255,255,0.05)]' : 'border-[rgba(255,255,255,0.03)]'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${gmailConnected ? 'bg-[rgba(52,211,153,0.07)] border border-[rgba(52,211,153,0.15)]' : 'bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]'}`}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={gmailConnected ? 'rgba(52,211,153,0.7)' : 'rgba(255,255,255,0.2)'} strokeWidth="1.8">
+                              <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className={`text-sm ${gmailConnected ? 'text-[rgba(255,255,255,0.6)]' : 'text-[rgba(255,255,255,0.2)]'}`}>Correo</p>
+                            {gmailConnected && gmailEmail && (
+                              <p className="text-[10px] text-[rgba(255,255,255,0.18)] truncate max-w-[120px]">{gmailEmail}</p>
+                            )}
+                          </div>
                         </div>
-                        <span className={`text-lg font-light tabular-nums ${gold ? 'text-[#C9B27C]' : 'text-[rgba(255,255,255,0.6)]'}`}>{value}</span>
-                      </button>
-                    ))}
-                  </div>
-                </motion.div>
-
-                <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.55, duration: 0.6 }}
-                  className="rounded-2xl overflow-hidden" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div className="px-5 py-4 border-b border-[rgba(255,255,255,0.04)]">
-                    <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Conexiones</p>
-                  </div>
-                  <div className="p-4 space-y-1">
-                    <div className="flex items-center justify-between px-2 py-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${gmailConnected ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-[rgba(255,255,255,0.15)]'}`} />
-                        <span className="text-sm text-[rgba(255,255,255,0.4)]">Correo</span>
-                      </div>
-                      {gmailConnected ? (
-                        <button onClick={handleDisconnect} className="text-xs text-[rgba(255,255,255,0.15)] hover:text-[rgba(255,255,255,0.4)] transition-colors">Desconectar</button>
-                      ) : (
-                        <button onClick={handleGmailConnect} className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">Conectar</button>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-between px-2 py-2.5">
-                      <div className="flex items-center gap-2.5">
-                        <div className={`w-1.5 h-1.5 rounded-full ${calendarConnected ? 'bg-emerald-400 shadow-[0_0_5px_rgba(52,211,153,0.6)]' : 'bg-[rgba(255,255,255,0.15)]'}`} />
-                        <span className="text-sm text-[rgba(255,255,255,0.4)]">Agenda</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {calendarConnected && (
-                          <button onClick={() => setShowCalendar(true)} className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">Ver agenda</button>
-                        )}
-                        {calendarConnected ? (
-                          <button onClick={handleCalendarDisconnect} className="text-xs text-[rgba(255,255,255,0.15)] hover:text-[rgba(255,255,255,0.4)] transition-colors">Desconectar</button>
+                        {gmailConnected ? (
+                          <button onClick={handleDisconnect} className="text-[10px] text-[rgba(255,255,255,0.12)] hover:text-[rgba(255,100,100,0.4)] uppercase tracking-[0.08em] transition-colors">Desconectar</button>
                         ) : (
-                          <button onClick={handleCalendarConnect} className="text-xs text-[#C9B27C] hover:text-[#D4BC88] transition-colors">Conectar</button>
+                          <button onClick={handleGmailConnect} className="text-[10px] text-[#C9B27C] hover:text-[#D4BC88] uppercase tracking-[0.08em] border border-[rgba(201,178,124,0.2)] px-2.5 py-1 rounded-lg bg-[rgba(201,178,124,0.05)] hover:bg-[rgba(201,178,124,0.1)] transition-all">Conectar</button>
                         )}
                       </div>
+
+                      {/* Agenda */}
+                      <div className={`flex items-center justify-between px-3 py-3 rounded-xl border transition-all duration-200 ${calendarConnected ? 'bg-[rgba(255,255,255,0.015)] border-[rgba(255,255,255,0.05)]' : 'border-[rgba(255,255,255,0.03)]'}`}>
+                        <div className="flex items-center gap-3">
+                          <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${calendarConnected ? 'bg-[rgba(52,211,153,0.07)] border border-[rgba(52,211,153,0.15)]' : 'bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]'}`}>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={calendarConnected ? 'rgba(52,211,153,0.7)' : 'rgba(255,255,255,0.2)'} strokeWidth="1.8">
+                              <rect x="3" y="4" width="18" height="18" rx="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" />
+                            </svg>
+                          </div>
+                          <div>
+                            <p className={`text-sm ${calendarConnected ? 'text-[rgba(255,255,255,0.6)]' : 'text-[rgba(255,255,255,0.2)]'}`}>Agenda</p>
+                            {calendarConnected && todayEvents.length > 0 && (
+                              <p className="text-[10px] text-[rgba(255,255,255,0.18)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''} hoy</p>
+                            )}
+                            {calendarConnected && todayEvents.length === 0 && (
+                              <p className="text-[10px] text-[rgba(255,255,255,0.18)]">Libre hoy</p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {calendarConnected && (
+                            <button onClick={() => setShowCalendar(true)} className="text-[10px] text-[#C9B27C] hover:text-[#D4BC88] uppercase tracking-[0.08em] transition-colors">Ver</button>
+                          )}
+                          {calendarConnected ? (
+                            <button onClick={handleCalendarDisconnect} className="text-[10px] text-[rgba(255,255,255,0.12)] hover:text-[rgba(255,100,100,0.4)] uppercase tracking-[0.08em] transition-colors">Desconectar</button>
+                          ) : (
+                            <button onClick={handleCalendarConnect} className="text-[10px] text-[#C9B27C] hover:text-[#D4BC88] uppercase tracking-[0.08em] border border-[rgba(201,178,124,0.2)] px-2.5 py-1 rounded-lg bg-[rgba(201,178,124,0.05)] hover:bg-[rgba(201,178,124,0.1)] transition-all">Conectar</button>
+                          )}
+                        </div>
+                      </div>
+
                     </div>
-                  </div>
-                </motion.div>
-                <MemoryWidgetInline />
+                  </motion.div>
+                </div>
               </div>
+
+              {/* ── MEMORIA DE LUCY — ancho completo, cierra la página ──── */}
+              <MemorySection />
+
             </div>
           )}
 
@@ -654,7 +789,7 @@ export default function OverviewPage() {
         </div>
 
         {/* PIE EDITORIAL */}
-        <div className="max-w-5xl mx-auto px-8 pb-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-8 pb-8">
           <div className="h-px bg-gradient-to-r from-[rgba(201,178,124,0.08)] via-[rgba(201,178,124,0.15)] to-[rgba(201,178,124,0.08)]" />
           <div className="flex items-center justify-between mt-4">
             <p className="text-xs text-[rgba(255,255,255,0.08)] uppercase tracking-[0.15em]">Lucy · Secretaria Personal</p>
