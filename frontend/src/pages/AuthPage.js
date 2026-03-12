@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import lucyVideo from '../assets/Lucy.mp4';
+import lucyActive from '../assets/lucy-active.png';
 
 // ── Partículas doradas ────────────────────────────────────────────────────────
 function ParticleCanvas() {
@@ -72,14 +72,18 @@ function ParticleCanvas() {
   return <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 3 }} />;
 }
 
-function LucyVideoSide() {
+function LucyImageSide() {
   return (
     <div className="lucy-left-col">
       <div className="lucy-video-wrapper">
-        <video className="lucy-video" src={lucyVideo} autoPlay loop muted playsInline />
+        <img
+          className="lucy-video"
+          src={lucyActive}
+          alt="Lucy — Executive AI Assistant"
+          style={{ mixBlendMode: 'screen' }}
+        />
         <div className="lucy-video-overlay" />
         <ParticleCanvas />
-        {/* Texto superpuesto en la parte baja del vídeo */}
         <div className="lucy-label">
           <h1 className="lucy-title">Lucy</h1>
           <p className="lucy-tagline">
@@ -159,7 +163,6 @@ export default function AuthPage() {
           min-height: 100vh;
         }
 
-        /* El wrapper ocupa TODO el alto — el texto va dentro, anclado abajo */
         .lucy-video-wrapper {
           flex: 1;
           position: relative;
@@ -189,7 +192,6 @@ export default function AuthPage() {
           pointer-events: none;
         }
 
-        /* Texto anclado al fondo del vídeo — z-index por encima del overlay */
         .lucy-label {
           position: relative;
           z-index: 4;
@@ -346,7 +348,7 @@ export default function AuthPage() {
         <motion.div style={{ flex: '1.2', display: 'flex', flexDirection: 'column' }}
           initial={{ opacity: 0 }} animate={{ opacity: 1 }}
           transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}>
-          <LucyVideoSide />
+          <LucyImageSide />
         </motion.div>
 
         <motion.div className="auth-divider"

@@ -3,7 +3,7 @@ from __future__ import annotations
 from backend.models import EmailEvent, PriorityResult
 
 
-def calculate_priority(email: EmailEvent) -> PriorityResult:
+def calculate_priority(email: EmailEvent, contact_memory: dict | None = None) -> PriorityResult:
     """Executive Priority Engine v2 — Deterministic + Overrides + Explainable"""
 
     score = 50
@@ -145,7 +145,57 @@ def calculate_priority(email: EmailEvent) -> PriorityResult:
         explanations.append("Incluye adjuntos")
 
     # =====================================================
-    # 🔵 4. NORMALIZACIÓN
+    # 🟣 4. RELATIONAL CONTACT BOOST (memoria por contacto)
+    # =====================================================
+
+    if contact_memory:
+
+        interaction_count = contact_memory.get("interaction_count", 0)
+        is_vip = contact_memory.get("is_vip", False)
+        has_pending = contact_memory.get("has_pending_action", False)
+        topics = contact_memory.get("topics", [])
+
+        # VIP manual
+        if is_vip:
+            score += 25
+            rules.append("CONTACT_VIP")
+            explanations.append("Contacto marcado como VIP")
+
+        # VIP automático
+        if interaction_count >= 10:
+            score += 15
+            rules.append("CONTACT_FREQUENT")
+            explanations.append("Contacto frecuente")
+
+        if interaction_count >= 20:
+            score += 10
+            rules.append("CONTACT_HIGH_FREQUENCY")
+
+        # Acción pendiente con ese contacto
+        if has_pending:
+            score += 20
+            rules.append("CONTACT_PENDING_ACTION")
+            explanations.append("Existe acción pendiente con este contacto")
+
+        # Coincidencia con temas habituales
+        for topic in topics:
+            if topic.lower() in subject_lower:
+                score += 10
+                rules.append(f"TOPIC_MATCH:{topic}")
+                explanations.append("Coincide con tema habitual del contacto")
+                break
+
+    # =====================================================
+    # 🟠 5. CONVERSATION CONTEXT BOOST
+    # =====================================================
+
+    if subject_lower.startswith("re:") or subject_lower.startswith("fw:"):
+        score += 8
+        rules.append("ACTIVE_THREAD")
+        explanations.append("Parte de una conversación activa")
+
+    # =====================================================
+    # 🔵 6. NORMALIZACIÓN
     # =====================================================
 
     score = max(0, min(100, score))
@@ -165,5 +215,5 @@ def calculate_priority(email: EmailEvent) -> PriorityResult:
         priority_label=label,
         explain=" | ".join(explanations),
         rule_hits=rules,
-        version="2.0",
+        version="2.1",
     )

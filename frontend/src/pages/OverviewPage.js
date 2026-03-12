@@ -127,7 +127,6 @@ const CAT_STYLES = {
   general: { dot: 'bg-[rgba(255,255,255,0.2)]', label: 'General', text: 'text-[rgba(255,255,255,0.3)]', border: 'border-[rgba(255,255,255,0.06)]' },
 };
 
-// ── MEMORIA — sección ancho completo, debajo del grid ──────────────────────
 function MemorySection() {
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -166,11 +165,7 @@ function MemorySection() {
       transition={{ delay: 0.65, duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
       className="relative rounded-2xl overflow-hidden"
       style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.14)' }}>
-
-      {/* Línea dorada superior — diferencia visual respecto al resto de cards */}
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.6)] to-transparent" />
-
-      {/* Header */}
       <div className="px-4 sm:px-8 pt-7 pb-5 flex items-center justify-between flex-wrap gap-3">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -194,8 +189,6 @@ function MemorySection() {
           </button>
         )}
       </div>
-
-      {/* Formulario expandible */}
       <AnimatePresence>
         {showForm && (
           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
@@ -230,15 +223,12 @@ function MemorySection() {
           </motion.div>
         )}
       </AnimatePresence>
-
-      {/* Contenido */}
       <div className="border-t border-[rgba(201,178,124,0.06)]">
         {loading ? (
           <div className="flex justify-center py-10">
             <Loader2 className="w-4 h-4 text-[rgba(201,178,124,0.3)] animate-spin" />
           </div>
         ) : notes.length === 0 ? (
-          /* Estado vacío — horizontal, aprovecha el ancho */
           <div className="px-4 sm:px-8 py-10 flex flex-col sm:flex-row items-start sm:items-center gap-5 sm:gap-10">
             <div className="flex-1">
               <p style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic', fontSize: '1.15rem' }}
@@ -256,7 +246,6 @@ function MemorySection() {
             </button>
           </div>
         ) : (
-          /* Notas en grid de 2 o 3 columnas — aprovecha el ancho completo */
           <div className="px-4 sm:px-6 py-5">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
               {notes.map((note, i) => {
@@ -378,16 +367,40 @@ export default function OverviewPage() {
         if (ttsRes.ok) {
           const audio = new Audio(URL.createObjectURL(await ttsRes.blob()));
           briefingAudioRef.current = audio;
-          audio.onended = () => { setBriefingIsSpeaking(false); setWakeWordEnabled(true); };
-          audio.onerror = () => { setBriefingIsSpeaking(false); setWakeWordEnabled(true); };
+          audio.onended = () => { setBriefingIsSpeaking(false); setWakeWordEnabled(true); briefingAudioRef.current = null; };
+          audio.onerror = () => { setBriefingIsSpeaking(false); setWakeWordEnabled(true); briefingAudioRef.current = null; };
           await audio.play();
         } else { setBriefingIsSpeaking(false); }
       } else { setBriefingIsSpeaking(false); }
     } catch { setBriefingIsSpeaking(false); }
   }, [token, ttsEnabled, setWakeWordEnabled]);
 
-  const handleSkip = () => { sessionStorage.setItem(`lucy_briefing_${new Date().toDateString()}`, '1'); setShowWelcome(false); };
-  const dismissBriefing = () => { if (briefingAudioRef.current) { briefingAudioRef.current.pause(); briefingAudioRef.current = null; } setBriefingVisible(false); setBriefingIsSpeaking(false); };
+  const handleSkip = () => {
+    sessionStorage.setItem(`lucy_briefing_${new Date().toDateString()}`, '1');
+    setShowWelcome(false);
+  };
+
+  // ── FIX: comando de voz "parar" / "silencio" detiene el briefing ────────
+  useEffect(() => {
+    if (!lastInteraction) return;
+    const txt = lastInteraction.toLowerCase();
+    const isStop = ['parar', 'para', 'silencio', 'detén', 'detente', 'stop', 'calla', 'basta'].some(c => txt.includes(c));
+    if (isStop) {
+      if (briefingAudioRef.current) {
+        briefingAudioRef.current.pause();
+        briefingAudioRef.current = null;
+      }
+      setBriefingIsSpeaking(false);
+      setBriefingVisible(false);
+      cancel();
+    }
+  }, [lastInteraction, cancel]);
+
+  const dismissBriefing = () => {
+    if (briefingAudioRef.current) { briefingAudioRef.current.pause(); briefingAudioRef.current = null; }
+    setBriefingVisible(false);
+    setBriefingIsSpeaking(false);
+  };
 
   const handleGmailConnect = async () => {
     try { const res = await axios.get(`${API}/gmail/auth`, { headers: { Authorization: `Bearer ${token}` } }); const url = res.data?.data?.auth_url || res.data?.auth_url; if (url) window.location.href = url; } catch (err) { console.error(err); }
@@ -427,11 +440,26 @@ export default function OverviewPage() {
               className="flex items-center justify-between mb-6 sm:mb-8 flex-wrap gap-3">
               <p className="text-xs text-[rgba(201,178,124,0.5)] uppercase tracking-[0.2em] font-medium capitalize">{formatDate()}</p>
               <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-                <button onClick={() => setTtsEnabled(prev => !prev)}
+
+                {/* ── FIX: botón silencio para el audio activo ── */}
+                <button
+                  onClick={() => {
+                    if (ttsEnabled) {
+                      if (briefingAudioRef.current) {
+                        briefingAudioRef.current.pause();
+                        briefingAudioRef.current = null;
+                      }
+                      setBriefingIsSpeaking(false);
+                      setBriefingVisible(false);
+                      cancel();
+                    }
+                    setTtsEnabled(prev => !prev);
+                  }}
                   className={`flex items-center gap-2 text-xs uppercase tracking-[0.1em] transition-all duration-200 px-3 py-1.5 rounded-lg border ${ttsEnabled ? 'text-[#C9B27C] border-[rgba(201,178,124,0.2)] bg-[rgba(201,178,124,0.06)]' : 'text-[rgba(255,255,255,0.2)] border-[rgba(255,255,255,0.06)]'}`}>
                   {ttsEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
                   <span>Voz</span>
                 </button>
+
                 <button onClick={() => runBriefing('repite mi briefing matutino')}
                   className="flex items-center gap-2 text-xs uppercase tracking-[0.1em] text-[rgba(255,255,255,0.2)] hover:text-[rgba(201,178,124,0.6)] transition-colors px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.06)] hover:border-[rgba(201,178,124,0.15)]">
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -476,8 +504,6 @@ export default function OverviewPage() {
 
           {isReady && stats && (
             <div className="space-y-6">
-
-              {/* ── GRID PRINCIPAL: Carta + Sidebar ─────────────────────── */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
                 {/* Columna izquierda */}
@@ -770,7 +796,7 @@ export default function OverviewPage() {
                 </div>
               </div>
 
-              {/* ── MEMORIA DE LUCY — ancho completo, cierra la página ──── */}
+              {/* MEMORIA DE LUCY */}
               <MemorySection />
 
             </div>
