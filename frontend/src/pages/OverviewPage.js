@@ -135,7 +135,7 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
         animate={{ opacity: 1, y: 0, scale: 1 }}
         exit={{ opacity: 0, y: -16, scale: 0.97 }}
         transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-        className="max-w-xl w-full mx-6 text-center flex flex-col items-center gap-8"
+        className="max-w-xl w-full mx-6 text-center flex flex-col items-center gap-8 max-h-[85vh] overflow-y-auto"
       >
         <div className="relative flex items-center justify-center">
           {isSpeaking && (

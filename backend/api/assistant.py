@@ -16,6 +16,7 @@ from backend.api.calendar import fetch_today_events, _parse_event, CALENDAR_SCOP
 from backend.core.database import db
 from backend.services.executive_memory import set_memory, get_memory
 from backend.services.contact_memory import get_all_contacts, build_contact_insight
+from backend.services.user_memory import get_user_memory, build_user_memory_context
 from backend.services.ai_service import AIService, generate_llm_response
 
 router = APIRouter(prefix="/assistant", tags=["Assistant"])
@@ -418,6 +419,53 @@ async def assistant_endpoint(
                     timestamp=datetime.utcnow().isoformat(),
                 )
 
+        # ── INTENCIÓN: guardar en memoria ──────────────────────────────────
+        _MEMORY_KEYWORDS = [
+            "recuerda que", "recuerda esto", "anota que", "apunta que",
+            "no olvides que", "ten en cuenta que", "memoriza",
+            "quiero que sepas", "mi preferencia es", "prefiero",
+        ]
+        text_lower_check = user_text.lower().strip()
+        memory_match = None
+        for kw in _MEMORY_KEYWORDS:
+            if kw in text_lower_check:
+                memory_match = kw
+                break
+
+        if memory_match:
+            from backend.services.user_memory import add_memory_note
+            # Extraer el contenido después del keyword
+            idx = text_lower_check.index(memory_match) + len(memory_match)
+            note_text = user_text[idx:].strip().lstrip(",").lstrip(":").strip()
+
+            if not note_text or len(note_text) < 3:
+                return AssistantResponse(
+                    assistant_text="¿Qué quieres que recuerde exactamente?",
+                    actions=None,
+                    status="ok",
+                    timestamp=datetime.utcnow().isoformat(),
+                )
+
+            # Detectar categoría automáticamente
+            note_lower = note_text.lower()
+            if any(w in note_lower for w in ["cliente", "empresa", "proveedor", "contacto"]):
+                category = "cliente"
+            elif any(w in note_lower for w in ["proyecto", "producto", "desarrollo", "sprint"]):
+                category = "proyecto"
+            elif any(w in note_lower for w in ["prefiero", "preferencia", "horario", "no me gusta", "me gusta"]):
+                category = "preferencia"
+            else:
+                category = "general"
+
+            await add_memory_note(db, user["id"], note_text, category)
+
+            return AssistantResponse(
+                assistant_text=f"Anotado. Lo tendré en cuenta a partir de ahora.",
+                actions=[AssistantAction(type="memory_saved", payload={"note": note_text, "category": category})],
+                status="ok",
+                timestamp=datetime.utcnow().isoformat(),
+            )
+
         # ── RECOPILAR CONTEXTO ─────────────────────────────────────────────
         gmail_ok = True
         calendar_ok = True
@@ -452,6 +500,10 @@ async def assistant_endpoint(
 
         exec_memory = await get_memory(db, user["id"])
         contacts    = await get_all_contacts(db, user["id"], limit=5)
+
+        # Memoria persistente del usuario (preferencias, proyectos, clientes)
+        user_mem_doc = await get_user_memory(db, user["id"])
+        user_memory_context = build_user_memory_context(user_mem_doc)
 
         try:
             from backend.api.tasks import get_pending_tasks
@@ -544,6 +596,8 @@ DATOS REALES:
 
 {memory_context}
 
+{user_memory_context}
+
 REGLAS DE ESTILO:
 - Prosa fluida y conversacional, NO listas ni viñetas.
 - Máximo 6-8 frases. Sé concisa pero completa.
@@ -569,6 +623,7 @@ DATOS DISPONIBLES:
 {contacts_context}
 {service_status}
 {memory_context}
+{user_memory_context}
 
 El usuario dice: "{user_text}"
 
@@ -678,3 +733,4 @@ Correo:
     except Exception as e:
         print("Assistant message error:", e)
         raise HTTPException(status_code=500, detail="Error procesando el mensaje")
+    
