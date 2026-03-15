@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import os
 import json
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
+from collections import Counter
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -49,29 +51,59 @@ class AssistantMessageAction(BaseModel):
 
 
 # =====================================================
-# HELPERS — CONTEXTO
+# HELPERS — CONTEXTO MEJORADO
 # =====================================================
 
 def _build_inbox_context(items: list, counts: dict) -> str:
+    """Contexto de bandeja con agrupación inteligente por remitente."""
     lines = [
-        f"- Total de correos: {counts['total']}",
-        f"- Prioritarios: {counts['prioritarios']}",
-        f"- En seguimiento: {counts['seguimiento']}",
-        f"- Con adjuntos: {counts['adjuntos']}",
+        f"Total: {counts['total']} correos en bandeja.",
+        f"Prioritarios: {counts['prioritarios']} · Seguimiento: {counts['seguimiento']} · Con adjuntos: {counts['adjuntos']}",
     ]
-    top = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"][:3]
+
+    # Agrupar remitentes para dar contexto más rico
+    senders = Counter()
+    for item in items:
+        sender = item["email"].get("from_name", "") or item["email"].get("from_email", "")
+        # Limpiar formato "Nombre <email>"
+        name_match = re.match(r'^"?([^"<]+)"?\s*<', sender)
+        clean_name = name_match.group(1).strip() if name_match else sender.split("@")[0]
+        senders[clean_name] += 1
+
+    if senders:
+        top_senders = senders.most_common(4)
+        sender_summary = ", ".join(f"{name} ({count})" for name, count in top_senders)
+        lines.append(f"Remitentes principales: {sender_summary}")
+
+    # Correos prioritarios con detalle
+    top = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"][:4]
     if top:
-        lines.append("\nCorreos prioritarios destacados:")
+        lines.append("\nCorreos prioritarios:")
         for item in top:
             email = item["email"]
-            lines.append(f'  · De: {email.get("from_name", "")} — "{email.get("subject", "")}"')
+            sender = email.get("from_name", "") or email.get("from_email", "")
+            name_match = re.match(r'^"?([^"<]+)"?\s*<', sender)
+            clean = name_match.group(1).strip() if name_match else sender
+            subject = email.get("subject", "(Sin asunto)")
+            snippet = email.get("snippet", "")[:80]
+            lines.append(f'  · {clean}: "{subject}" — {snippet}')
+
+    # Correos de seguimiento (solo nombres)
+    follow = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"][:3]
+    if follow:
+        follow_names = [
+            (re.match(r'^"?([^"<]+)"?\s*<', i["email"].get("from_name", "")) or type("", (), {"group": lambda s, x: i["email"].get("from_name", "").split("@")[0]})).group(1).strip()
+            for i in follow
+        ]
+        lines.append(f"\nEn seguimiento: {', '.join(follow_names)}")
+
     return "\n".join(lines)
 
 
 def _build_contacts_context(contacts: list) -> str:
     if not contacts:
         return ""
-    lines = ["Contactos frecuentes del usuario:"]
+    lines = ["Contactos frecuentes:"]
     for c in contacts[:5]:
         insight = build_contact_insight(c)
         if insight:
@@ -81,37 +113,80 @@ def _build_contacts_context(contacts: list) -> str:
 
 def _build_calendar_context(events: list) -> str:
     if not events:
-        return "Agenda de hoy: libre, sin eventos programados."
-    lines = ["Agenda de hoy:"]
-    for e in events:
-        if e.get("all_day"):
-            time_str = "Todo el día"
-        else:
+        return "Agenda: día libre, sin reuniones ni eventos."
+    
+    meetings = [e for e in events if not e.get("all_day")]
+    all_day = [e for e in events if e.get("all_day")]
+    
+    lines = [f"Agenda: {len(events)} evento{'s' if len(events) != 1 else ''} hoy."]
+    
+    if all_day:
+        for e in all_day:
+            lines.append(f"  · Todo el día: {e.get('title', '')}")
+    
+    if meetings:
+        lines.append("  Reuniones/citas:")
+        for e in meetings:
             raw = e.get("start", "")
             try:
                 parsed = datetime.fromisoformat(raw)
                 time_str = parsed.strftime("%H:%M")
             except Exception:
                 time_str = raw[:16].replace("T", " ")
-        attendees = ", ".join(e.get("attendees", [])[:3])
-        line = f"  · {time_str} — {e.get('title', '')}"
-        if attendees:
-            line += f" (con {attendees})"
-        if e.get("meet_link"):
-            line += " [Google Meet]"
-        lines.append(line)
+            
+            attendees = e.get("attendees", [])[:3]
+            line = f"    · {time_str} — {e.get('title', '')}"
+            if attendees:
+                line += f" (con {', '.join(attendees)})"
+            if e.get("meet_link"):
+                line += " [videollamada]"
+            if e.get("location"):
+                line += f" en {e['location']}"
+            lines.append(line)
+    
     return "\n".join(lines)
 
 
 def _build_tasks_context(tasks: list) -> str:
     if not tasks:
         return ""
-    lines = ["Tareas pendientes:"]
-    for t in tasks:
-        due = f" · Vence: {t['due_date']}" if t.get("due_date") else ""
-        priority_mark = " ⚡" if t.get("priority") == "high" else ""
-        lines.append(f"  · {t['title']}{priority_mark}{due}")
+    
+    high = [t for t in tasks if t.get("priority") == "high"]
+    normal = [t for t in tasks if t.get("priority") != "high"]
+    
+    lines = [f"Tareas pendientes: {len(tasks)} total."]
+    
+    if high:
+        lines.append("  Urgentes:")
+        for t in high:
+            due = f" (vence: {t['due_date']})" if t.get("due_date") else ""
+            lines.append(f"    · {t['title']}{due}")
+    
+    if normal:
+        for t in normal[:3]:
+            due = f" (vence: {t['due_date']})" if t.get("due_date") else ""
+            lines.append(f"  · {t['title']}{due}")
+        if len(normal) > 3:
+            lines.append(f"  ...y {len(normal) - 3} más.")
+    
     return "\n".join(lines)
+
+
+def _get_service_status(user: Dict[str, Any], gmail_ok: bool, calendar_ok: bool) -> str:
+    """Genera aviso sobre servicios desconectados."""
+    issues = []
+    if not user.get("gmail_connected"):
+        issues.append("correo no conectado")
+    elif not gmail_ok:
+        issues.append("correo con error de autenticación (necesita reconectar)")
+    if not user.get("calendar_connected"):
+        issues.append("agenda no conectada")
+    elif not calendar_ok:
+        issues.append("agenda con error de autenticación (necesita reconectar)")
+    
+    if issues:
+        return f"AVISO: {', '.join(issues)}. Informa al usuario si pregunta por esos servicios."
+    return ""
 
 
 # =====================================================
@@ -131,23 +206,19 @@ _EVENT_TYPE_KEYWORDS = [
 
 _TIME_PATTERN = re.compile(
     r'\b('
-    r'\d{1,2}[h:]\d{0,2}'          # 12h30, 12:30
+    r'\d{1,2}[h:]\d{0,2}'
     r'|mañana|pasado mañana'
     r'|lunes|martes|mi[eé]rcoles|jueves|viernes|s[aá]bado|domingo'
     r'|enero|febrero|marzo|abril|mayo|junio'
     r'|julio|agosto|septiembre|octubre|noviembre|diciembre'
-    r'|\d{1,2}\s+de\s+\w+'          # 5 de agosto
-    r'|\d{1,2}/\d{1,2}'             # 5/8
+    r'|\d{1,2}\s+de\s+\w+'
+    r'|\d{1,2}/\d{1,2}'
     r')',
     re.IGNORECASE,
 )
 
 
 def _is_create_event_intent(text: str) -> bool:
-    """
-    Detecta si el usuario quiere crear un evento.
-    Necesita: (keyword de acción O keyword de tipo evento) + referencia temporal.
-    """
     t = text.lower()
     has_action = any(k in t for k in _EVENT_ACTION_KEYWORDS)
     has_type   = any(k in t for k in _EVENT_TYPE_KEYWORDS)
@@ -156,14 +227,9 @@ def _is_create_event_intent(text: str) -> bool:
 
 
 async def _extract_event_data(user_text: str) -> Optional[Dict[str, Any]]:
-    """
-    Extrae los datos del evento desde lenguaje natural usando el LLM.
-    Devuelve: title, date (YYYY-MM-DD), start_time (HH:MM), end_time (HH:MM),
-              location, description.
-    """
     now = datetime.now(timezone.utc)
     today_str     = now.strftime("%Y-%m-%d")
-    today_weekday = now.strftime("%A")  # Monday, Tuesday…
+    today_weekday = now.strftime("%A")
 
     prompt = f"""Eres un extractor de datos de eventos de calendario.
 Hoy es {today_str} ({today_weekday}). Zona horaria: Europe/Madrid.
@@ -183,11 +249,11 @@ Formato exacto:
 
 Reglas:
 - Si no hay hora de fin, suma 1 hora a la de inicio.
-- "mañana" = {(now.replace(hour=0,minute=0,second=0,microsecond=0)).__class__.__name__} → calcula desde hoy.
+- "mañana" → calcula desde hoy.
 - Si dice un día de la semana, calcula la PRÓXIMA ocurrencia desde hoy.
-- Año: usa el más próximo futuro (si "5 de agosto" ya pasó en 2025, usa 2026).
+- Año: usa el más próximo futuro.
 - "12h30" o "12.30" o "12:30" = start_time "12:30".
-- Si no hay título explícito, construye uno con las palabras clave (ej: "Reunión Macan").
+- Si no hay título explícito, construye uno con las palabras clave.
 - location y description pueden quedar vacíos.
 """
 
@@ -201,7 +267,6 @@ Reglas:
     except Exception:
         pass
 
-    # Fallback: extraer JSON con regex por si el LLM añadió texto
     match = re.search(r'\{[^{}]+\}', clean, re.DOTALL)
     if match:
         try:
@@ -218,7 +283,6 @@ async def _create_calendar_event_direct(
     user: Dict[str, Any],
     event_data: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
-    """Crea el evento directamente con las credenciales del usuario."""
     from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build as build_service
 
@@ -263,13 +327,11 @@ def _format_event_confirmation(
     event_data: Dict[str, Any],
     created: Optional[Dict[str, Any]],
 ) -> str:
-    """Genera la respuesta hablada de confirmación."""
     title      = event_data.get("title", "el evento")
     date       = event_data.get("date", "")
     start_time = event_data.get("start_time", "")
     location   = event_data.get("location", "")
 
-    # Fecha en español
     try:
         dt = datetime.strptime(date, "%Y-%m-%d")
         months = [
@@ -293,6 +355,23 @@ def _format_event_confirmation(
             "No he podido crear el evento. "
             "Comprueba que tu calendario está conectado en ajustes."
         )
+
+
+# =====================================================
+# BRIEFING DETECTION
+# =====================================================
+
+_BRIEFING_KEYWORDS = [
+    "briefing", "buenos días", "buenos dias", "buen día", "buen dia",
+    "dame mi briefing", "qué tengo hoy", "que tengo hoy",
+    "cómo está mi día", "como esta mi dia", "resumen del día",
+    "resumen matutino", "qué hay hoy", "que hay hoy",
+    "hola lucy", "repite mi briefing",
+]
+
+def _is_briefing_request(text: str) -> bool:
+    t = text.lower().strip()
+    return any(k in t for k in _BRIEFING_KEYWORDS)
 
 
 # =====================================================
@@ -338,13 +417,20 @@ async def assistant_endpoint(
                     status="ok",
                     timestamp=datetime.utcnow().isoformat(),
                 )
-            # Si el LLM no pudo extraer datos, caer al flujo normal
-            # (Lucy pedirá que concrete)
 
-        # ── FLUJO NORMAL — briefing y respuestas generales ────────────────
-        items = await fetch_enriched_messages(user, db, max_results=20)
+        # ── RECOPILAR CONTEXTO ─────────────────────────────────────────────
+        gmail_ok = True
+        calendar_ok = True
+        
+        items = []
+        if user.get("gmail_connected"):
+            try:
+                items = await fetch_enriched_messages(user, db, max_results=20)
+            except Exception as e:
+                gmail_ok = False
+                print(f"[assistant] Gmail fetch error: {e}")
+
         total = len(items)
-
         prioritarios = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"]
         seguimiento  = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"]
         adjuntos     = [i for i in items if i["email"].get("has_attachments", False)]
@@ -356,29 +442,37 @@ async def assistant_endpoint(
             "adjuntos":     len(adjuntos),
         }
 
+        calendar_events = []
+        if user.get("calendar_connected"):
+            try:
+                calendar_events = await fetch_today_events(user)
+            except Exception as e:
+                calendar_ok = False
+                print(f"[assistant] Calendar fetch error: {e}")
+
         exec_memory = await get_memory(db, user["id"])
         contacts    = await get_all_contacts(db, user["id"], limit=5)
-
-        calendar_events  = await fetch_today_events(user)
-        calendar_context = _build_calendar_context(calendar_events)
 
         try:
             from backend.api.tasks import get_pending_tasks
             pending_tasks = await get_pending_tasks(user["id"])
         except Exception:
             pending_tasks = []
-        tasks_context = _build_tasks_context(pending_tasks)
 
-        inbox_context    = _build_inbox_context(items, counts)
+        # Construir bloques de contexto
+        inbox_context    = _build_inbox_context(items, counts) if items else "Bandeja: sin correos disponibles."
+        calendar_context = _build_calendar_context(calendar_events)
+        tasks_context    = _build_tasks_context(pending_tasks)
         contacts_context = _build_contacts_context(contacts)
+        service_status   = _get_service_status(user, gmail_ok, calendar_ok)
 
         last_action = exec_memory.get("last_action", "")
         last_focus  = exec_memory.get("last_focus", "")
         memory_context = ""
         if last_action:
-            memory_context = f"Última acción del usuario: {last_action}."
+            memory_context = f"Última acción: {last_action}."
             if last_focus:
-                memory_context += f" Estaba mirando: {last_focus}."
+                memory_context += f" Estaba en: {last_focus}."
 
         # Detectar acciones de navegación UI
         actions: Optional[List[AssistantAction]] = None
@@ -399,9 +493,7 @@ async def assistant_endpoint(
         elif any(k in text_lower for k in ["todo", "todos", "limpiar", "ver todo"]):
             actions = [AssistantAction(type="clear_filters", payload={})]
 
-        tasks_block = f"\n{tasks_context}" if tasks_context else ""
-
-        # Fecha actual para que Lucy no confunda días
+        # ── FECHA ACTUAL ───────────────────────────────────────────────────
         now_madrid = datetime.now(timezone.utc)
         try:
             from zoneinfo import ZoneInfo
@@ -413,45 +505,107 @@ async def assistant_endpoint(
         _days   = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
         today_label = f"{_days[now_madrid.weekday()]} {now_madrid.day} de {_months[now_madrid.month-1]} de {now_madrid.year}"
         today_iso   = now_madrid.strftime("%Y-%m-%d")
+        
+        hour = now_madrid.hour
+        if hour < 12:
+            time_of_day = "por la mañana"
+        elif hour < 20:
+            time_of_day = "por la tarde"
+        else:
+            time_of_day = "por la noche"
 
-        prompt = f"""Eres Lucy, la secretaria personal ejecutiva de {user.get('name', 'el usuario')}.
+        # ── ELEGIR PROMPT SEGÚN INTENCIÓN ──────────────────────────────────
+        is_briefing = _is_briefing_request(user_text)
 
-HOY ES: {today_label} ({today_iso}). Usa siempre esta fecha como referencia. Nunca confundas fechas pasadas con hoy.
+        if is_briefing:
+            prompt = f"""Eres Lucy, secretaria ejecutiva personal de {user.get('name', 'el usuario')}.
 
-Personalidad: elegante, directa, concisa. Hablas como una secretaria de confianza de alto nivel.
-Siempre en español. Máximo 3 frases. Sin listas ni encabezados. Lenguaje natural y conversacional.
-Cuando des el briefing matutino, integra correos, agenda y tareas pendientes en un resumen fluido.
-Si el usuario dice "buenos días" o saluda, responde al saludo primero y luego da el briefing del día.
+HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
 
-BANDEJA ACTUAL:
+Tu trabajo es dar un briefing matutino completo, como haría una secretaria de confianza al empezar el día. Hablas con naturalidad, elegancia y cercanía profesional. Siempre en español.
+
+ESTRUCTURA DEL BRIEFING (sigue este orden, integra todo en prosa fluida):
+1. Saludo breve y cálido adaptado a la hora del día.
+2. AGENDA: empieza siempre por las reuniones/eventos del día. Si hay videollamadas, menciónalo. Si el día está libre, dilo con tono positivo.
+3. CORREOS: resumen de la bandeja. Destaca los prioritarios por nombre y asunto. Si hay muchos de un mismo remitente, agrúpalos. Menciona el total.
+4. TAREAS: si hay tareas pendientes, menciónalas brevemente. Destaca las urgentes.
+5. Cierre: una frase motivadora o práctica para arrancar el día.
+
+DATOS REALES:
+{calendar_context}
+
 {inbox_context}
 
-{calendar_context}
-{tasks_block}
+{tasks_context if tasks_context else "Sin tareas pendientes registradas."}
+
 {contacts_context}
 
+{service_status}
+
+{memory_context}
+
+REGLAS DE ESTILO:
+- Prosa fluida y conversacional, NO listas ni viñetas.
+- Máximo 6-8 frases. Sé concisa pero completa.
+- Nombra personas y asuntos reales, no seas genérica.
+- Si un servicio está desconectado, menciónalo con naturalidad ("no tengo acceso a tu correo, necesitas reconectarlo").
+- Suena como alguien que conoce bien al usuario y su trabajo.
+- NO inventes datos que no estén arriba.
+
+El usuario dice: "{user_text}"
+"""
+        else:
+            prompt = f"""Eres Lucy, secretaria ejecutiva personal de {user.get('name', 'el usuario')}.
+
+HOY: {today_label} ({today_iso}). Hora: {now_madrid.strftime("%H:%M")}.
+
+Personalidad: elegante, directa, concisa. Secretaria de confianza de alto nivel.
+Siempre en español. Máximo 3-4 frases. Sin listas ni encabezados. Lenguaje natural.
+
+DATOS DISPONIBLES:
+{calendar_context}
+{inbox_context}
+{tasks_context}
+{contacts_context}
+{service_status}
 {memory_context}
 
 El usuario dice: "{user_text}"
 
-Responde de forma natural usando los datos reales de arriba.
-Si pide el briefing, dale un resumen integrado de correos, agenda y tareas del día.
-Si pide navegar o filtrar, confirma la acción brevemente.
-Si pide resumir o responder un correo concreto, dile que lo seleccione en la bandeja.
-Si menciona tareas, resume las pendientes o indícale que vaya a la sección de tareas.
-Si pide crear un evento pero no hay datos suficientes, pídele que concrete fecha y hora.
+Responde con los datos reales de arriba. No inventes información.
+Si pide navegar o filtrar, confirma brevemente.
+Si pide resumir un correo concreto, dile que lo seleccione en la bandeja.
+Si menciona tareas, resume las pendientes o indícale la sección de tareas.
+Si pide crear un evento pero faltan datos, pídele que concrete.
 """
 
-        assistant_text = await generate_llm_response(prompt)
+        # ── GENERAR RESPUESTA ──────────────────────────────────────────────
+        # Briefings necesitan más tokens para ser completos
+        max_tokens = 500 if is_briefing else 300
 
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            assistant_text = "No puedo procesar tu solicitud porque la configuración de IA no está disponible."
+        else:
+            from openai import AsyncOpenAI
+            client = AsyncOpenAI(api_key=api_key)
+            response = await client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.5 if is_briefing else 0.4,
+                max_tokens=max_tokens,
+            )
+            assistant_text = response.choices[0].message.content.strip()
+
+        # ── GUARDAR EN MEMORIA EJECUTIVA ───────────────────────────────────
         try:
             await set_memory(
                 db=db,
                 user_id=user["id"],
                 fields={
-                    "last_action": "assistant_query",
+                    "last_action": "briefing" if is_briefing else "assistant_query",
                     "last_focus": text_lower[:50],
-                    "last_intent": "ASSISTANT_QUERY",
+                    "last_intent": "BRIEFING" if is_briefing else "ASSISTANT_QUERY",
                 },
             )
         except Exception as mem_error:
@@ -467,7 +621,7 @@ Si pide crear un evento pero no hay datos suficientes, pídele que concrete fech
     except Exception as e:
         print("Assistant error:", e)
         return AssistantResponse(
-            assistant_text="No he podido procesar tu solicitud en este momento.",
+            assistant_text="Disculpa, no he podido procesar tu solicitud en este momento. Inténtalo de nuevo.",
             actions=None,
             status="error",
             timestamp=datetime.utcnow().isoformat(),
@@ -488,8 +642,9 @@ async def assistant_message_endpoint(
             raise HTTPException(status_code=400, detail="Contenido vacío")
 
         if payload.mode == "summarize":
-            prompt = f"""Resume el siguiente correo en máximo 4 frases.
+            prompt = f"""Resume este correo en máximo 4 frases.
 Natural, claro y conversacional. Sin encabezados ni listas.
+Solo síntesis clara. Si hay una acción requerida, menciónala al final.
 
 Correo:
 {payload.message_content}
