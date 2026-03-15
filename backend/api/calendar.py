@@ -146,24 +146,26 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         data = {"calendar_connected": bool(user.get("calendar_connected", False))}
         return build_response(request, data=data, legacy=data)
 
+
     @router.get("/calendar/auth")
     async def calendar_auth(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
         flow = _get_calendar_flow(REDIRECT_URI, state=user["id"])
+
         auth_url, _state = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
         )
+
         data = {"auth_url": auth_url}
         return build_response(request, data=data, legacy=data)
-
     @router.get("/calendar/callback")
     async def calendar_callback(code: str, state: str = Query(...)):
         flow = _get_calendar_flow(REDIRECT_URI, state=state)
         # Google devuelve gmail+calendar scopes juntos — ignoramos el warning de scope
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            flow.fetch_token(code=code)
+            flow.fetch_token(code=code, code_verifier=None)
         creds = flow.credentials
         tokens = {
             "token": creds.token,
