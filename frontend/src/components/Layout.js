@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
-import { LayoutDashboard, Mail, CheckSquare, LogOut, Globe, ChevronDown } from 'lucide-react';
+import { LayoutDashboard, Mail, CheckSquare, Settings, LogOut, Globe, ChevronDown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { TrialBanner, TrialExpiredOverlay } from './TrialBanner';
 
@@ -60,7 +60,6 @@ const Layout = ({ children }) => {
     { path: '/app', icon: LayoutDashboard, label: t(language, 'overview') },
     { path: '/app/messages', icon: Mail, label: t(language, 'messages') },
     { path: '/app/tasks', icon: CheckSquare, label: 'Tareas' },
-
   ];
 
   const languages = [
@@ -179,7 +178,6 @@ const Layout = ({ children }) => {
                       hover:bg-[rgba(255,255,255,0.03)] transition-all duration-200"
                     data-testid="user-menu"
                   >
-                    {/* Avatar inicial */}
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center
                       bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.2)]">
                       <span className="text-xs font-medium text-[#C9B27C]">
@@ -193,7 +191,6 @@ const Layout = ({ children }) => {
                   </button>
                 }
               >
-                {/* Info usuario */}
                 <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
                   <p className="text-xs text-[rgba(255,255,255,0.6)] font-medium">{userName}</p>
                   <p className="text-[10px] text-[rgba(255,255,255,0.25)] mt-0.5 uppercase tracking-wider">
@@ -201,10 +198,12 @@ const Layout = ({ children }) => {
                   </p>
                 </div>
 
-                <DropdownItem
-                  onClick={logout}
-                  data-testid="logout-btn"
-                >
+                <DropdownItem onClick={() => window.location.href = '/app/settings'}>
+                  <Settings className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  Configuración
+                </DropdownItem>
+
+                <DropdownItem onClick={logout} data-testid="logout-btn">
                   <LogOut className="w-3.5 h-3.5" strokeWidth={1.5} />
                   {t(language, 'logout')}
                 </DropdownItem>
@@ -214,7 +213,6 @@ const Layout = ({ children }) => {
           </div>
         </div>
 
-        {/* Línea dorada inferior muy sutil */}
         <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.15)] to-transparent" />
       </header>
 

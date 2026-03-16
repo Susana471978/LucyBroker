@@ -472,6 +472,14 @@ export default function OverviewPage() {
 
       <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
 
+        {/* Volver */}
+        <button onClick={() => window.history.back()}
+          className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)]
+            -mb-6 transition-colors duration-200">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+          Volver
+        </button>
+
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}>
           <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] font-medium mb-3">{getGreeting()}</p>

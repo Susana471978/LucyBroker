@@ -8,6 +8,7 @@ import MessagesPage from "./pages/MessagesPage";
 import LandingPage from "./pages/LandingPage";
 import VoiceProvider from "./voice/VoiceProvider";
 import TasksPage from "./pages/TaskPage";
+import SettingsPage from "./pages/SettingsPage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -29,7 +30,6 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  // 🔥 Voice solo dentro de zona protegida
   return (
     <VoiceProvider>
       {children}
@@ -69,11 +69,19 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+      <Route
+        path="/app/settings"
+        element={
+          <ProtectedRoute>
+            <SettingsPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Redirects */}
       <Route path="/landing" element={<Navigate to="/" replace />} />
       <Route path="/messages" element={<Navigate to="/app/messages" replace />} />
       <Route path="*" element={<Navigate to="/" replace />} />
-
     </Routes>
   );
 };

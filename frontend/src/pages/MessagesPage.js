@@ -280,11 +280,16 @@ export default function MessagesPage() {
   return (
     <Layout>
       <div className="flex h-[calc(100vh-64px)] overflow-hidden">
-
         {/* ══ LEFT — Lista ══════════════════════════════════ */}
         <div className="w-full md:w-[38%] flex flex-col border-r border-[rgba(255,255,255,0.05)]"
           style={{ background: 'rgba(6,6,10,0.6)' }}>
-
+          <div className="px-3 sm:px-5 py-2 border-b border-[rgba(255,255,255,0.03)]">
+            <button onClick={() => window.history.back()}
+              className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] transition-colors duration-200">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
+              Volver
+            </button>
+          </div>
           <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <FilterPill active={filter === 'all' && !attachmentsOnly} onClick={() => handleFilterChange('all')} label="Todos" />
             <FilterPill active={filter === 'PRIORITARIO'} onClick={() => handleFilterChange('PRIORITARIO')} label="Prioritarios" />
