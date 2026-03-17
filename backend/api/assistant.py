@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import json
+import os
 import re
 from datetime import datetime, timezone, timedelta
 from typing import Any, Dict, List, Optional
@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from backend.core.dependencies import get_current_user
 from backend.api.gmail import fetch_enriched_messages
 from backend.api.calendar import fetch_today_events, _parse_event, CALENDAR_SCOPES
+from backend.api.habits import get_habits_summary
 from backend.core.database import db
 from backend.services.executive_memory import set_memory, get_memory
 from backend.services.contact_memory import get_all_contacts, build_contact_insight
@@ -56,17 +57,14 @@ class AssistantMessageAction(BaseModel):
 # =====================================================
 
 def _build_inbox_context(items: list, counts: dict) -> str:
-    """Contexto de bandeja con agrupación inteligente por remitente."""
     lines = [
         f"Total: {counts['total']} correos en bandeja.",
         f"Prioritarios: {counts['prioritarios']} · Seguimiento: {counts['seguimiento']} · Con adjuntos: {counts['adjuntos']}",
     ]
 
-    # Agrupar remitentes para dar contexto más rico
     senders = Counter()
     for item in items:
         sender = item["email"].get("from_name", "") or item["email"].get("from_email", "")
-        # Limpiar formato "Nombre <email>"
         name_match = re.match(r'^"?([^"<]+)"?\s*<', sender)
         clean_name = name_match.group(1).strip() if name_match else sender.split("@")[0]
         senders[clean_name] += 1
@@ -76,7 +74,6 @@ def _build_inbox_context(items: list, counts: dict) -> str:
         sender_summary = ", ".join(f"{name} ({count})" for name, count in top_senders)
         lines.append(f"Remitentes principales: {sender_summary}")
 
-    # Correos prioritarios con detalle
     top = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"][:4]
     if top:
         lines.append("\nCorreos prioritarios:")
@@ -89,7 +86,6 @@ def _build_inbox_context(items: list, counts: dict) -> str:
             snippet = email.get("snippet", "")[:80]
             lines.append(f'  · {clean}: "{subject}" — {snippet}')
 
-    # Correos de seguimiento (solo nombres)
     follow = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"][:3]
     if follow:
         follow_names = [
@@ -115,16 +111,16 @@ def _build_contacts_context(contacts: list) -> str:
 def _build_calendar_context(events: list) -> str:
     if not events:
         return "Agenda: día libre, sin reuniones ni eventos."
-    
+
     meetings = [e for e in events if not e.get("all_day")]
     all_day = [e for e in events if e.get("all_day")]
-    
+
     lines = [f"Agenda: {len(events)} evento{'s' if len(events) != 1 else ''} hoy."]
-    
+
     if all_day:
         for e in all_day:
             lines.append(f"  · Todo el día: {e.get('title', '')}")
-    
+
     if meetings:
         lines.append("  Reuniones/citas:")
         for e in meetings:
@@ -134,7 +130,7 @@ def _build_calendar_context(events: list) -> str:
                 time_str = parsed.strftime("%H:%M")
             except Exception:
                 time_str = raw[:16].replace("T", " ")
-            
+
             attendees = e.get("attendees", [])[:3]
             line = f"    · {time_str} — {e.get('title', '')}"
             if attendees:
@@ -144,37 +140,52 @@ def _build_calendar_context(events: list) -> str:
             if e.get("location"):
                 line += f" en {e['location']}"
             lines.append(line)
-    
+
     return "\n".join(lines)
 
 
 def _build_tasks_context(tasks: list) -> str:
     if not tasks:
         return ""
-    
+
     high = [t for t in tasks if t.get("priority") == "high"]
     normal = [t for t in tasks if t.get("priority") != "high"]
-    
+
     lines = [f"Tareas pendientes: {len(tasks)} total."]
-    
+
     if high:
         lines.append("  Urgentes:")
         for t in high:
             due = f" (vence: {t['due_date']})" if t.get("due_date") else ""
             lines.append(f"    · {t['title']}{due}")
-    
+
     if normal:
         for t in normal[:3]:
             due = f" (vence: {t['due_date']})" if t.get("due_date") else ""
             lines.append(f"  · {t['title']}{due}")
         if len(normal) > 3:
             lines.append(f"  ...y {len(normal) - 3} más.")
-    
+
+    return "\n".join(lines)
+
+
+def _build_habits_context(summary: dict) -> str:
+    habits = summary.get("habits", [])
+    if not habits:
+        return ""
+    total = summary.get("total", 0)
+    completed = summary.get("completed", 0)
+    lines = [f"Hábitos del día: {completed}/{total} completados."]
+    for h in habits:
+        status = "✓" if h["completed_today"] else "pendiente"
+        streak_txt = f" (racha: {h['streak']} días)" if h.get("streak", 0) >= 2 else ""
+        lines.append(f"  · {h['icon']} {h['name']}: {status}{streak_txt}")
+    if summary.get("all_done"):
+        lines.append("  ¡Todos los hábitos completados hoy!")
     return "\n".join(lines)
 
 
 def _get_service_status(user: Dict[str, Any], gmail_ok: bool, calendar_ok: bool) -> str:
-    """Genera aviso sobre servicios desconectados."""
     issues = []
     if not user.get("gmail_connected"):
         issues.append("correo no conectado")
@@ -184,7 +195,7 @@ def _get_service_status(user: Dict[str, Any], gmail_ok: bool, calendar_ok: bool)
         issues.append("agenda no conectada")
     elif not calendar_ok:
         issues.append("agenda con error de autenticación (necesita reconectar)")
-    
+
     if issues:
         return f"AVISO: {', '.join(issues)}. Informa al usuario si pregunta por esos servicios."
     return ""
@@ -419,6 +430,39 @@ async def assistant_endpoint(
                     timestamp=datetime.utcnow().isoformat(),
                 )
 
+        # ── INTENCIÓN: crear recordatorio ──────────────────────────────────
+        from backend.api.reminders import is_reminder_intent, extract_reminder_data
+        if is_reminder_intent(user_text):
+            reminder_data = await extract_reminder_data(user_text)
+            if reminder_data:
+                now_r = datetime.now(timezone.utc).isoformat()
+                doc = {
+                    "user_id": user["id"],
+                    "text": reminder_data["text"],
+                    "remind_at": reminder_data["remind_at"],
+                    "done": False,
+                    "notified": False,
+                    "created_at": now_r,
+                }
+                result = await db.reminders.insert_one(doc)
+                friendly = reminder_data.get("friendly_time", reminder_data["remind_at"])
+                return AssistantResponse(
+                    assistant_text=f"Listo. Te recordaré {reminder_data['text']} {friendly}.",
+                    actions=[AssistantAction(
+                        type="reminder_created",
+                        payload={"id": str(result.inserted_id), "text": reminder_data["text"], "remind_at": reminder_data["remind_at"]},
+                    )],
+                    status="ok",
+                    timestamp=datetime.utcnow().isoformat(),
+                )
+            else:
+                return AssistantResponse(
+                    assistant_text="¿A qué hora quieres que te lo recuerde?",
+                    actions=None,
+                    status="ok",
+                    timestamp=datetime.utcnow().isoformat(),
+                )
+
         # ── INTENCIÓN: guardar en memoria ──────────────────────────────────
         _MEMORY_KEYWORDS = [
             "recuerda que", "recuerda esto", "anota que", "apunta que",
@@ -434,7 +478,6 @@ async def assistant_endpoint(
 
         if memory_match:
             from backend.services.user_memory import add_memory_note
-            # Extraer el contenido después del keyword
             idx = text_lower_check.index(memory_match) + len(memory_match)
             note_text = user_text[idx:].strip().lstrip(",").lstrip(":").strip()
 
@@ -446,7 +489,6 @@ async def assistant_endpoint(
                     timestamp=datetime.utcnow().isoformat(),
                 )
 
-            # Detectar categoría automáticamente
             note_lower = note_text.lower()
             if any(w in note_lower for w in ["cliente", "empresa", "proveedor", "contacto"]):
                 category = "cliente"
@@ -469,7 +511,7 @@ async def assistant_endpoint(
         # ── RECOPILAR CONTEXTO ─────────────────────────────────────────────
         gmail_ok = True
         calendar_ok = True
-        
+
         items = []
         if user.get("gmail_connected"):
             try:
@@ -501,7 +543,6 @@ async def assistant_endpoint(
         exec_memory = await get_memory(db, user["id"])
         contacts    = await get_all_contacts(db, user["id"], limit=5)
 
-        # Memoria persistente del usuario (preferencias, proyectos, clientes)
         user_mem_doc = await get_user_memory(db, user["id"])
         user_memory_context = build_user_memory_context(user_mem_doc)
 
@@ -511,10 +552,17 @@ async def assistant_endpoint(
         except Exception:
             pending_tasks = []
 
+        # Hábitos del día
+        try:
+            habits_summary = await get_habits_summary(user["id"])
+        except Exception:
+            habits_summary = {"habits": [], "completed": 0, "total": 0}
+
         # Construir bloques de contexto
         inbox_context    = _build_inbox_context(items, counts) if items else "Bandeja: sin correos disponibles."
         calendar_context = _build_calendar_context(calendar_events)
         tasks_context    = _build_tasks_context(pending_tasks)
+        habits_context   = _build_habits_context(habits_summary)
         contacts_context = _build_contacts_context(contacts)
         service_status   = _get_service_status(user, gmail_ok, calendar_ok)
 
@@ -557,7 +605,7 @@ async def assistant_endpoint(
         _days   = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
         today_label = f"{_days[now_madrid.weekday()]} {now_madrid.day} de {_months[now_madrid.month-1]} de {now_madrid.year}"
         today_iso   = now_madrid.strftime("%Y-%m-%d")
-        
+
         hour = now_madrid.hour
         if hour < 12:
             time_of_day = "por la mañana"
@@ -570,18 +618,19 @@ async def assistant_endpoint(
         is_briefing = _is_briefing_request(user_text)
 
         if is_briefing:
-            prompt = f"""Eres Lucy, secretaria ejecutiva personal de {user.get('name', 'el usuario')}.
+            prompt = f"""Eres Lucy, secretaria ejecutiva y asistente personal de {user.get('name', 'el usuario')}.
 
 HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
 
-Tu trabajo es dar un briefing matutino completo, como haría una secretaria de confianza al empezar el día. Hablas con naturalidad, elegancia y cercanía profesional. Siempre en español.
+Tu trabajo es dar un briefing completo, como haría una secretaria de confianza al empezar el día. Hablas con naturalidad, elegancia y cercanía profesional. Siempre en español.
 
 ESTRUCTURA DEL BRIEFING (sigue este orden, integra todo en prosa fluida):
 1. Saludo breve y cálido adaptado a la hora del día.
 2. AGENDA: empieza siempre por las reuniones/eventos del día. Si hay videollamadas, menciónalo. Si el día está libre, dilo con tono positivo.
 3. CORREOS: resumen de la bandeja. Destaca los prioritarios por nombre y asunto. Si hay muchos de un mismo remitente, agrúpalos. Menciona el total.
 4. TAREAS: si hay tareas pendientes, menciónalas brevemente. Destaca las urgentes.
-5. Cierre: una frase motivadora o práctica para arrancar el día.
+5. HÁBITOS: si hay hábitos registrados, menciona cuántos ha completado y cuáles faltan. Si hay rachas, celébralas. Si todos están hechos, felicita.
+6. Cierre: una frase motivadora o práctica para arrancar el día.
 
 DATOS REALES:
 {calendar_context}
@@ -589,6 +638,8 @@ DATOS REALES:
 {inbox_context}
 
 {tasks_context if tasks_context else "Sin tareas pendientes registradas."}
+
+{habits_context if habits_context else "Sin hábitos registrados."}
 
 {contacts_context}
 
@@ -600,16 +651,17 @@ DATOS REALES:
 
 REGLAS DE ESTILO:
 - Prosa fluida y conversacional, NO listas ni viñetas.
-- Máximo 6-8 frases. Sé concisa pero completa.
+- Máximo 8-10 frases. Sé concisa pero completa.
 - Nombra personas y asuntos reales, no seas genérica.
-- Si un servicio está desconectado, menciónalo con naturalidad ("no tengo acceso a tu correo, necesitas reconectarlo").
+- Si un servicio está desconectado, menciónalo con naturalidad.
+- Si hay hábitos pendientes, anima a completarlos con tono motivador pero no presionante.
 - Suena como alguien que conoce bien al usuario y su trabajo.
 - NO inventes datos que no estén arriba.
 
 El usuario dice: "{user_text}"
 """
         else:
-            prompt = f"""Eres Lucy, secretaria ejecutiva personal de {user.get('name', 'el usuario')}.
+            prompt = f"""Eres Lucy, secretaria ejecutiva y asistente personal de {user.get('name', 'el usuario')}.
 
 HOY: {today_label} ({today_iso}). Hora: {now_madrid.strftime("%H:%M")}.
 
@@ -620,6 +672,7 @@ DATOS DISPONIBLES:
 {calendar_context}
 {inbox_context}
 {tasks_context}
+{habits_context}
 {contacts_context}
 {service_status}
 {memory_context}
@@ -631,11 +684,11 @@ Responde con los datos reales de arriba. No inventes información.
 Si pide navegar o filtrar, confirma brevemente.
 Si pide resumir un correo concreto, dile que lo seleccione en la bandeja.
 Si menciona tareas, resume las pendientes o indícale la sección de tareas.
+Si pregunta por hábitos, dile cuántos ha completado hoy y cuáles faltan.
 Si pide crear un evento pero faltan datos, pídele que concrete.
 """
 
         # ── GENERAR RESPUESTA ──────────────────────────────────────────────
-        # Briefings necesitan más tokens para ser completos
         max_tokens = 500 if is_briefing else 300
 
         api_key = os.getenv("OPENAI_API_KEY")
@@ -733,4 +786,3 @@ Correo:
     except Exception as e:
         print("Assistant message error:", e)
         raise HTTPException(status_code=500, detail="Error procesando el mensaje")
-    

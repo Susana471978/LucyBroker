@@ -9,6 +9,7 @@ import LandingPage from "./pages/LandingPage";
 import VoiceProvider from "./voice/VoiceProvider";
 import TasksPage from "./pages/TaskPage";
 import SettingsPage from "./pages/SettingsPage";
+import HabitsPage from "./pages/HabitsPage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -49,6 +50,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <OverviewPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/app/habits"
+        element={
+          <ProtectedRoute>
+            <HabitsPage />
           </ProtectedRoute>
         }
       />

@@ -47,6 +47,8 @@ from backend.api.assistant import router as assistant_router
 
 from backend.api.calendar import create_calendar_router
 
+from backend.api.habits import router as habits_router
+
 # =========================
 # STRIPE
 # =========================
@@ -153,6 +155,8 @@ app.include_router(contacts_router, prefix="/api")
 
 api_router.include_router(assistant_router)
 
+api_router.include_router(habits_router)
+
 
 # ======================================================
 # AUTH HELPERS
@@ -240,6 +244,8 @@ api_router.include_router(ai_router)
 api_router.include_router(tasks_router)
 api_router.include_router(memory_router)
 
+from backend.api.reminders import router as reminders_router
+api_router.include_router(reminders_router)
 
 # ======================================================
 # TTS ROUTES (ElevenLabs)

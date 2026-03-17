@@ -66,6 +66,7 @@ export function useVoiceEngine() {
     const playBeep = useCallback((freq = 880, duration = 0.15) => {
         try {
             const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            if (ctx.state === 'suspended') { ctx.resume(); }
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
             osc.connect(gain);
@@ -311,16 +312,30 @@ export function useVoiceEngine() {
                 if (WAKE_WORD_VARIANTS.some(v => text.includes(v))) {
                     console.log("[Wake Word] Detectado:", text);
 
-                    // Cooldown de 4s para evitar doble disparo
+                    // Cooldown de 6s para evitar doble disparo
                     wakeWordCooldownRef.current = true;
-                    setTimeout(() => { wakeWordCooldownRef.current = false; }, 4000);
+                    setTimeout(() => { wakeWordCooldownRef.current = false; }, 6000);
 
                     setWakeWordActive(true);
-                    setTimeout(() => setWakeWordActive(false), 2000);
+                    setTimeout(() => setWakeWordActive(false), 3000);
 
                     playBeep(880, 0.15);
-                    // Pasar el texto completo (ej: "buenos días lucy") al asistente
-                    setTimeout(() => activateHandsFreeMode(text), 300);
+
+                    // Detener wake word listener y abrir listening loop
+                    // para capturar la frase completa del usuario
+                    try { wake.stop(); } catch (_) { }
+
+                    // Si el resultado ya es final y tiene más que solo "hola lucy",
+                    // enviar directamente
+                    const cleanText = text.replace(/hola lucy|ola lucy|oye lucy|hey lucy/gi, '').trim();
+                    if (event.results[i].isFinal && cleanText.length > 5) {
+                        console.log("[Wake Word] Frase completa:", cleanText);
+                        setTimeout(() => activateHandsFreeMode(cleanText), 300);
+                    } else {
+                        // Si solo captó "hola lucy", activar escucha para la siguiente frase
+                        console.log("[Wake Word] Esperando orden...");
+                        setTimeout(() => activateHandsFreeMode(""), 300);
+                    }
                     break;
                 }
             }
