@@ -6,6 +6,7 @@ import { useState, useRef, useEffect } from 'react';
 import { TrialBanner, TrialExpiredOverlay } from './TrialBanner';
 
 /* ─── Dropdown propio — sin dependencia de Radix/slate ───── */
+
 function Dropdown({ trigger, children }) {
   const [open, setOpen] = useState(false);
   const ref = useRef(null);
@@ -52,6 +53,7 @@ function DropdownItem({ onClick, children, active }) {
 }
 
 /* ─── Layout ──────────────────────────────────────────────── */
+
 const Layout = ({ children }) => {
   const { user, logout, language, updateLanguage } = useAuth();
   const location = useLocation();
@@ -76,6 +78,7 @@ const Layout = ({ children }) => {
     <div className="min-h-screen" style={{ background: '#080A0F' }}>
 
       {/* ── Header ────────────────────────────────────────── */}
+
       <header
         className="sticky top-0 z-50"
         style={{
@@ -140,9 +143,11 @@ const Layout = ({ children }) => {
             </nav>
 
             {/* Derecha — idioma + usuario */}
+
             <div className="flex items-center gap-1 sm:gap-2">
 
               {/* Selector de idioma */}
+
               <Dropdown
                 trigger={
                   <button
@@ -170,6 +175,7 @@ const Layout = ({ children }) => {
               </Dropdown>
 
               {/* Menú usuario */}
+
               <Dropdown
                 trigger={
                   <button

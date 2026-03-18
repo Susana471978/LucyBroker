@@ -14,6 +14,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/Layout';
 import ReminderToast from '../components/ReminderToast';
 import { useReminders } from '../hooks/useReminders';
+import AlertToast from '../components/AlertToast';
+import { useAlerts } from '../hooks/useAlerts';
 import { disconnectGmail } from '../services/mailService';
 import { getCalendarStatus, connectCalendar, disconnectCalendar, getTodayEvents, formatEventTime } from '../services/calendarService';
 
@@ -194,8 +196,8 @@ export default function OverviewPage() {
   const { language, token } = useAuth();
   const navigate = useNavigate();
   const { ttsEnabled, setTtsEnabled, wakeWordEnabled, wakeWordActive, handsFreeModeActive, activateHandsFreeMode, lastInteraction, cancel } = useVoice();
+  const { currentAlert, dismissAlert } = useAlerts(token);
   const { currentReminder, dismissReminder } = useReminders(token, ttsEnabled);
-
   const [stats, setStats] = useState(null);
   const [loading, setLoading] = useState(true);
   const [gmailConnected, setGmailConnected] = useState(false);
@@ -256,6 +258,7 @@ export default function OverviewPage() {
   }, [token, gmailLoading, gmailConnected, loading]);
 
   /* ── Send to Lucy (shared) ── */
+
   const sendToLucy = useCallback(async (text) => {
     if (!text?.trim()) return;
     setSending(true);
@@ -441,6 +444,7 @@ export default function OverviewPage() {
       </div>
 
       <ReminderToast reminder={currentReminder} onDismiss={dismissReminder} />
+      <AlertToast alert={currentAlert} onDismiss={dismissAlert} />
     </Layout>
   );
 }

@@ -51,6 +51,8 @@ from backend.api.calendar import create_calendar_router
 
 from backend.api.habits import router as habits_router
 
+from backend.api.alerts import router as alerts_router
+
 # =========================
 # STRIPE
 # =========================
@@ -248,6 +250,7 @@ api_router.include_router(ai_router)
 # TASKS router
 api_router.include_router(tasks_router)
 api_router.include_router(memory_router)
+api_router.include_router(alerts_router)
 
 from backend.api.reminders import router as reminders_router
 api_router.include_router(reminders_router)
