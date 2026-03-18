@@ -471,52 +471,7 @@ async def trial_heartbeat(
     return build_response(request, data=data, legacy=data)
 
 
-# ======================================================
-# BILLING (STRIPE)
-# ======================================================
 
-@api_router.post("/billing/checkout")
-async def billing_checkout(
-    request: Request,
-    plan: str = Query(..., description="Plan de suscripción (monthly|yearly)"),
-    user: Dict[str, Any] = Depends(get_current_user),
-    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-):
-    if plan == "monthly":
-        price_id = settings.stripe_price_monthly
-    elif plan == "yearly":
-        price_id = settings.stripe_price_yearly
-    else:
-        raise HTTPException(status_code=400, detail="Plan inválido (monthly|yearly)")
-
-    if not settings.stripe_secret_key:
-        raise HTTPException(status_code=503, detail="Stripe no configurado")
-
-    if not price_id:
-        raise HTTPException(status_code=503, detail="Stripe price_id no configurado")
-
-    frontend_url = os.environ.get("FRONTEND_URL", settings.frontend_url)
-
-    try:
-        session = create_checkout_session(
-            user_id=user["id"],
-            email=user["email"],
-            price_id=price_id,
-            success_url=f"{frontend_url}/billing/success",
-            cancel_url=f"{frontend_url}/billing/cancel",
-        )
-    except stripe.error.StripeError as e:
-        logger.exception("Stripe error")
-        raise HTTPException(status_code=502, detail=str(e))
-    except Exception:
-        logger.exception("Checkout error")
-        raise HTTPException(status_code=500, detail="Error interno creando checkout")
-
-    return build_response(
-        request,
-        data={"checkout_url": session.url, "session_id": session.id},
-        legacy={"checkout_url": session.url, "session_id": session.id},
-    )
 
 
 # ======================================================

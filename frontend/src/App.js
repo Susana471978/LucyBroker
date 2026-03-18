@@ -11,6 +11,7 @@ import TasksPage from "./pages/TaskPage";
 import SettingsPage from "./pages/SettingsPage";
 import HabitsPage from "./pages/HabitsPage";
 import PricingPage from "./pages/PricingPage";
+import { BillingSuccessPage, BillingCancelPage } from "./pages/BillingResultPage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -101,6 +102,8 @@ const AppRoutes = () => {
       <Route path="/messages" element={<Navigate to="/app/messages" replace />} />
       <Route path="/pricing" element={<PricingPage />} />
       <Route path="/app/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
+      <Route path="/app/billing/success" element={<ProtectedRoute><BillingSuccessPage /></ProtectedRoute>} />
+      <Route path="/app/billing/cancel" element={<ProtectedRoute><BillingCancelPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
