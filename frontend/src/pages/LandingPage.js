@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const LUCY_PRESENTATION = "Hola, soy Lucy, tu secretaria ejecutiva impulsada por inteligencia artificial. Voy a ayudarte a organizar tu día, gestionar tus correos y liberar tu mente para lo que realmente importa. ¿Por dónde empezamos?";
+const LUCY_PRESENTATION = "Hola, soy Lucy, tu secretaria ejecutiva y asistente personal impulsada por inteligencia artificial. Voy a ayudarte a organizar tu día, gestionar tus correos, tus hábitos y liberar tu mente para lo que realmente importa. ¿Por dónde empezamos?";
 
 export default function LandingPage() {
   const navigate = useNavigate();
@@ -13,7 +13,7 @@ export default function LandingPage() {
   const ryRef = useRef(0);
   const rafRef = useRef(null);
   const audioRef = useRef(null);
-  const [micState, setMicState] = useState('idle'); // idle | loading | playing
+  const [micState, setMicState] = useState('idle');
 
   const handleMicClick = async () => {
     if (micState === 'loading') return;
@@ -50,7 +50,6 @@ export default function LandingPage() {
         throw new Error('TTS failed');
       }
     } catch {
-      // Fallback Web Speech API
       const utterance = new SpeechSynthesisUtterance(LUCY_PRESENTATION);
       utterance.lang = 'es-ES';
       utterance.rate = 0.92;
@@ -173,7 +172,6 @@ export default function LandingPage() {
         .lp-wave { width: 1px; height: 100px; background: linear-gradient(to bottom, transparent, rgba(196,163,90,0.4), transparent); margin: 0 auto; }
         .lp-section-label { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: #C4A35A; text-align: center; }
 
-        /* ── Voice ── */
         .lp-voice { padding: 8rem 4rem; display: flex; flex-direction: column; align-items: center; gap: 3rem; }
         .lp-voice-circle { position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; cursor: none; }
         .lp-voice-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(196,163,90,0.2); animation: lp-pulse 3s ease infinite; }
@@ -225,7 +223,7 @@ export default function LandingPage() {
         .lp-pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(240,237,232,0.08); }
         .pricing-card { background: #060608; padding: 3.5rem 3rem; text-align: left; }
         .pricing-card.featured { background: #0F0F18; position: relative; }
-        .pricing-card.featured::before { content: 'Recomendado'; position: absolute; top: 0; left: 50%; transform: translateX(-50%) translateY(-50%); background: #C4A35A; color: #060608; font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.3rem 1rem; font-weight: 500; }
+        .pricing-card.featured::before { content: 'Nuevo'; position: absolute; top: 0; left: 50%; transform: translateX(-50%) translateY(-50%); background: #C4A35A; color: #060608; font-size: 0.62rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.3rem 1rem; font-weight: 500; }
         .lp-pricing-name { font-size: 0.68rem; letter-spacing: 0.22em; text-transform: uppercase; color: #C4A35A; margin-bottom: 1.5rem; }
         .lp-pricing-price { font-family: 'Cormorant Garamond', serif; font-size: 4.5rem; font-weight: 300; line-height: 1; color: #F0EDE8; margin-bottom: 0.4rem; }
         .lp-pricing-price span { font-size: 1.3rem; color: rgba(240,237,232,0.55); }
@@ -235,6 +233,9 @@ export default function LandingPage() {
         .lp-pricing-features li::before { content: '—'; color: #C4A35A; opacity: 0.5; flex-shrink: 0; }
         .lp-pricing-btn { display: block; width: 100%; padding: 0.9rem; text-align: center; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; background: none; border: 1px solid rgba(196,163,90,0.25); color: rgba(240,237,232,0.55); transition: all 0.3s; cursor: none; font-family: 'DM Sans', sans-serif; }
         .lp-pricing-btn:hover, .pricing-card.featured .lp-pricing-btn { background: #C4A35A; border-color: #C4A35A; color: #060608; }
+        .lp-pricing-bundle { margin-top: 2.5rem; padding: 1.5rem 2rem; background: rgba(196,163,90,0.04); border: 1px solid rgba(196,163,90,0.12); text-align: center; }
+        .lp-pricing-bundle p { font-size: 0.85rem; color: rgba(240,237,232,0.55); line-height: 1.7; }
+        .lp-pricing-bundle strong { color: #C4A35A; font-weight: 500; }
 
         .lp-cta { padding: 10rem 4rem; text-align: center; border-top: 1px solid rgba(240,237,232,0.08); }
         .lp-cta h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(3rem, 7vw, 6.5rem); font-weight: 300; line-height: 1; margin: 1.5rem 0 2rem; }
@@ -272,20 +273,18 @@ export default function LandingPage() {
           </ul>
         </nav>
 
-        {/* Hero — sin "Descubrir" */}
         <section className="lp-hero">
-          <p className="lp-eyebrow">Secretaria ejecutiva con inteligencia artificial</p>
+          <p className="lp-eyebrow">Secretaria ejecutiva y asistente personal con IA</p>
           <h1 className="lp-h1">Hola,<br />soy <em>Lucy.</em></h1>
           <p className="lp-subtitle">Tu día, ordenado. Tu mente, libre.</p>
           <div className="lp-actions">
-            <button className="lp-btn-primary" onClick={() => navigate('/auth')}>Comenzar ahora</button>
+            <button className="lp-btn-primary" onClick={() => navigate('/auth')}>Probar gratis 4 horas</button>
             <button className="lp-btn-secondary" onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}>Ver cómo funciona</button>
           </div>
         </section>
 
         <div className="lp-wave" />
 
-        {/* Voice demo — botón interactivo */}
         <section className="lp-voice" id="demo">
           <p className="lp-section-label">Experiencia de voz</p>
 
@@ -328,15 +327,15 @@ export default function LandingPage() {
             </div>
             <div className="lp-msg">
               <span className="lp-msg-who lucy">Lucy</span>
-              <div className="lp-msg-text lp-msg-lucy">"Buenos días, Susana. Tienes 18 correos nuevos. 3 requieren respuesta urgente. Hoy tienes dos reuniones: a las 11 con Sara y a las 17 con Pedro. ¿Empezamos?"</div>
+              <div className="lp-msg-text lp-msg-lucy">"Buenos días. Tienes 18 correos nuevos, 3 requieren respuesta urgente. Hoy tienes dos reuniones: a las 11 con Sara y a las 17 con Pedro. Tus hábitos de hoy: agua y ejercicio pendientes. ¿Empezamos?"</div>
             </div>
             <div className="lp-msg">
               <span className="lp-msg-who">Tú</span>
-              <div className="lp-msg-text">"Sí. Y responde a Pedro confirmando la reunión."</div>
+              <div className="lp-msg-text">"Sí. Y recuérdame comprar comida para Ocean a las 6."</div>
             </div>
             <div className="lp-msg">
               <span className="lp-msg-who lucy">Lucy</span>
-              <div className="lp-msg-text lp-msg-lucy">"Hecho. Respuesta enviada. Primer correo prioritario: de Sara García — propuesta de colaboración para el primer trimestre..."</div>
+              <div className="lp-msg-text lp-msg-lucy">"Listo. Te recordaré comprar comida para Ocean hoy a las 18:00. Primer correo prioritario: de Sara García — propuesta de colaboración para el primer trimestre..."</div>
             </div>
           </div>
         </section>
@@ -346,16 +345,16 @@ export default function LandingPage() {
         <section className="lp-features" id="features">
           <div className="lp-features-header">
             <p className="lp-section-label">Capacidades</p>
-            <h2>Una nueva forma de gestionar tu tiempo,<br /><em>tus correos y tus decisiones.</em></h2>
+            <h2>Una nueva forma de gestionar tu tiempo,<br /><em>tu trabajo y tu vida personal.</em></h2>
           </div>
           <div className="lp-features-grid">
             {[
-              ['01', 'Briefing Matutino', 'Cada mañana, Lucy te resume lo esencial: correos, reuniones y alertas. Sin abrir el ordenador.'],
+              ['01', 'Briefing Matutino', 'Cada mañana, Lucy te resume lo esencial: correos, reuniones, tareas y hábitos. Sin abrir el ordenador.'],
               ['02', 'Correo Inteligente', 'Lee, resume, prioriza y responde correos por voz. Lucy aprende tu estilo y lo replica.'],
               ['03', 'Gestión de Agenda', 'Crea, mueve y cancela reuniones. Lucy sincroniza con tu calendario y avisa con tiempo.'],
-              ['04', 'Memoria Relacional', 'Lucy recuerda quién es importante para ti, cómo prefieres comunicarte y qué priorizas.'],
-              ['05', 'Modo Manos Libres', 'En el coche, corriendo o en casa. Lucy opera solo con tu voz, sin necesidad de pantalla.'],
-              ['06', 'Aprendizaje Continuo', 'Cuanto más la usas, mejor te conoce. Lucy se adapta a tus hábitos y mejora cada día.'],
+              ['04', 'Memoria Personal', 'Lucy recuerda tus preferencias, contactos importantes, ideas y notas. Todo accesible por voz.'],
+              ['05', 'Hábitos y Recordatorios', 'Registra hábitos diarios, crea recordatorios por voz. Lucy te motiva a mantener tu racha.'],
+              ['06', 'Modo Manos Libres', 'En el coche, corriendo o en casa. Lucy opera solo con tu voz, como Siri pero para tu trabajo y tu vida.'],
             ].map(([num, title, desc]) => (
               <div className="feature-card" key={num}>
                 <div className="lp-feature-num">{num}</div>
@@ -377,23 +376,26 @@ export default function LandingPage() {
           <h2>Invierte en tu tiempo.</h2>
           <div className="lp-pricing-grid">
             <div className="pricing-card">
-              <div className="lp-pricing-name">Esencial</div>
-              <div className="lp-pricing-price"><span>€</span>29</div>
-              <div className="lp-pricing-period">por mes · facturación anual</div>
+              <div className="lp-pricing-name">Secretaria Ejecutiva</div>
+              <div className="lp-pricing-price"><span>desde €</span>19</div>
+              <div className="lp-pricing-period">por mes</div>
               <ul className="lp-pricing-features">
-                {['Gestión de correo con IA', 'Briefing diario por voz', 'Memoria de contactos', 'Modo manos libres', '1 cuenta de correo'].map(f => <li key={f}>{f}</li>)}
+                {['Briefing matutino con IA', 'Priorización inteligente de emails', 'Gestión de agenda y tareas', 'Comandos de voz (Hola Lucy)', 'CRM de contactos'].map(f => <li key={f}>{f}</li>)}
               </ul>
-              <button className="lp-pricing-btn" onClick={() => navigate('/auth')}>Empezar gratis 14 días</button>
+              <button className="lp-pricing-btn" onClick={() => navigate('/pricing')}>Ver planes</button>
             </div>
             <div className="pricing-card featured">
-              <div className="lp-pricing-name">Ejecutivo</div>
-              <div className="lp-pricing-price"><span>€</span>79</div>
-              <div className="lp-pricing-period">por mes · facturación anual</div>
+              <div className="lp-pricing-name">Asistente Personal</div>
+              <div className="lp-pricing-price"><span>desde €</span>14</div>
+              <div className="lp-pricing-period">por mes</div>
               <ul className="lp-pricing-features">
-                {['Todo lo del plan Esencial', 'Gestión de agenda completa', 'Resumen de documentos', 'Integración CRM', 'Respuestas automáticas', 'Soporte prioritario'].map(f => <li key={f}>{f}</li>)}
+                {['Recordatorios por voz y texto', 'Memoria personal persistente', 'Seguimiento de hábitos', 'Notas inteligentes', 'Alertas proactivas'].map(f => <li key={f}>{f}</li>)}
               </ul>
-              <button className="lp-pricing-btn" onClick={() => navigate('/auth')}>Empezar gratis 14 días</button>
+              <button className="lp-pricing-btn" onClick={() => navigate('/pricing')}>Ver planes</button>
             </div>
+          </div>
+          <div className="lp-pricing-bundle">
+            <p><strong>Lucy Completa</strong> — Ambos productos desde <strong>€25/mes</strong> con 25% de descuento</p>
           </div>
         </section>
 
@@ -401,12 +403,12 @@ export default function LandingPage() {
           <p className="lp-section-label">Únete</p>
           <h2>Tu día empieza<br />con <em>Lucy.</em></h2>
           <p>Di "Lucy, buenos días" y descubre lo que es trabajar con claridad total desde el primer minuto.</p>
-          <button className="lp-btn-primary" onClick={() => navigate('/auth')}>Comenzar ahora — es gratis</button>
+          <button className="lp-btn-primary" onClick={() => navigate('/auth')}>Probar gratis 4 horas</button>
         </section>
 
         <footer className="lp-footer">
           <div className="lp-footer-logo">Lucy<span>.</span></div>
-          <p>© 2026 Lucy · Secretaria Virtual Inteligente · España</p>
+          <p>© 2026 Lucy · Secretaria Ejecutiva y Asistente Personal con IA · España</p>
         </footer>
 
       </div>

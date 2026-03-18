@@ -463,46 +463,40 @@ async def assistant_endpoint(
                     timestamp=datetime.utcnow().isoformat(),
                 )
 
-        # ── INTENCIÓN: guardar en memoria ──────────────────────────────────
-        _MEMORY_KEYWORDS = [
-            "recuerda que", "recuerda esto", "anota que", "apunta que",
-            "no olvides que", "ten en cuenta que", "memoriza",
-            "quiero que sepas", "mi preferencia es", "prefiero",
-        ]
-        text_lower_check = user_text.lower().strip()
-        memory_match = None
-        for kw in _MEMORY_KEYWORDS:
-            if kw in text_lower_check:
-                memory_match = kw
-                break
+        # =====================================================
+# BLOQUE PARA REEMPLAZAR EN assistant.py
+# Busca: # ── INTENCIÓN: guardar en memoria ──
+# Reemplaza TODO el bloque hasta el siguiente comentario: # ── RECOPILAR CONTEXTO ──
+# =====================================================
 
-        if memory_match:
-            from backend.services.user_memory import add_memory_note
-            idx = text_lower_check.index(memory_match) + len(memory_match)
-            note_text = user_text[idx:].strip().lstrip(",").lstrip(":").strip()
+        # ── INTENCIÓN: guardar nota / idea / memoria ───────────────────────
+        from backend.services.user_memory import is_note_intent, extract_note_text, add_memory_note
+        if is_note_intent(user_text):
+            note_text, category = extract_note_text(user_text)
 
             if not note_text or len(note_text) < 3:
                 return AssistantResponse(
-                    assistant_text="¿Qué quieres que recuerde exactamente?",
+                    assistant_text="¿Qué quieres que anote exactamente?",
                     actions=None,
                     status="ok",
                     timestamp=datetime.utcnow().isoformat(),
                 )
 
-            note_lower = note_text.lower()
-            if any(w in note_lower for w in ["cliente", "empresa", "proveedor", "contacto"]):
-                category = "cliente"
-            elif any(w in note_lower for w in ["proyecto", "producto", "desarrollo", "sprint"]):
-                category = "proyecto"
-            elif any(w in note_lower for w in ["prefiero", "preferencia", "horario", "no me gusta", "me gusta"]):
-                category = "preferencia"
-            else:
-                category = "general"
-
             await add_memory_note(db, user["id"], note_text, category)
 
+            # Respuesta según categoría
+            responses = {
+                "idea": f"Idea guardada: {note_text}. La tendré presente.",
+                "cliente": f"Anotado sobre el cliente. Lo tendré en cuenta.",
+                "proyecto": f"Anotado para el proyecto. Lo tendré presente.",
+                "preferencia": f"Preferencia guardada. Lo recordaré.",
+                "recado": f"Apuntado: {note_text}. Te lo recordaré.",
+                "salud": f"Anotado. Lo tendré en cuenta.",
+                "general": f"Anotado. Lo tendré en cuenta a partir de ahora.",
+            }
+
             return AssistantResponse(
-                assistant_text=f"Anotado. Lo tendré en cuenta a partir de ahora.",
+                assistant_text=responses.get(category, responses["general"]),
                 actions=[AssistantAction(type="memory_saved", payload={"note": note_text, "category": category})],
                 status="ok",
                 timestamp=datetime.utcnow().isoformat(),
