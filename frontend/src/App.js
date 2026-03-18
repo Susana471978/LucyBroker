@@ -10,6 +10,7 @@ import VoiceProvider from "./voice/VoiceProvider";
 import TasksPage from "./pages/TaskPage";
 import SettingsPage from "./pages/SettingsPage";
 import HabitsPage from "./pages/HabitsPage";
+import PricingPage from "./pages/PricingPage";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
@@ -88,9 +89,18 @@ const AppRoutes = () => {
         }
       />
 
+      <Route path="/app/pricing"
+        element={
+          <ProtectedRoute>
+            <PricingPage />
+          </ProtectedRoute>
+        }
+      />
       {/* Redirects */}
       <Route path="/landing" element={<Navigate to="/" replace />} />
       <Route path="/messages" element={<Navigate to="/app/messages" replace />} />
+      <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/app/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

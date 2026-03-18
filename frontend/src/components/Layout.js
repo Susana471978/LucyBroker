@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
-import { LayoutDashboard, Mail, CheckSquare, Settings, LogOut, Globe, ChevronDown, Flame } from 'lucide-react';
+import { LayoutDashboard, Mail, CheckSquare, Settings, LogOut, Globe, ChevronDown, Flame, Crown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { TrialBanner, TrialExpiredOverlay } from './TrialBanner';
 
@@ -201,6 +201,11 @@ const Layout = ({ children }) => {
                 <DropdownItem onClick={() => window.location.href = '/app/habits'}>
                   <Flame className="w-3.5 h-3.5" strokeWidth={1.5} />
                   Hábitos
+                </DropdownItem>
+
+                <DropdownItem onClick={() => window.location.href = '/app/pricing'}>
+                  <Crown className="w-3.5 h-3.5" strokeWidth={1.5} />
+                  Planes
                 </DropdownItem>
 
                 <DropdownItem onClick={() => window.location.href = '/app/settings'}>

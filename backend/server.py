@@ -40,6 +40,8 @@ from backend.api.ai import router as ai_router
 from backend.api.tasks import router as tasks_router
 from backend.api.memory import router as memory_router
 
+from backend.api.billing import router as billing_router
+
 from backend.api.contacts import router as contacts_router
 
 # Junto a los otros imports arriba
@@ -91,6 +93,8 @@ from backend.utils.response import build_response
 from backend.utils.rate_limit import RateLimitMiddleware
 from backend.utils.csrf import OAuthCSRFMiddleware
 from backend.utils.logger import logger
+
+
 
 
 # ======================================================
@@ -157,6 +161,7 @@ api_router.include_router(assistant_router)
 
 api_router.include_router(habits_router)
 
+api_router.include_router(billing_router)
 
 # ======================================================
 # AUTH HELPERS
@@ -304,7 +309,7 @@ async def register(request: Request, user_data: UserCreate):
         "plan": "demo",
         "subscription_active": False,
         "trial_seconds_used": 0,
-        "trial_limit": 7200,
+        "trial_limit": 14400,
         "trial_active": True,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
