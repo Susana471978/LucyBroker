@@ -21,14 +21,34 @@ import apiClient from '../services/apiClient';
 import { useVoice } from '../voice/VoiceProvider';
 
 /* ─── TTS ejecutivo ───────────────────────────────────── */
-const speakExecutive = (text) => {
+const API_URL = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
+
+const speakExecutive = async (text) => {
   if (!text) return;
   try {
     window.speechSynthesis.cancel();
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_URL}/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ text }),
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const audio = new Audio(URL.createObjectURL(blob));
+      await audio.play();
+    } else {
+      throw new Error('TTS failed');
+    }
+  } catch (err) {
+    console.error('TTS error, fallback:', err);
     const u = new SpeechSynthesisUtterance(text);
     u.lang = 'es-ES'; u.rate = 0.95; u.pitch = 1;
     window.speechSynthesis.speak(u);
-  } catch (err) { console.error('Executive voice error:', err); }
+  }
 };
 
 /* ─── Priority badge ──────────────────────────────────── */

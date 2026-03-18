@@ -471,9 +471,6 @@ async def trial_heartbeat(
     return build_response(request, data=data, legacy=data)
 
 
-
-
-
 # ======================================================
 # ROUTER + MIDDLEWARE
 # ======================================================
@@ -482,6 +479,7 @@ async def trial_heartbeat(
 app.include_router(api_router)
 
 # --- DEBUG ROUTES (temporal) ---
+
 print(">>> api_router registered")
 print("=== ROUTES REGISTERED ===")
 for r in app.routes:
@@ -494,6 +492,7 @@ for r in app.routes:
     except Exception:
         pass
 print("=== END ROUTES ===")
+
 # --- END DEBUG ROUTES ---
 
 app.add_middleware(
