@@ -8,9 +8,6 @@ import { Check, Star, Zap, Shield, Crown, ArrowRight } from 'lucide-react';
 
 const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
-/* ─────────────────────────────────────────────────────────
-   FEATURE LABELS (human-readable)
-───────────────────────────────────────────────────────── */
 const FEATURE_LABELS = {
     briefing_matutino: 'Briefing matutino con IA',
     email_prioritization: 'Priorización inteligente de emails',
@@ -44,17 +41,21 @@ const PlanCard = ({ plan, currentPlans, onCheckout, loading, featured = false, d
             transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
             className={`relative rounded-2xl overflow-hidden transition-all duration-300
         ${featured
-                    ? 'bg-[rgba(201,178,124,0.04)] border-2 border-[rgba(201,178,124,0.25)] shadow-[0_0_60px_rgba(201,178,124,0.08)]'
-                    : 'bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.06)]'
-                }
-        hover:border-[rgba(201,178,124,0.3)] hover:shadow-[0_0_40px_rgba(201,178,124,0.06)]`}
+                    ? 'border-2 shadow-[0_0_60px_rgba(201,178,124,0.06)]'
+                    : 'border'
+                }`}
+            style={{
+                background: featured ? 'rgba(201,178,124,0.03)' : 'rgba(4,18,32,0.4)',
+                borderColor: featured ? 'rgba(201,178,124,0.25)' : 'rgba(0,180,216,0.08)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = featured ? 'rgba(201,178,124,0.4)' : 'rgba(0,180,216,0.2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = featured ? 'rgba(201,178,124,0.25)' : 'rgba(0,180,216,0.08)'; }}
         >
             {featured && (
                 <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.5)] to-transparent" />
             )}
 
             <div className="p-6 flex flex-col h-full">
-                {/* Header */}
                 <div className="mb-5">
                     {featured && (
                         <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] uppercase tracking-[0.1em]
@@ -63,29 +64,27 @@ const PlanCard = ({ plan, currentPlans, onCheckout, loading, featured = false, d
                             Más popular
                         </div>
                     )}
-                    <h3 className="text-lg font-medium text-white mb-1">{plan.tier === 'basic' ? 'Básico' : plan.tier === 'pro' ? 'Pro' : 'Business'}</h3>
+                    <h3 className="text-lg font-medium text-[#E0F7FA] mb-1">{plan.tier === 'basic' ? 'Básico' : plan.tier === 'pro' ? 'Pro' : 'Business'}</h3>
                     <div className="flex items-baseline gap-1">
-                        <span className="text-3xl font-light text-white">€{plan.price}</span>
-                        <span className="text-xs text-[rgba(255,255,255,0.25)]">/mes</span>
+                        <span className="text-3xl font-light text-[#E0F7FA]">€{plan.price}</span>
+                        <span className="text-xs text-[rgba(224,247,250,0.25)]">/mes</span>
                     </div>
                 </div>
 
-                {/* Features */}
                 <div className="flex-1 space-y-2.5 mb-6">
                     {plan.features.map((f) => (
                         <div key={f} className="flex items-start gap-2.5">
-                            <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${featured ? 'text-[#C9B27C]' : 'text-emerald-400/60'}`} />
-                            <span className="text-xs text-[rgba(255,255,255,0.5)] leading-relaxed">
+                            <Check className={`w-3.5 h-3.5 mt-0.5 flex-shrink-0 ${featured ? 'text-[#C9B27C]' : 'text-[rgba(0,180,216,0.5)]'}`} />
+                            <span className="text-xs text-[rgba(224,247,250,0.5)] leading-relaxed">
                                 {FEATURE_LABELS[f] || f}
                             </span>
                         </div>
                     ))}
                 </div>
 
-                {/* CTA */}
                 {isActive ? (
                     <div className="flex items-center justify-center gap-2 py-3 rounded-xl
-            bg-[rgba(52,211,153,0.06)] border border-[rgba(52,211,153,0.2)] text-emerald-400 text-xs font-medium">
+            bg-[rgba(0,180,216,0.06)] border border-[rgba(0,180,216,0.2)] text-[#00B4D8] text-xs font-medium">
                         <Check className="w-3.5 h-3.5" />
                         Plan activo
                     </div>
@@ -96,7 +95,7 @@ const PlanCard = ({ plan, currentPlans, onCheckout, loading, featured = false, d
                         className={`w-full py-3 rounded-xl text-sm font-medium transition-all duration-300
               ${featured
                                 ? 'bg-[rgba(201,178,124,0.15)] border border-[rgba(201,178,124,0.3)] text-[#C9B27C] hover:bg-[rgba(201,178,124,0.25)] hover:shadow-[0_0_30px_rgba(201,178,124,0.1)]'
-                                : 'bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)] text-[rgba(255,255,255,0.6)] hover:bg-[rgba(255,255,255,0.08)] hover:text-white'
+                                : 'bg-[rgba(0,180,216,0.06)] border border-[rgba(0,180,216,0.15)] text-[rgba(224,247,250,0.6)] hover:bg-[rgba(0,180,216,0.1)] hover:text-[#E0F7FA]'
                             }
               disabled:opacity-40 disabled:cursor-not-allowed`}
                     >
@@ -123,13 +122,18 @@ const BundleCard = ({ plan, savings, currentPlans, onCheckout, loading, delay = 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-            className="relative rounded-2xl overflow-hidden bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)]
-        hover:border-[rgba(201,178,124,0.2)] transition-all duration-300"
+            className="relative rounded-2xl overflow-hidden border transition-all duration-300"
+            style={{
+                background: 'rgba(4,18,32,0.3)',
+                borderColor: 'rgba(0,180,216,0.08)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,178,124,0.2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(0,180,216,0.08)'; }}
         >
             <div className="p-5 flex items-center justify-between gap-4">
                 <div className="flex-1">
                     <div className="flex items-center gap-3 mb-1">
-                        <h4 className="text-sm font-medium text-white">
+                        <h4 className="text-sm font-medium text-[#E0F7FA]">
                             {plan.tier === 'basic' ? 'Básico' : plan.tier === 'pro' ? 'Pro' : 'Business + Pro'}
                         </h4>
                         {savings > 0 && (
@@ -138,20 +142,20 @@ const BundleCard = ({ plan, savings, currentPlans, onCheckout, loading, delay = 
                             </span>
                         )}
                     </div>
-                    <p className="text-xs text-[rgba(255,255,255,0.3)]">
+                    <p className="text-xs text-[rgba(224,247,250,0.3)]">
                         Secretaria + Asistente Personal
                     </p>
                 </div>
 
                 <div className="flex items-center gap-4">
                     <div className="text-right">
-                        <span className="text-2xl font-light text-white">€{plan.price}</span>
-                        <span className="text-xs text-[rgba(255,255,255,0.25)]">/mes</span>
+                        <span className="text-2xl font-light text-[#E0F7FA]">€{plan.price}</span>
+                        <span className="text-xs text-[rgba(224,247,250,0.25)]">/mes</span>
                     </div>
 
                     {isActive ? (
                         <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl
-              bg-[rgba(52,211,153,0.06)] border border-[rgba(52,211,153,0.2)] text-emerald-400 text-xs font-medium">
+              bg-[rgba(0,180,216,0.06)] border border-[rgba(0,180,216,0.2)] text-[#00B4D8] text-xs font-medium">
                             <Check className="w-3.5 h-3.5" />
                             Activo
                         </div>
@@ -244,7 +248,7 @@ export default function PricingPage() {
         return (
             <Layout>
                 <div className="flex items-center justify-center py-32">
-                    <div className="w-6 h-6 border-2 border-[rgba(201,178,124,0.3)] border-t-[#C9B27C] rounded-full animate-spin" />
+                    <div className="w-6 h-6 border-2 border-[rgba(0,180,216,0.3)] border-t-[#00B4D8] rounded-full animate-spin" />
                 </div>
             </Layout>
         );
@@ -254,18 +258,17 @@ export default function PricingPage() {
         <Layout>
             <div className="max-w-5xl mx-auto px-6 py-16 space-y-16">
 
-                {/* Header */}
                 <motion.div
                     initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                     className="text-center max-w-2xl mx-auto"
                 >
-                    <p className="text-xs text-[rgba(201,178,124,0.6)] uppercase tracking-[0.15em] font-medium mb-4">Planes</p>
-                    <h1 className="font-light text-white mb-4"
+                    <p className="text-xs text-[rgba(0,180,216,0.5)] uppercase tracking-[0.15em] font-medium mb-4">Planes</p>
+                    <h1 className="font-light text-[#E0F7FA] mb-4"
                         style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.5rem', lineHeight: 1.2 }}>
-                        Elige cómo quieres que Lucy te ayude
+                        Elige cómo quieres que <span style={{ color: '#C9B27C' }}>Lucy</span> te ayude
                     </h1>
-                    <p className="text-sm text-[rgba(255,255,255,0.3)] leading-relaxed">
+                    <p className="text-sm text-[rgba(224,247,250,0.3)] leading-relaxed">
                         Dos productos independientes. Contrata uno, el otro, o ambos con descuento.
                     </p>
                 </motion.div>
@@ -277,12 +280,12 @@ export default function PricingPage() {
                         transition={{ delay: 0.1, duration: 0.5 }}
                         className="flex items-center gap-3 mb-6"
                     >
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(201,178,124,0.08)] border border-[rgba(201,178,124,0.15)]">
-                            <Shield className="w-4 h-4 text-[rgba(201,178,124,0.6)]" />
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(0,180,216,0.06)] border border-[rgba(0,180,216,0.15)]">
+                            <Shield className="w-4 h-4 text-[rgba(0,180,216,0.6)]" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-medium text-white">Lucy Secretaria Ejecutiva</h2>
-                            <p className="text-xs text-[rgba(255,255,255,0.25)]">Gestión profesional del día a día</p>
+                            <h2 className="text-lg font-medium text-[#E0F7FA]">Lucy Secretaria Ejecutiva</h2>
+                            <p className="text-xs text-[rgba(224,247,250,0.25)]">Gestión profesional del día a día</p>
                         </div>
                     </motion.div>
 
@@ -308,12 +311,12 @@ export default function PricingPage() {
                         transition={{ delay: 0.3, duration: 0.5 }}
                         className="flex items-center gap-3 mb-6"
                     >
-                        <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(201,178,124,0.08)] border border-[rgba(201,178,124,0.15)]">
-                            <Zap className="w-4 h-4 text-[rgba(201,178,124,0.6)]" />
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(0,180,216,0.06)] border border-[rgba(0,180,216,0.15)]">
+                            <Zap className="w-4 h-4 text-[rgba(0,180,216,0.6)]" />
                         </div>
                         <div>
-                            <h2 className="text-lg font-medium text-white">Lucy Asistente Personal</h2>
-                            <p className="text-xs text-[rgba(255,255,255,0.25)]">Tu vida organizada por voz</p>
+                            <h2 className="text-lg font-medium text-[#E0F7FA]">Lucy Asistente Personal</h2>
+                            <p className="text-xs text-[rgba(224,247,250,0.25)]">Tu vida organizada por voz</p>
                         </div>
                     </motion.div>
 
@@ -339,12 +342,12 @@ export default function PricingPage() {
                         transition={{ delay: 0.5, duration: 0.5 }}
                     >
                         <div className="flex items-center gap-3 mb-6">
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(201,178,124,0.08)] border border-[rgba(201,178,124,0.15)]">
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(201,178,124,0.06)] border border-[rgba(201,178,124,0.15)]">
                                 <Crown className="w-4 h-4 text-[rgba(201,178,124,0.6)]" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-medium text-white">Lucy Completa</h2>
-                                <p className="text-xs text-[rgba(255,255,255,0.25)]">Ambos productos con 25% de descuento</p>
+                                <h2 className="text-lg font-medium text-[#E0F7FA]">Lucy Completa</h2>
+                                <p className="text-xs text-[rgba(224,247,250,0.25)]">Ambos productos con 25% de descuento</p>
                             </div>
                         </div>
 
@@ -364,13 +367,12 @@ export default function PricingPage() {
                     </motion.div>
                 </section>
 
-                {/* ── TRIAL NOTE ── */}
                 <motion.div
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     transition={{ delay: 0.7, duration: 0.5 }}
                     className="text-center py-8"
                 >
-                    <p className="text-xs text-[rgba(255,255,255,0.2)] leading-relaxed max-w-md mx-auto">
+                    <p className="text-xs text-[rgba(224,247,250,0.2)] leading-relaxed max-w-md mx-auto">
                         Prueba Lucy gratis durante 4 horas. Sin compromiso, cancela cuando quieras.
                         Los precios no incluyen IVA.
                     </p>

@@ -109,17 +109,26 @@ CREDENTIALS_DIR.mkdir(parents=True, exist_ok=True)
 
 
 # ======================================================
-# DEBUG (opcional)
+# DEBUG — SEGURO (secrets enmascarados)
 # ======================================================
 
-print("MONGO_URL:", settings.mongo_url)
-print("MONGO_DB:", settings.mongo_db)
+def _mask(value: Optional[str], show: int = 6) -> str:
+    """Muestra solo los primeros `show` caracteres de un secret."""
+    if not value:
+        return "(not set)"
+    if len(value) <= show:
+        return "***"
+    return value[:show] + "***"
 
-print("EXEC_ENGINE_URL:", settings.exec_engine_url)
-print("EXEC_INTERNAL_API_KEY:", settings.exec_internal_api_key)
 
-print("GMAIL_CLIENT_ID:", settings.gmail_client_id)
-print("GMAIL_REDIRECT_URI:", settings.gmail_redirect_uri)
+logger.info("MONGO_URL: %s", _mask(settings.mongo_url, 20))
+logger.info("MONGO_DB: %s", settings.mongo_db)
+logger.info("EXEC_ENGINE_URL: %s", settings.exec_engine_url or "(not set)")
+logger.info("EXEC_INTERNAL_API_KEY: %s", _mask(settings.exec_internal_api_key))
+logger.info("GMAIL_CLIENT_ID: %s", _mask(settings.gmail_client_id, 12))
+logger.info("GMAIL_REDIRECT_URI: %s", settings.gmail_redirect_uri or "(not set)")
+logger.info("JWT_SECRET configured: %s", "YES" if settings.jwt_secret and settings.jwt_secret != "change_me" else "⚠️  NO — USING DEFAULT (INSECURE)")
+logger.info("STRIPE_SECRET_KEY: %s", _mask(settings.stripe_secret_key, 12))
 
 
 # ======================================================
@@ -478,22 +487,19 @@ async def trial_heartbeat(
 # ✅ Registrar el api_router al final, después de incluir subrouters
 app.include_router(api_router)
 
-# --- DEBUG ROUTES (temporal) ---
-
-print(">>> api_router registered")
-print("=== ROUTES REGISTERED ===")
-for r in app.routes:
-    try:
-        methods = ",".join(sorted(getattr(r, "methods", []) or []))
-        path = getattr(r, "path", "")
-        name = getattr(r, "name", "")
-        if "/ai" in path or "/api" in path:
-            print(f"{methods:20s} {path:35s} {name}")
-    except Exception:
-        pass
-print("=== END ROUTES ===")
-
-# --- END DEBUG ROUTES ---
+# --- DEBUG ROUTES (solo en desarrollo) ---
+if settings.env == "development":
+    logger.info("=== ROUTES REGISTERED ===")
+    for r in app.routes:
+        try:
+            methods = ",".join(sorted(getattr(r, "methods", []) or []))
+            path = getattr(r, "path", "")
+            name = getattr(r, "name", "")
+            if "/ai" in path or "/api" in path:
+                logger.info("%20s %35s %s", methods, path, name)
+        except Exception:
+            pass
+    logger.info("=== END ROUTES ===")
 
 app.add_middleware(
     RateLimitMiddleware,
@@ -509,7 +515,7 @@ app.add_middleware(
     logger=logger,
 )
 
-# CORS
+# CORS — restringido a métodos y headers necesarios
 cors_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
@@ -522,8 +528,15 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=list(dict.fromkeys(cors_origins)),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+        "Origin",
+        "X-Requested-With",
+        "X-CSRF-Token",
+    ],
 )
 
 
@@ -535,12 +548,28 @@ app.add_middleware(
 async def startup_state():
     app.state.started_at = datetime.now(timezone.utc)
 
+    # JWT secret safety check
+    if not settings.jwt_secret or settings.jwt_secret == "change_me":
+        logger.critical("JWT_SECRET is not configured or uses default value. This is a security risk!")
+
     # 🔵 Inicializar índice TTL para memoria Executive
     try:
         await ensure_ttl_index(db)
         logger.info("Executive memory TTL index ensured")
     except Exception:
         logger.exception("Error ensuring Executive TTL index")
+
+    # 🔵 Índices MongoDB para colecciones frecuentes
+    try:
+        await db.users.create_index("id", unique=True)
+        await db.users.create_index("email", unique=True)
+        await db.tasks.create_index([("user_id", 1), ("done", 1)])
+        await db.habits.create_index("user_id")
+        await db.reminders.create_index([("user_id", 1), ("done", 1), ("remind_at", 1)])
+        await db.alert_dismissals.create_index([("user_id", 1), ("date", 1)])
+        logger.info("MongoDB indexes ensured")
+    except Exception:
+        logger.exception("Error creating MongoDB indexes (non-fatal)")
 
 
 @app.on_event("shutdown")

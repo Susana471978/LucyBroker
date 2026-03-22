@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
 import { motion, AnimatePresence } from 'framer-motion';
+import DOMPurify from 'dompurify';
 
 import {
   Paperclip, Send, Sparkles, Loader2,
@@ -23,10 +24,18 @@ import { useVoice } from '../voice/VoiceProvider';
 /* ─── TTS ejecutivo ───────────────────────────────────── */
 const API_URL = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
+let _currentAudio = null;
+
 const speakExecutive = async (text) => {
   if (!text) return;
   try {
+    // Detener cualquier audio previo
+    if (_currentAudio) {
+      _currentAudio.pause();
+      _currentAudio = null;
+    }
     window.speechSynthesis.cancel();
+
     const token = localStorage.getItem('auth_token');
     const res = await fetch(`${API_URL}/tts`, {
       method: 'POST',
@@ -38,16 +47,25 @@ const speakExecutive = async (text) => {
     });
     if (res.ok) {
       const blob = await res.blob();
-      const audio = new Audio(URL.createObjectURL(blob));
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      _currentAudio = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        _currentAudio = null;
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        _currentAudio = null;
+      };
       await audio.play();
     } else {
-      throw new Error('TTS failed');
+      console.error('TTS error: server returned', res.status);
+      // NO fallback a Web Speech API — voz diferente confunde al usuario
     }
   } catch (err) {
-    console.error('TTS error, fallback:', err);
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'es-ES'; u.rate = 0.95; u.pitch = 1;
-    window.speechSynthesis.speak(u);
+    console.error('TTS error:', err);
+    // NO fallback a Web Speech API
   }
 };
 
@@ -163,6 +181,26 @@ const AttachmentRow = ({ attachment, emailId, onSummary }) => {
   );
 };
 
+/* ─── Sanitize HTML — protección XSS ─────────────────── */
+const sanitizeHTML = (html) => {
+  if (!html) return '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
+  return DOMPurify.sanitize(html, {
+    ALLOWED_TAGS: [
+      'p', 'br', 'b', 'i', 'u', 'strong', 'em', 'a', 'ul', 'ol', 'li',
+      'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'span', 'div', 'table', 'thead',
+      'tbody', 'tr', 'td', 'th', 'img', 'blockquote', 'pre', 'code', 'hr',
+    ],
+    ALLOWED_ATTR: [
+      'href', 'target', 'rel', 'src', 'alt', 'width', 'height',
+      'style', 'class', 'colspan', 'rowspan',
+    ],
+    ALLOW_DATA_ATTR: false,
+    ADD_ATTR: ['target'],
+    FORBID_TAGS: ['script', 'iframe', 'object', 'embed', 'form', 'input', 'textarea', 'button'],
+    FORBID_ATTR: ['onerror', 'onload', 'onclick', 'onmouseover', 'onfocus', 'onblur'],
+  });
+};
+
 /* ─── Main ────────────────────────────────────────────── */
 export default function MessagesPage() {
   const { language } = useAuth();
@@ -221,6 +259,11 @@ export default function MessagesPage() {
     setDraftInstructions('');
     setShowReplyBox(false);
     setAttachmentSummaries([]);
+    // Detener cualquier audio al cambiar de email
+    if (_currentAudio) {
+      _currentAudio.pause();
+      _currentAudio = null;
+    }
     try { window.speechSynthesis.cancel(); } catch (_) { }
   };
 
@@ -290,8 +333,11 @@ export default function MessagesPage() {
 
   const renderEmailBody = () => {
     const body = selectedEmail?.email?.body || '';
-    if (body && !body.includes('<')) return body.replace(/\n/g, '<br/>');
-    return body || '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
+    if (!body) return '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
+    // Si es texto plano (sin tags HTML), convertir saltos de línea
+    const htmlContent = body.includes('<') ? body : body.replace(/\n/g, '<br/>');
+    // Sanitizar SIEMPRE antes de renderizar
+    return sanitizeHTML(htmlContent);
   };
 
   const currentAttachments = selectedEmail?.email?.attachments || [];
@@ -538,7 +584,7 @@ export default function MessagesPage() {
                       )}
                     </AnimatePresence>
 
-                    {/* Cuerpo email */}
+                    {/* Cuerpo email — SANITIZADO */}
                     <div className="rounded-2xl p-6 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
                       <div
                         className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed whitespace-pre-wrap"

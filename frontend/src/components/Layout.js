@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
 import { LayoutDashboard, Mail, CheckSquare, Settings, LogOut, Globe, ChevronDown, Flame, Crown } from 'lucide-react';
@@ -25,8 +25,11 @@ function Dropdown({ trigger, children }) {
       {open && (
         <div
           className="absolute right-0 top-full mt-2 min-w-[160px] rounded-2xl overflow-hidden z-50
-            bg-[rgba(10,10,16,0.95)] border border-[rgba(255,255,255,0.08)]
-            shadow-[0_16px_48px_rgba(0,0,0,0.5)] backdrop-blur-xl"
+            border shadow-[0_16px_48px_rgba(0,0,0,0.6)] backdrop-blur-xl"
+          style={{
+            background: 'rgba(4,18,32,0.95)',
+            borderColor: 'rgba(0,180,216,0.1)',
+          }}
           onClick={() => setOpen(false)}
         >
           {children}
@@ -44,7 +47,7 @@ function DropdownItem({ onClick, children, active }) {
         transition-colors duration-150
         ${active
           ? 'text-[#C9B27C] bg-[rgba(201,178,124,0.06)]'
-          : 'text-[rgba(255,255,255,0.5)] hover:text-[rgba(255,255,255,0.85)] hover:bg-[rgba(255,255,255,0.04)]'
+          : 'text-[rgba(224,247,250,0.5)] hover:text-[rgba(224,247,250,0.85)] hover:bg-[rgba(0,180,216,0.04)]'
         }`}
     >
       {children}
@@ -57,6 +60,7 @@ function DropdownItem({ onClick, children, active }) {
 const Layout = ({ children }) => {
   const { user, logout, language, updateLanguage } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   const navItems = [
     { path: '/app', icon: LayoutDashboard, label: t(language, 'overview') },
@@ -75,16 +79,16 @@ const Layout = ({ children }) => {
   const userInitial = userName.charAt(0).toUpperCase() || 'U';
 
   return (
-    <div className="min-h-screen" style={{ background: '#080A0F' }}>
+    <div className="min-h-screen" style={{ background: '#000000' }}>
 
       {/* ── Header ────────────────────────────────────────── */}
 
       <header
         className="sticky top-0 z-50"
         style={{
-          background: 'rgba(8,10,15,0.85)',
+          background: 'rgba(0,0,0,0.85)',
           backdropFilter: 'blur(20px)',
-          borderBottom: '1px solid rgba(255,255,255,0.05)',
+          borderBottom: '1px solid rgba(0,180,216,0.08)',
         }}
       >
         <TrialBanner />
@@ -99,8 +103,8 @@ const Layout = ({ children }) => {
               data-testid="logo-link"
             >
               <div className="w-7 h-7 rounded-lg flex items-center justify-center
-                bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.2)]
-                group-hover:border-[rgba(201,178,124,0.4)] transition-all duration-300">
+                bg-[rgba(0,180,216,0.08)] border border-[rgba(0,180,216,0.18)]
+                group-hover:border-[rgba(0,180,216,0.35)] transition-all duration-300">
                 <svg width="12" height="12" viewBox="0 0 22 22" fill="none">
                   <path
                     d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
@@ -109,12 +113,12 @@ const Layout = ({ children }) => {
                 </svg>
               </div>
               <span
-                className="text-[rgba(255,255,255,0.85)] font-light tracking-wide text-sm
-                  group-hover:text-white transition-colors duration-200"
-                style={{ fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.04em' }}
+                className="font-light tracking-wide text-sm
+                  group-hover:text-[#E0F7FA] transition-colors duration-200"
+                style={{ fontFamily: 'DM Sans, sans-serif', letterSpacing: '0.04em', color: '#C9B27C' }}
               >
                 Lucy
-                <span className="text-[rgba(201,178,124,0.6)]">.</span>
+                <span style={{ color: 'rgba(0,180,216,0.5)' }}>.</span>
               </span>
             </Link>
 
@@ -131,8 +135,8 @@ const Layout = ({ children }) => {
                     className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-4 py-2 rounded-xl text-xs uppercase
                       tracking-[0.08em] font-medium transition-all duration-200
                       ${active
-                        ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.25)]'
-                        : 'text-[rgba(255,255,255,0.35)] border border-transparent hover:text-[rgba(255,255,255,0.65)] hover:bg-[rgba(255,255,255,0.04)]'
+                        ? 'bg-[rgba(0,180,216,0.08)] text-[#00B4D8] border border-[rgba(0,180,216,0.2)]'
+                        : 'text-[rgba(224,247,250,0.3)] border border-transparent hover:text-[rgba(224,247,250,0.65)] hover:bg-[rgba(0,180,216,0.04)]'
                       }`}
                   >
                     <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -152,8 +156,8 @@ const Layout = ({ children }) => {
                 trigger={
                   <button
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs
-                      text-[rgba(255,255,255,0.3)] border border-transparent
-                      hover:text-[rgba(255,255,255,0.6)] hover:bg-[rgba(255,255,255,0.04)]
+                      text-[rgba(224,247,250,0.3)] border border-transparent
+                      hover:text-[rgba(224,247,250,0.6)] hover:bg-[rgba(0,180,216,0.04)]
                       transition-all duration-200"
                     data-testid="language-selector"
                   >
@@ -180,8 +184,8 @@ const Layout = ({ children }) => {
                 trigger={
                   <button
                     className="flex items-center gap-2 pl-1 pr-3 py-1 rounded-xl
-                      border border-transparent hover:border-[rgba(255,255,255,0.08)]
-                      hover:bg-[rgba(255,255,255,0.03)] transition-all duration-200"
+                      border border-transparent hover:border-[rgba(0,180,216,0.1)]
+                      hover:bg-[rgba(0,180,216,0.03)] transition-all duration-200"
                     data-testid="user-menu"
                   >
                     <div className="w-7 h-7 rounded-lg flex items-center justify-center
@@ -190,31 +194,31 @@ const Layout = ({ children }) => {
                         {userInitial}
                       </span>
                     </div>
-                    <span className="hidden sm:inline text-xs text-[rgba(255,255,255,0.45)]">
+                    <span className="hidden sm:inline text-xs text-[rgba(224,247,250,0.4)]">
                       {userName}
                     </span>
-                    <ChevronDown className="w-3 h-3 text-[rgba(255,255,255,0.2)]" />
+                    <ChevronDown className="w-3 h-3 text-[rgba(224,247,250,0.2)]" />
                   </button>
                 }
               >
-                <div className="px-4 py-3 border-b border-[rgba(255,255,255,0.06)]">
-                  <p className="text-xs text-[rgba(255,255,255,0.6)] font-medium">{userName}</p>
-                  <p className="text-[10px] text-[rgba(255,255,255,0.25)] mt-0.5 uppercase tracking-wider">
+                <div className="px-4 py-3 border-b border-[rgba(0,180,216,0.08)]">
+                  <p className="text-xs text-[rgba(224,247,250,0.6)] font-medium">{userName}</p>
+                  <p className="text-[10px] text-[rgba(224,247,250,0.25)] mt-0.5 uppercase tracking-wider">
                     Cuenta activa
                   </p>
                 </div>
 
-                <DropdownItem onClick={() => window.location.href = '/app/habits'}>
+                <DropdownItem onClick={() => navigate('/app/habits')}>
                   <Flame className="w-3.5 h-3.5" strokeWidth={1.5} />
                   Hábitos
                 </DropdownItem>
 
-                <DropdownItem onClick={() => window.location.href = '/app/pricing'}>
+                <DropdownItem onClick={() => navigate('/app/pricing')}>
                   <Crown className="w-3.5 h-3.5" strokeWidth={1.5} />
                   Planes
                 </DropdownItem>
 
-                <DropdownItem onClick={() => window.location.href = '/app/settings'}>
+                <DropdownItem onClick={() => navigate('/app/settings')}>
                   <Settings className="w-3.5 h-3.5" strokeWidth={1.5} />
                   Configuración
                 </DropdownItem>
@@ -229,7 +233,7 @@ const Layout = ({ children }) => {
           </div>
         </div>
 
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.15)] to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-[rgba(0,180,216,0.12)] to-transparent" />
       </header>
 
       {/* ── Main ──────────────────────────────────────────── */}

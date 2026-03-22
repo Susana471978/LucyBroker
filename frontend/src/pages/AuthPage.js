@@ -6,9 +6,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import lucyActive from '../assets/lucy-active.png';
+import lucyActive from '../assets/Lucy.jpeg';
 
-// ── Partículas doradas ────────────────────────────────────────────────────────
+// ── Partículas — doradas con destellos azules ─────────────────────────────────
 function ParticleCanvas() {
   const canvasRef = useRef(null);
   const animRef = useRef(null);
@@ -23,17 +23,23 @@ function ParticleCanvas() {
     window.addEventListener('resize', resize);
 
     const GOLD = ['rgba(201,178,124,', 'rgba(230,210,160,', 'rgba(180,155,100,'];
-    const particles = Array.from({ length: 60 }, () => ({
-      x: Math.random() * 800, y: Math.random() * 900,
-      r: Math.random() * 1.6 + 0.3,
-      vx: (Math.random() - 0.5) * 0.22,
-      vy: -(Math.random() * 0.35 + 0.08),
-      alpha: Math.random() * 0.6 + 0.1,
-      dAlpha: (Math.random() - 0.5) * 0.007,
-      color: GOLD[Math.floor(Math.random() * GOLD.length)],
-      drift: Math.random() * Math.PI * 2,
-      dDrift: Math.random() * 0.014 + 0.004,
-    }));
+    const BLUE = ['rgba(0,180,216,', 'rgba(100,220,240,'];
+    const particles = Array.from({ length: 70 }, (_, i) => {
+      const isBlue = i > 52;
+      const palette = isBlue ? BLUE : GOLD;
+      return {
+        x: Math.random() * 800, y: Math.random() * 900,
+        r: Math.random() * (isBlue ? 1.2 : 1.6) + 0.3,
+        vx: (Math.random() - 0.5) * 0.22,
+        vy: -(Math.random() * 0.35 + 0.08),
+        alpha: Math.random() * 0.6 + 0.1,
+        dAlpha: (Math.random() - 0.5) * 0.007,
+        color: palette[Math.floor(Math.random() * palette.length)],
+        drift: Math.random() * Math.PI * 2,
+        dDrift: Math.random() * 0.014 + 0.004,
+        isBlue,
+      };
+    });
 
     const draw = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -52,12 +58,13 @@ function ParticleCanvas() {
         ctx.fillStyle = `${p.color}${p.alpha.toFixed(2)})`;
         ctx.fill();
 
-        if (p.r > 1.2) {
-          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3.5);
+        if (p.r > 1.0) {
+          const glowRadius = p.isBlue ? p.r * 5 : p.r * 3.5;
+          const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, glowRadius);
           g.addColorStop(0, `${p.color}${(p.alpha * 0.35).toFixed(2)})`);
           g.addColorStop(1, `${p.color}0)`);
           ctx.beginPath();
-          ctx.arc(p.x, p.y, p.r * 3.5, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, glowRadius, 0, Math.PI * 2);
           ctx.fillStyle = g;
           ctx.fill();
         }
@@ -128,7 +135,7 @@ export default function AuthPage() {
 
         .auth-root {
           min-height: 100vh;
-          background: #080A0F;
+          background: #000000;
           display: flex;
           align-items: stretch;
           overflow: hidden;
@@ -140,8 +147,8 @@ export default function AuthPage() {
           position: fixed;
           inset: 0;
           background-image:
-            linear-gradient(rgba(201,178,124,0.018) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(201,178,124,0.018) 1px, transparent 1px);
+            linear-gradient(rgba(0,180,216,0.015) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0,180,216,0.015) 1px, transparent 1px);
           background-size: 64px 64px;
           pointer-events: none;
           z-index: 0;
@@ -151,7 +158,7 @@ export default function AuthPage() {
           position: fixed;
           top: 0; left: 0; right: 0;
           height: 1px;
-          background: linear-gradient(to right, transparent, rgba(201,178,124,0.35) 30%, rgba(201,178,124,0.35) 70%, transparent);
+          background: linear-gradient(to right, transparent, rgba(0,180,216,0.3) 30%, rgba(201,178,124,0.3) 70%, transparent);
           z-index: 20;
         }
 
@@ -186,8 +193,8 @@ export default function AuthPage() {
           position: absolute;
           inset: 0;
           background:
-            linear-gradient(to right,  #080A0F 0%, transparent 14%, transparent 86%, #080A0F 100%),
-            linear-gradient(to bottom, #080A0F 0%, transparent 8%, transparent 75%, #080A0F 100%);
+            linear-gradient(to right,  #000000 0%, transparent 14%, transparent 86%, #000000 100%),
+            linear-gradient(to bottom, #000000 0%, transparent 8%, transparent 75%, #000000 100%);
           z-index: 2;
           pointer-events: none;
         }
@@ -203,19 +210,19 @@ export default function AuthPage() {
           font-family: 'Cormorant Garamond', serif;
           font-size: 4rem;
           font-weight: 300;
-          color: rgba(255,255,255,0.96);
-          letter-spacing: -0.01em;
+          color: #C9B27C;
+          letter-spacing: 0.02em;
           line-height: 1;
           margin: 0 0 0.55rem;
           text-shadow:
-            0 0 25px rgba(201,178,124,0.65),
-            0 0 55px rgba(201,178,124,0.3),
-            0 2px 8px rgba(0,0,0,0.5);
+            0 0 30px rgba(201,178,124,0.6),
+            0 0 60px rgba(201,178,124,0.25),
+            0 2px 8px rgba(0,0,0,0.7);
         }
 
         .lucy-tagline {
           font-size: 0.62rem;
-          color: rgba(255,255,255,0.55);
+          color: rgba(224,247,250,0.5);
           text-transform: uppercase;
           letter-spacing: 0.2em;
           line-height: 1.9;
@@ -230,9 +237,10 @@ export default function AuthPage() {
           background: linear-gradient(
             to bottom,
             transparent,
-            rgba(201,178,124,0.1) 20%,
-            rgba(201,178,124,0.18) 50%,
-            rgba(201,178,124,0.1) 80%,
+            rgba(0,180,216,0.08) 20%,
+            rgba(0,180,216,0.15) 40%,
+            rgba(201,178,124,0.12) 60%,
+            rgba(0,180,216,0.08) 80%,
             transparent
           );
           flex-shrink: 0;
@@ -249,11 +257,12 @@ export default function AuthPage() {
           position: relative;
           z-index: 10;
           min-width: 340px;
+          background: radial-gradient(ellipse 80% 60% at 20% 50%, rgba(4,18,32,0.4) 0%, transparent 70%);
         }
 
         .auth-form-title {
           font-size: 0.6rem;
-          color: rgba(201,178,124,0.5);
+          color: rgba(0,180,216,0.45);
           text-transform: uppercase;
           letter-spacing: 0.22em;
           margin-bottom: 2rem;
@@ -266,7 +275,7 @@ export default function AuthPage() {
           font-size: 0.6rem;
           text-transform: uppercase;
           letter-spacing: 0.18em;
-          color: rgba(255,255,255,0.2);
+          color: rgba(224,247,250,0.2);
           margin-bottom: 0.5rem;
         }
 
@@ -274,32 +283,32 @@ export default function AuthPage() {
 
         .auth-input-icon {
           position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
-          width: 13px; height: 13px; color: rgba(255,255,255,0.18);
+          width: 13px; height: 13px; color: rgba(0,180,216,0.25);
           pointer-events: none; z-index: 1;
         }
 
         .auth-input {
-          background: rgba(255,255,255,0.02) !important;
-          border: 1px solid rgba(255,255,255,0.07) !important;
-          color: rgba(255,255,255,0.7) !important;
+          background: rgba(4,18,32,0.6) !important;
+          border: 1px solid rgba(0,180,216,0.12) !important;
+          color: rgba(224,247,250,0.8) !important;
           padding-left: 2.75rem !important;
           transition: all 0.2s !important;
           font-size: 0.85rem !important;
           font-family: 'DM Sans', sans-serif !important;
           border-radius: 0.875rem !important;
         }
-        .auth-input::placeholder { color: rgba(255,255,255,0.08) !important; }
+        .auth-input::placeholder { color: rgba(224,247,250,0.12) !important; }
         .auth-input:focus {
-          border-color: rgba(201,178,124,0.3) !important;
-          background: rgba(201,178,124,0.02) !important;
-          box-shadow: 0 0 0 3px rgba(201,178,124,0.05) !important;
+          border-color: rgba(201,178,124,0.35) !important;
+          background: rgba(0,180,216,0.05) !important;
+          box-shadow: 0 0 0 3px rgba(0,180,216,0.06), 0 0 20px rgba(0,180,216,0.04) !important;
           outline: none !important;
         }
 
         .auth-submit {
           width: 100%;
-          background: rgba(201,178,124,0.1) !important;
-          border: 1px solid rgba(201,178,124,0.28) !important;
+          background: linear-gradient(135deg, rgba(201,178,124,0.15), rgba(0,180,216,0.08)) !important;
+          border: 1px solid rgba(201,178,124,0.25) !important;
           color: #C9B27C !important;
           font-size: 0.65rem !important;
           font-family: 'DM Sans', sans-serif !important;
@@ -311,12 +320,12 @@ export default function AuthPage() {
         }
         .auth-submit::before {
           content: ''; position: absolute; inset-x: 0; top: 0; height: 1px;
-          background: linear-gradient(to right, transparent, rgba(201,178,124,0.5), transparent);
+          background: linear-gradient(to right, transparent, rgba(201,178,124,0.4), rgba(0,180,216,0.3), transparent);
         }
         .auth-submit:hover:not(:disabled) {
-          background: rgba(201,178,124,0.18) !important;
-          border-color: rgba(201,178,124,0.45) !important;
-          box-shadow: 0 0 28px rgba(201,178,124,0.1) !important;
+          background: linear-gradient(135deg, rgba(201,178,124,0.22), rgba(0,180,216,0.12)) !important;
+          border-color: rgba(201,178,124,0.4) !important;
+          box-shadow: 0 0 28px rgba(201,178,124,0.1), 0 0 40px rgba(0,180,216,0.06) !important;
         }
         .auth-submit:disabled { opacity: 0.35 !important; }
 
@@ -328,10 +337,10 @@ export default function AuthPage() {
 
         .auth-toggle {
           margin-top: 1.25rem; font-size: 0.68rem;
-          color: rgba(255,255,255,0.15); text-align: center;
+          color: rgba(224,247,250,0.15); text-align: center;
         }
-        .auth-toggle span { color: rgba(201,178,124,0.55); cursor: pointer; transition: color 0.15s; }
-        .auth-toggle span:hover { color: #C9B27C; }
+        .auth-toggle span { color: rgba(0,180,216,0.5); cursor: pointer; transition: color 0.15s; }
+        .auth-toggle span:hover { color: #00B4D8; }
 
         @media (max-width: 768px) {
           .auth-root { flex-direction: column; }
@@ -400,7 +409,7 @@ export default function AuthPage() {
                     <button type="button" onClick={() => setShowPassword(p => !p)}
                       style={{
                         position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)',
-                        color: 'rgba(255,255,255,0.2)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer'
+                        color: 'rgba(0,180,216,0.25)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer'
                       }}>
                       {showPassword ? <EyeOff className="w-4 h-4" strokeWidth={1.3} /> : <Eye className="w-4 h-4" strokeWidth={1.3} />}
                     </button>

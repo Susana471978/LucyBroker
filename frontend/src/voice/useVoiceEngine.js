@@ -21,6 +21,21 @@ const STOP_COMMANDS = [
     "terminar", "fin", "adiós", "adios", "hasta luego",
 ];
 
+// ─── Global audio ref — para que cancel() pueda detener CUALQUIER audio ───
+let _globalAudioElement = null;
+
+export function setGlobalAudio(audio) {
+    _globalAudioElement = audio;
+}
+
+export function stopGlobalAudio() {
+    if (_globalAudioElement) {
+        try { _globalAudioElement.pause(); _globalAudioElement.currentTime = 0; } catch (_) { }
+        _globalAudioElement = null;
+    }
+    try { window.speechSynthesis.cancel(); } catch (_) { }
+}
+
 export function useVoiceEngine() {
     const [voiceState, setVoiceState] = useState(STATES.IDLE);
     const [transcript, setTranscript] = useState("");
@@ -40,7 +55,6 @@ export function useVoiceEngine() {
     const ttsEnabledRef = useRef(true);
     const postSpeakGuardRef = useRef(false);
     const wakeWordCooldownRef = useRef(false);
-    // Shared AudioContext to avoid "not allowed to start" errors
     const audioCtxRef = useRef(null);
 
     useEffect(() => { voiceStateRef.current = voiceState; }, [voiceState]);
@@ -63,7 +77,6 @@ export function useVoiceEngine() {
         silenceTimerRef.current = setTimeout(callback, ms);
     }, [clearSilenceTimer]);
 
-    // ─── AudioContext singleton — initialized on first user gesture ───
     const getAudioCtx = useCallback(() => {
         if (!audioCtxRef.current) {
             audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -97,7 +110,8 @@ export function useVoiceEngine() {
             return;
         }
         try {
-            window.speechSynthesis.cancel();
+            // Detener cualquier audio previo
+            stopGlobalAudio();
             setVoiceState(STATES.SPEAKING);
             postSpeakGuardRef.current = true;
 
@@ -115,7 +129,12 @@ export function useVoiceEngine() {
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
 
+            // Registrar audio globalmente para que cancel() pueda detenerlo
+            setGlobalAudio(audio);
+
             audio.onended = () => {
+                setGlobalAudio(null);
+                URL.revokeObjectURL(audioUrl);
                 setVoiceState(STATES.IDLE);
                 setTimeout(() => {
                     postSpeakGuardRef.current = false;
@@ -123,40 +142,49 @@ export function useVoiceEngine() {
                 }, 2000);
             };
             audio.onerror = () => {
+                setGlobalAudio(null);
+                URL.revokeObjectURL(audioUrl);
                 postSpeakGuardRef.current = false;
                 setVoiceState(STATES.ERROR);
                 onEnd?.();
             };
             await audio.play();
         } catch (error) {
-            console.error("Neural TTS failed, fallback:", error);
+            console.error("TTS failed:", error);
             postSpeakGuardRef.current = false;
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = "es-ES";
-            utterance.rate = 0.95;
-            utterance.onend = () => {
-                setVoiceState(STATES.IDLE);
-                setTimeout(() => {
-                    postSpeakGuardRef.current = false;
-                    onEnd?.();
-                }, 2000);
-            };
-            window.speechSynthesis.speak(utterance);
+            setVoiceState(STATES.IDLE);
+            onEnd?.();
+            // NO fallback a Web Speech API — voz diferente confunde al usuario
         }
     }, []);
 
-    // ─── cancel ───────────────────────────────────────────────────────
+    // ─── cancel — detiene TODO: audio, speech, recognition ────────────
     const cancel = useCallback(() => {
         clearSilenceTimer();
         handsFreeModeRef.current = false;
         postSpeakGuardRef.current = false;
         wakeWordCooldownRef.current = false;
         setHandsFreeModeActive(false);
+
+        // Detener audio global (briefing, TTS, lo que sea)
+        stopGlobalAudio();
+
         if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch (_) { } }
-        if (window.speechSynthesis) window.speechSynthesis.cancel();
         setTranscript("");
         setVoiceState(STATES.IDLE);
     }, [clearSilenceTimer]);
+
+    // ─── Wrapper para setTtsEnabled que también detiene audio si se desactiva ──
+    const setTtsEnabledWithStop = useCallback((value) => {
+        const newValue = typeof value === 'function' ? value(ttsEnabledRef.current) : value;
+        setTtsEnabled(newValue);
+        if (!newValue) {
+            // Si se desactiva TTS, detener audio inmediatamente
+            stopGlobalAudio();
+            setVoiceState(STATES.IDLE);
+            postSpeakGuardRef.current = false;
+        }
+    }, []);
 
     // ─── sendToAssistant ──────────────────────────────────────────────
     const sendToAssistant = useCallback(async (text) => {
@@ -192,16 +220,12 @@ export function useVoiceEngine() {
     }, []);
 
     // ─── listenForCommand ─────────────────────────────────────────────
-    // PHASE 2: After wake word detected, listen for the user's command.
-    // This is a NEW recognition instance, separate from wake word.
-    // Uses a 2.5s silence timeout to detect end of speech.
     const listenForCommand = useCallback(() => {
         if (postSpeakGuardRef.current) return;
 
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) return;
 
-        // Stop any existing command recognition
         if (recognitionRef.current) {
             try { recognitionRef.current.stop(); } catch (_) { }
         }
@@ -234,11 +258,9 @@ export function useVoiceEngine() {
             }
             setTranscript(finalTranscript + interim);
 
-            // Reset silence timer every time we get speech
             startSilenceTimer(async () => {
                 const text = finalTranscript.trim();
                 if (!text) {
-                    // No final transcript yet, keep listening
                     if (handsFreeModeRef.current) {
                         listenForCommand();
                     } else {
@@ -250,7 +272,6 @@ export function useVoiceEngine() {
                 console.log("[Voice] Comando capturado:", text);
                 recognition.stop();
 
-                // Check for stop commands
                 const isStop = STOP_COMMANDS.some(c => text.toLowerCase().includes(c));
                 if (isStop) {
                     handsFreeModeRef.current = false;
@@ -259,12 +280,10 @@ export function useVoiceEngine() {
                     return;
                 }
 
-                // Send to assistant
                 const assistantText = await sendToAssistant(text);
 
                 if (assistantText) {
                     speak(assistantText, () => {
-                        // After Lucy speaks, if hands-free mode, listen for next command
                         if (handsFreeModeRef.current) {
                             playBeep(660, 0.1);
                             listenForCommand();
@@ -294,7 +313,6 @@ export function useVoiceEngine() {
         recognition.onend = () => {
             if (!isRequestInFlight.current && voiceStateRef.current === STATES.LISTENING) {
                 if (handsFreeModeRef.current && !hasReceivedSpeech) {
-                    // No speech detected, try again
                     setTimeout(() => listenForCommand(), 300);
                 } else if (!handsFreeModeRef.current) {
                     setVoiceState(STATES.IDLE);
@@ -310,26 +328,20 @@ export function useVoiceEngine() {
         }
     }, [startSilenceTimer, sendToAssistant, speak, playBeep]);
 
-    // ─── startListening (manual mode) ─────────────────────────────────
     const startListening = useCallback(() => {
         listenForCommand();
     }, [listenForCommand]);
 
     // ─── activateHandsFreeMode ────────────────────────────────────────
-    // Called after wake word detection OR by clicking "Manos Libres" button.
-    // wakeText can be: string (from wake word), undefined, or Event (from button click)
     const activateHandsFreeMode = useCallback(async (wakeText) => {
-        // Evitar doble activación
         if (handsFreeModeRef.current) return;
 
         handsFreeModeRef.current = true;
         setHandsFreeModeActive(true);
 
-        // Initialize AudioContext on user gesture
         getAudioCtx();
         playBeep(880, 0.15);
 
-        // Sanitize wakeText — could be string, undefined, or Event object
         const queryText = (typeof wakeText === "string" && wakeText.trim().length > 0)
             ? wakeText.trim()
             : "buenos días";
@@ -353,8 +365,7 @@ export function useVoiceEngine() {
     }, [sendToAssistant, speak, playBeep, listenForCommand, getAudioCtx]);
 
     // ─── startWakeWordListener ────────────────────────────────────────
-    // PHASE 1: Continuously listens for "Hola Lucy".
-    // When detected: stops wake listener → beep → starts command listener.
+    // Escucha "para" incluso mientras Lucy habla (SPEAKING state)
     const startWakeWordListener = useCallback(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) return;
@@ -366,34 +377,45 @@ export function useVoiceEngine() {
         wakeRecognitionRef.current = wake;
 
         wake.onresult = (event) => {
-            // Don't activate if Lucy is busy
-            if (voiceStateRef.current !== STATES.IDLE) return;
             if (wakeWordCooldownRef.current) return;
-            if (postSpeakGuardRef.current) return;
-            // Don't activate if already in hands-free mode
-            if (handsFreeModeRef.current) return;
 
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const text = event.results[i][0].transcript.toLowerCase().trim();
 
+                // ── Detectar "para" / "stop" INCLUSO durante SPEAKING ──
+                if (voiceStateRef.current === STATES.SPEAKING) {
+                    const isStop = STOP_COMMANDS.some(c => text.includes(c));
+                    if (isStop) {
+                        console.log("[Wake Word] STOP detectado durante habla:", text);
+                        stopGlobalAudio();
+                        setVoiceState(STATES.IDLE);
+                        postSpeakGuardRef.current = false;
+                        handsFreeModeRef.current = false;
+                        setHandsFreeModeActive(false);
+                        return;
+                    }
+                    // Si Lucy está hablando y no es "para", ignorar
+                    continue;
+                }
+
+                // ── Solo procesar wake word si estamos IDLE ──
+                if (voiceStateRef.current !== STATES.IDLE) continue;
+                if (postSpeakGuardRef.current) continue;
+                if (handsFreeModeRef.current) continue;
+
                 if (WAKE_WORD_VARIANTS.some(v => text.includes(v))) {
                     console.log("[Wake Word] Detectado:", text);
 
-                    // Cooldown to prevent double-firing
                     wakeWordCooldownRef.current = true;
                     setTimeout(() => { wakeWordCooldownRef.current = false; }, 8000);
 
-                    // Visual feedback
                     setWakeWordActive(true);
                     setTimeout(() => setWakeWordActive(false), 3000);
 
-                    // Stop wake word listener — we're switching to command mode
-                    wake.onend = null; // Prevent auto-restart
+                    wake.onend = null;
                     try { wake.stop(); } catch (_) { }
                     wakeRecognitionRef.current = null;
 
-                    // Check if the user already said a command along with the wake word
-                    // e.g. "Hola Lucy recuérdame comprar pan"
                     const cleanText = text
                         .replace(/hola lucy/gi, "")
                         .replace(/ola lucy/gi, "")
@@ -403,24 +425,18 @@ export function useVoiceEngine() {
                         .trim();
 
                     if (event.results[i].isFinal && cleanText.length > 5) {
-                        // Full command captured with wake word
                         console.log("[Wake Word] Comando completo:", cleanText);
                         playBeep(880, 0.15);
                         setTimeout(() => activateHandsFreeMode(cleanText), 300);
                     } else {
-                        // Just "Hola Lucy" — need to listen for the command
                         console.log("[Wake Word] Esperando comando...");
                         playBeep(880, 0.15);
 
-                        // Small delay then activate hands-free which will listen for command
                         setTimeout(() => {
-                            // Don't send "buenos días" as query — just activate listening
                             if (handsFreeModeRef.current) return;
                             handsFreeModeRef.current = true;
                             setHandsFreeModeActive(true);
                             getAudioCtx();
-
-                            // Start listening for the command directly
                             console.log("[Voice] Esperando orden del usuario...");
                             listenForCommand();
                         }, 500);
@@ -431,7 +447,6 @@ export function useVoiceEngine() {
         };
 
         wake.onend = () => {
-            // Auto-restart if still enabled and visible
             if (wakeWordEnabled && !handsFreeModeRef.current && document.visibilityState === "visible") {
                 setTimeout(() => {
                     try {
@@ -472,7 +487,6 @@ export function useVoiceEngine() {
         }
     }, [wakeWordEnabled, handsFreeModeActive, startWakeWordListener, stopWakeWordListener]);
 
-    // Restart wake word listener when hands-free mode ends
     useEffect(() => {
         if (!handsFreeModeActive && wakeWordEnabled) {
             const timer = setTimeout(() => {
@@ -496,7 +510,6 @@ export function useVoiceEngine() {
         return () => document.removeEventListener("visibilitychange", handleVisibility);
     }, [wakeWordEnabled, startWakeWordListener, stopWakeWordListener]);
 
-    // ─── Initialize AudioContext on first click anywhere ──────────────
     useEffect(() => {
         const initAudio = () => {
             getAudioCtx();
@@ -516,7 +529,7 @@ export function useVoiceEngine() {
         transcript,
         lastInteraction,
         ttsEnabled,
-        setTtsEnabled,
+        setTtsEnabled: setTtsEnabledWithStop,
         wakeWordEnabled,
         setWakeWordEnabled,
         wakeWordActive,

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -429,7 +430,68 @@ async def assistant_endpoint(
                     status="ok",
                     timestamp=datetime.utcnow().isoformat(),
                 )
+# ── INTENCIÓN: crear tarea ─────────────────────────────────────────
+        _TASK_KEYWORDS = [
+            "tarea", "pendiente", "to-do", "todo", "añade como tarea",
+            "nueva tarea", "apunta como tarea", "tengo que", "hay que",
+            "no olvidar hacer", "agregar tarea",
+        ]
+        _task_lower = user_text.lower().strip()
+        if any(kw in _task_lower for kw in _TASK_KEYWORDS):
+            from backend.services.ai_service import generate_llm_response
+            import json as _json
 
+            _task_prompt = f"""Extrae la tarea del texto del usuario.
+Devuelve ÚNICAMENTE un JSON válido sin backticks:
+{{
+  "title": "descripción corta de la tarea",
+  "priority": "high" o "normal" o "low",
+  "due_date": "YYYY-MM-DD" o null
+}}
+
+Hoy es {datetime.now(timezone.utc).strftime("%Y-%m-%d")}.
+El usuario dice: "{user_text}"
+
+Reglas:
+- "title" debe ser la acción concreta, sin "tarea:" ni prefijos.
+- Si menciona urgente/importante → "high". Si no → "normal".
+- Si menciona una fecha, calcúlala. Si no, null.
+"""
+            try:
+                _raw = await generate_llm_response(_task_prompt)
+                _clean = _raw.strip().replace("```json", "").replace("```", "").strip()
+                _task_data = _json.loads(_clean)
+
+                if _task_data.get("title"):
+                    _now = datetime.now(timezone.utc).isoformat()
+                    _doc = {
+                        "user_id": user["id"],
+                        "title": _task_data["title"],
+                        "notes": "",
+                        "due_date": _task_data.get("due_date"),
+                        "priority": _task_data.get("priority", "normal"),
+                        "done": False,
+                        "done_at": None,
+                        "created_at": _now,
+                        "source": "voice",
+                    }
+                    _result = await db.tasks.insert_one(_doc)
+
+                    _due_text = f" para el {_task_data['due_date']}" if _task_data.get("due_date") else ""
+                    _priority_text = " (prioritaria)" if _task_data.get("priority") == "high" else ""
+
+                    return AssistantResponse(
+                        assistant_text=f"Tarea añadida: {_task_data['title']}{_priority_text}{_due_text}. La tienes en tu panel de tareas.",
+                        actions=[AssistantAction(
+                            type="task_created",
+                            payload={"id": str(_result.inserted_id), "title": _task_data["title"]},
+                        )],
+                        status="ok",
+                        timestamp=datetime.utcnow().isoformat(),
+                    )
+            except Exception as e:
+                print(f"[assistant] Task extraction error: {e}")
+                
         # ── INTENCIÓN: crear recordatorio ──────────────────────────────────
         from backend.api.reminders import is_reminder_intent, extract_reminder_data
         if is_reminder_intent(user_text):
@@ -463,12 +525,6 @@ async def assistant_endpoint(
                     timestamp=datetime.utcnow().isoformat(),
                 )
 
-        # =====================================================
-# BLOQUE PARA REEMPLAZAR EN assistant.py
-# Busca: # ── INTENCIÓN: guardar en memoria ──
-# Reemplaza TODO el bloque hasta el siguiente comentario: # ── RECOPILAR CONTEXTO ──
-# =====================================================
-
         # ── INTENCIÓN: guardar nota / idea / memoria ───────────────────────
         from backend.services.user_memory import is_note_intent, extract_note_text, add_memory_note
         if is_note_intent(user_text):
@@ -484,7 +540,6 @@ async def assistant_endpoint(
 
             await add_memory_note(db, user["id"], note_text, category)
 
-            # Respuesta según categoría
             responses = {
                 "idea": f"Idea guardada: {note_text}. La tendré presente.",
                 "cliente": f"Anotado sobre el cliente. Lo tendré en cuenta.",
@@ -502,57 +557,78 @@ async def assistant_endpoint(
                 timestamp=datetime.utcnow().isoformat(),
             )
 
-        # ── RECOPILAR CONTEXTO ─────────────────────────────────────────────
+        # ── RECOPILAR CONTEXTO (PARALELO) ──────────────────────────────────
         gmail_ok = True
         calendar_ok = True
 
-        items = []
-        if user.get("gmail_connected"):
+        async def _fetch_gmail():
+            nonlocal gmail_ok
+            if not user.get("gmail_connected"):
+                return []
             try:
-                items = await fetch_enriched_messages(user, db, max_results=20)
+                return await fetch_enriched_messages(user, db, max_results=20)
             except Exception as e:
                 gmail_ok = False
                 print(f"[assistant] Gmail fetch error: {e}")
+                return []
 
+        async def _fetch_calendar():
+            nonlocal calendar_ok
+            if not user.get("calendar_connected"):
+                return []
+            try:
+                return await fetch_today_events(user)
+            except Exception as e:
+                calendar_ok = False
+                print(f"[assistant] Calendar fetch error: {e}")
+                return []
+
+        async def _fetch_tasks():
+            try:
+                from backend.api.tasks import get_pending_tasks
+                return await get_pending_tasks(user["id"])
+            except Exception:
+                return []
+
+        async def _fetch_habits():
+            try:
+                return await get_habits_summary(user["id"])
+            except Exception:
+                return {"habits": [], "completed": 0, "total": 0}
+
+        # Lanzar TODAS las consultas en paralelo
+        (
+            items,
+            calendar_events,
+            exec_memory,
+            contacts,
+            user_mem_doc,
+            pending_tasks,
+            habits_summary,
+        ) = await asyncio.gather(
+            _fetch_gmail(),
+            _fetch_calendar(),
+            get_memory(db, user["id"]),
+            get_all_contacts(db, user["id"], limit=5),
+            get_user_memory(db, user["id"]),
+            _fetch_tasks(),
+            _fetch_habits(),
+        )
+
+        # Procesar resultados
         total = len(items)
         prioritarios = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"]
         seguimiento  = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"]
         adjuntos     = [i for i in items if i["email"].get("has_attachments", False)]
-
         counts = {
             "total": total,
             "prioritarios": len(prioritarios),
-            "seguimiento":  len(seguimiento),
-            "adjuntos":     len(adjuntos),
+            "seguimiento": len(seguimiento),
+            "adjuntos": len(adjuntos),
         }
 
-        calendar_events = []
-        if user.get("calendar_connected"):
-            try:
-                calendar_events = await fetch_today_events(user)
-            except Exception as e:
-                calendar_ok = False
-                print(f"[assistant] Calendar fetch error: {e}")
-
-        exec_memory = await get_memory(db, user["id"])
-        contacts    = await get_all_contacts(db, user["id"], limit=5)
-
-        user_mem_doc = await get_user_memory(db, user["id"])
         user_memory_context = build_user_memory_context(user_mem_doc)
 
-        try:
-            from backend.api.tasks import get_pending_tasks
-            pending_tasks = await get_pending_tasks(user["id"])
-        except Exception:
-            pending_tasks = []
-
-        # Hábitos del día
-        try:
-            habits_summary = await get_habits_summary(user["id"])
-        except Exception:
-            habits_summary = {"habits": [], "completed": 0, "total": 0}
-
-        # Construir bloques de contexto
         inbox_context    = _build_inbox_context(items, counts) if items else "Bandeja: sin correos disponibles."
         calendar_context = _build_calendar_context(calendar_events)
         tasks_context    = _build_tasks_context(pending_tasks)

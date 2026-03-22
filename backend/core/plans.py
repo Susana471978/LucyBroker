@@ -11,23 +11,23 @@ from typing import Dict, List, Optional, Any
 
 
 # =====================================================
-# STRIPE PRICE IDs
+# STRIPE PRICE IDs (Cuenta Syntexia)
 # =====================================================
 
 PRICE_IDS = {
     # Lucy Secretaria Ejecutiva
-    "executive_basic":    "price_1TCG9SL07UaiQy6M6FtMTiVn",   # €19/mes
-    "executive_pro":      "price_1TCGANL07UaiQy6MkbrqNQfs",   # €29/mes
-    "executive_business": "price_1TCGAmL07UaiQy6Msw1Drxvc",   # €49/mes
+    "executive_basic":    "price_1TCdFGL07UaiQy6MNGAcfuiI",   # €19/mes
+    "executive_pro":      "price_1TCdFbL07UaiQy6MqamCQpu3",   # €29/mes
+    "executive_business": "price_1TCdG3L07UaiQy6MhgMvqLlG",   # €49/mes
 
     # Lucy Asistente Personal
-    "personal_basic":     "price_1TCGBHL07UaiQy6Mw3FMiwRs",   # €14/mes
-    "personal_pro":       "price_1TCGBZL07UaiQy6M9e3UUKuq",   # €24/mes
+    "personal_basic":     "price_1TCdGUL07UaiQy6MKdLzsQAg",   # €14/mes
+    "personal_pro":       "price_1TCdGnL07UaiQy6MRKQ759N0",   # €24/mes
 
     # Lucy Completa (Bundle)
-    "bundle_basic":       "price_1TCGC1L07UaiQy6MLoFCXOXV",   # €25/mes
-    "bundle_pro":         "price_1TCGCIL07UaiQy6MzPOw9QEY",   # €40/mes
-    "bundle_business":    "price_1TCGCjL07UaiQy6MXLhIRby1",   # €55/mes
+    "bundle_basic":       "price_1TCdHFL07UaiQy6MNrMBJtal",   # €25/mes
+    "bundle_pro":         "price_1TCdHYL07UaiQy6MOQqzlImb",   # €40/mes
+    "bundle_business":    "price_1TCdHvL07UaiQy6MgfsoRsJo",   # €55/mes
 }
 
 # Reverse lookup: price_id → plan_key
@@ -198,7 +198,7 @@ TRIAL_FEATURES = [
 
 TRIAL_LIMITS = {
     "trial_hours": 4,
-    "trial_seconds": 14400,   # 4 horas en segundos
+    "trial_seconds": 14400,
     "max_emails_per_day": 10,
     "max_reminders": 5,
     "max_habits": 3,
@@ -211,14 +211,6 @@ TRIAL_LIMITS = {
 # =====================================================
 
 def get_user_plan(user: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Returns the user's active plan(s) info.
-    A user can have:
-      - admin (all features)
-      - a bundle plan (both products)
-      - executive + personal plans separately
-      - trial (limited features)
-    """
     if user.get("is_admin"):
         return {
             "plans": ["admin"],
@@ -246,7 +238,6 @@ def get_user_plan(user: Dict[str, Any]) -> Dict[str, Any]:
             if plan["product"] in ("personal", "bundle"):
                 personal_tier = plan["tier"]
 
-    # Legacy support: old subscription_active field
     if not active_plans and user.get("subscription_active"):
         active_plans.append("executive_pro")
         plan = PLANS["executive_pro"]
@@ -268,18 +259,15 @@ def get_user_plan(user: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def has_feature(user: Dict[str, Any], feature: str) -> bool:
-    """Check if user has access to a specific feature."""
     plan_info = get_user_plan(user)
     return feature in plan_info["features"]
 
 
 def get_plan_from_price(price_id: str) -> Optional[str]:
-    """Get plan key from Stripe price ID."""
     return PRICE_TO_PLAN.get(price_id)
 
 
 def get_available_plans() -> List[Dict[str, Any]]:
-    """Returns all plans for the pricing page."""
     result = []
     for key, plan in PLANS.items():
         result.append({
