@@ -65,7 +65,7 @@ const Layout = ({ children }) => {
   const navItems = [
     { path: '/app', icon: LayoutDashboard, label: t(language, 'overview') },
     { path: '/app/messages', icon: Mail, label: t(language, 'messages') },
-    { path: '/app/tasks', icon: CheckSquare, label: 'Tareas' },
+    { path: '/app/tasks', icon: CheckSquare, label: 'Tareas y recordatorios' },
   ];
 
   const languages = [

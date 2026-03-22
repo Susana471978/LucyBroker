@@ -284,7 +284,7 @@ export default function TasksPage() {
                     <div>
                         <h1 className="text-2xl font-light text-white tracking-tight"
                             style={{ fontFamily: "'Cormorant Garamond', serif" }}>
-                            Tareas
+                            Tareas y recordatorios
                         </h1>
                         <p className="text-xs text-[rgba(255,255,255,0.2)] mt-1 uppercase tracking-[0.1em]">
                             {pending.length} pendiente{pending.length !== 1 ? 's' : ''}

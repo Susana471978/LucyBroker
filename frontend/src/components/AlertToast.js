@@ -1,11 +1,49 @@
 // frontend/src/components/AlertToast.js
 
+// frontend/src/components/AlertToast.js
+
+import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useVoice } from '../voice/VoiceProvider';
 
 export default function AlertToast({ alert, onDismiss }) {
     const navigate = useNavigate();
+    const { ttsEnabled } = useVoice();
+    const hasPlayedRef = useRef(null);
+
+    // Sonido de notificación cuando aparece una alerta (solo si no está silenciado)
+    useEffect(() => {
+        if (!alert || !ttsEnabled) return;
+        if (hasPlayedRef.current === alert.id) return; // No repetir para la misma alerta
+        hasPlayedRef.current = alert.id;
+
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            // Tono 1: nota alta
+            const osc1 = ctx.createOscillator();
+            const gain1 = ctx.createGain();
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.frequency.value = 880;
+            gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+            osc1.start(ctx.currentTime);
+            osc1.stop(ctx.currentTime + 0.3);
+
+            // Tono 2: nota más alta (hace "ding-ding")
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.frequency.value = 1100;
+            gain2.gain.setValueAtTime(0.12, ctx.currentTime + 0.15);
+            gain2.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.45);
+            osc2.start(ctx.currentTime + 0.15);
+            osc2.stop(ctx.currentTime + 0.45);
+        } catch (_) { }
+    }, [alert, ttsEnabled]);
 
     if (!alert) return null;
 
