@@ -459,7 +459,7 @@ async def trial_heartbeat(
 
     increment = 60
     seconds_used = user.get("trial_seconds_used", 0) + increment
-    limit = user.get("trial_limit", 7200)
+    limit = user.get("trial_limit", 14400)
     remaining = max(0, limit - seconds_used)
     expired = remaining <= 0
 

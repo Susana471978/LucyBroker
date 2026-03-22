@@ -56,50 +56,51 @@ export function executeVoiceActions(actions = [], context = {}) {
 function handleGoTo(payload, navigate) {
     if (!navigate || !payload) return;
 
-    const allowedScreens = ["overview", "messages"];
+    const allowedScreens = ["overview", "messages", "tasks", "habits", "settings", "pricing"];
+
+    const screenMap = { overview: "/app", messages: "/app/messages", tasks: "/app/tasks", habits: "/app/habits", settings: "/app/settings", pricing: "/app/pricing" };
 
     if (allowedScreens.includes(payload.screen)) {
-        navigate(`/${payload.screen}`);
+        navigate(screenMap[payload.screen] || `/app/${payload.screen}`);
     }
-}
 
-function handleSetFilter(payload, currentFilters, setFilters) {
-    if (!payload || !setFilters || !currentFilters) return;
+    function handleSetFilter(payload, currentFilters, setFilters) {
+        if (!payload || !setFilters || !currentFilters) return;
 
-    const allowedKeys = [
-        "unread",
-        "date",
-        "priority",
-        "from",
-        "has_attachment",
-    ];
+        const allowedKeys = [
+            "unread",
+            "date",
+            "priority",
+            "from",
+            "has_attachment",
+        ];
 
-    const patch = {};
+        const patch = {};
 
-    Object.keys(payload).forEach((key) => {
-        if (allowedKeys.includes(key)) {
-            patch[key] = payload[key];
-        }
-    });
-
-    if (Object.keys(patch).length > 0) {
-        setFilters({
-            ...currentFilters,
-            ...patch,
+        Object.keys(payload).forEach((key) => {
+            if (allowedKeys.includes(key)) {
+                patch[key] = payload[key];
+            }
         });
-    }
-}
 
-function handleClearFilters(clearFilters) {
-    if (clearFilters) {
-        clearFilters();
+        if (Object.keys(patch).length > 0) {
+            setFilters({
+                ...currentFilters,
+                ...patch,
+            });
+        }
     }
-}
 
-function handleOpenMessage(payload, openMessageById) {
-    if (!payload || !openMessageById) return;
-
-    if (payload.id && typeof payload.id === "string") {
-        openMessageById(payload.id);
+    function handleClearFilters(clearFilters) {
+        if (clearFilters) {
+            clearFilters();
+        }
     }
-}
+
+    function handleOpenMessage(payload, openMessageById) {
+        if (!payload || !openMessageById) return;
+
+        if (payload.id && typeof payload.id === "string") {
+            openMessageById(payload.id);
+        }
+    }

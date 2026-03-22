@@ -102,8 +102,8 @@ async def billing_checkout(
             user_id=user["id"],
             email=user["email"],
             price_id=price_id,
-            success_url=f"{frontend_url}/billing/success",
-            cancel_url=f"{frontend_url}/billing/cancel",
+            success_url=f"{frontend_url}/app/billing/success",
+            cancel_url=f"{frontend_url}/app/billing/cancel",
         )
     except ValueError as e:
         raise HTTPException(status_code=503, detail=str(e))
