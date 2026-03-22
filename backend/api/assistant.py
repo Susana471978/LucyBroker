@@ -203,6 +203,29 @@ def _get_service_status(user: Dict[str, Any], gmail_ok: bool, calendar_ok: bool)
 
 
 # =====================================================
+# DETERMINAR ROL DE LUCY SEGÚN PLAN
+# =====================================================
+
+def _get_lucy_role(user: Dict[str, Any]) -> str:
+    from backend.core.plans import get_user_plan
+    user_plan = get_user_plan(user)
+    _has_executive = user_plan.get("executive_tier") is not None
+    _has_personal = user_plan.get("personal_tier") is not None
+    _is_admin = user_plan.get("is_admin", False)
+
+    if _is_admin:
+        return "secretaria ejecutiva y asistente personal"
+    elif _has_executive and _has_personal:
+        return "secretaria ejecutiva y asistente personal"
+    elif _has_executive:
+        return "secretaria ejecutiva"
+    elif _has_personal:
+        return "asistente personal"
+    else:
+        return "asistente"
+
+
+# =====================================================
 # DETECCIÓN DE INTENCIÓN — CREAR EVENTO
 # =====================================================
 
@@ -430,7 +453,8 @@ async def assistant_endpoint(
                     status="ok",
                     timestamp=datetime.utcnow().isoformat(),
                 )
-# ── INTENCIÓN: crear tarea ─────────────────────────────────────────
+
+        # ── INTENCIÓN: crear tarea ─────────────────────────────────────────
         _TASK_KEYWORDS = [
             "tarea", "pendiente", "to-do", "todo", "añade como tarea",
             "nueva tarea", "apunta como tarea", "tengo que", "hay que",
@@ -438,7 +462,6 @@ async def assistant_endpoint(
         ]
         _task_lower = user_text.lower().strip()
         if any(kw in _task_lower for kw in _TASK_KEYWORDS):
-            from backend.services.ai_service import generate_llm_response
             import json as _json
 
             _task_prompt = f"""Extrae la tarea del texto del usuario.
@@ -491,7 +514,7 @@ Reglas:
                     )
             except Exception as e:
                 print(f"[assistant] Task extraction error: {e}")
-                
+
         # ── INTENCIÓN: crear recordatorio ──────────────────────────────────
         from backend.api.reminders import is_reminder_intent, extract_reminder_data
         if is_reminder_intent(user_text):
@@ -596,7 +619,6 @@ Reglas:
             except Exception:
                 return {"habits": [], "completed": 0, "total": 0}
 
-        # Lanzar TODAS las consultas en paralelo
         (
             items,
             calendar_events,
@@ -615,7 +637,6 @@ Reglas:
             _fetch_habits(),
         )
 
-        # Procesar resultados
         total = len(items)
         prioritarios = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"]
         seguimiento  = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"]
@@ -644,7 +665,6 @@ Reglas:
             if last_focus:
                 memory_context += f" Estaba en: {last_focus}."
 
-        # Detectar acciones de navegación UI
         actions: Optional[List[AssistantAction]] = None
         text_lower = user_text.lower()
 
@@ -684,15 +704,18 @@ Reglas:
         else:
             time_of_day = "por la noche"
 
+        # ── ROL DE LUCY SEGÚN PLAN ─────────────────────────────────────────
+        lucy_role = _get_lucy_role(user)
+
         # ── ELEGIR PROMPT SEGÚN INTENCIÓN ──────────────────────────────────
         is_briefing = _is_briefing_request(user_text)
 
         if is_briefing:
-            prompt = f"""Eres Lucy, secretaria ejecutiva y asistente personal de {user.get('name', 'el usuario')}.
+            prompt = f"""Eres Lucy, {lucy_role} de {user.get('name', 'el usuario')}.
 
 HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
 
-Tu trabajo es dar un briefing completo, como haría una secretaria de confianza al empezar el día. Hablas con naturalidad, elegancia y cercanía profesional. Siempre en español.
+Tu trabajo es dar un briefing completo, como haría una {lucy_role} de confianza al empezar el día. Hablas con naturalidad, elegancia y cercanía profesional. Siempre en español.
 
 ESTRUCTURA DEL BRIEFING (sigue este orden, integra todo en prosa fluida):
 1. Saludo breve y cálido adaptado a la hora del día.
@@ -731,11 +754,11 @@ REGLAS DE ESTILO:
 El usuario dice: "{user_text}"
 """
         else:
-            prompt = f"""Eres Lucy, secretaria ejecutiva y asistente personal de {user.get('name', 'el usuario')}.
+            prompt = f"""Eres Lucy, {lucy_role} de {user.get('name', 'el usuario')}.
 
 HOY: {today_label} ({today_iso}). Hora: {now_madrid.strftime("%H:%M")}.
 
-Personalidad: elegante, directa, concisa. Secretaria de confianza de alto nivel.
+Personalidad: elegante, directa, concisa. {lucy_role.capitalize()} de confianza de alto nivel.
 Siempre en español. Máximo 3-4 frases. Sin listas ni encabezados. Lenguaje natural.
 
 DATOS DISPONIBLES:

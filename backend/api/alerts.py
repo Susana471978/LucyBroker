@@ -118,13 +118,17 @@ async def check_alerts(
     # ── 4. Recordatorios próximos (en los próximos 30 min) ──
     try:
         now_utc = datetime.now(timezone.utc)
+        five_min_ago = now_utc - timedelta(minutes=5)
         soon = now_utc + timedelta(minutes=30)
         cursor = db.reminders.find({
             "user_id": user_id,
             "done": False,
             "remind_at": {
-                "$gte": now_utc.isoformat(),
+                "$gte": five_min_ago.isoformat(),
                 "$lte": soon.isoformat(),
+            },
+            "created_at": {
+                "$lte": five_min_ago.isoformat(),
             },
         })
         upcoming_reminders = []
