@@ -22,33 +22,50 @@ import apiClient from '../services/apiClient';
 import { useVoice } from '../voice/VoiceProvider';
 
 /* ─── TTS ejecutivo ───────────────────────────────────── */
+const API_URL = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
+
 let _currentAudio = null;
 
 const speakExecutive = async (text) => {
   if (!text) return;
   try {
+    // Detener cualquier audio previo
     if (_currentAudio) {
       _currentAudio.pause();
       _currentAudio = null;
     }
     window.speechSynthesis.cancel();
 
-    const res = await apiClient.post('/tts', { text }, { responseType: 'blob' });
-    const blob = res.data;
-    const url = URL.createObjectURL(blob);
-    const audio = new Audio(url);
-    _currentAudio = audio;
-    audio.onended = () => {
-      URL.revokeObjectURL(url);
-      _currentAudio = null;
-    };
-    audio.onerror = () => {
-      URL.revokeObjectURL(url);
-      _currentAudio = null;
-    };
-    await audio.play();
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch(`${API_URL}/tts`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ text }),
+    });
+    if (res.ok) {
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const audio = new Audio(url);
+      _currentAudio = audio;
+      audio.onended = () => {
+        URL.revokeObjectURL(url);
+        _currentAudio = null;
+      };
+      audio.onerror = () => {
+        URL.revokeObjectURL(url);
+        _currentAudio = null;
+      };
+      await audio.play();
+    } else {
+      console.error('TTS error: server returned', res.status);
+      // NO fallback a Web Speech API — voz diferente confunde al usuario
+    }
   } catch (err) {
     console.error('TTS error:', err);
+    // NO fallback a Web Speech API
   }
 };
 
@@ -205,6 +222,7 @@ export default function MessagesPage() {
   const { startListening, voiceState, STATES, setWakeWordEnabled } = useVoice();
   const [voiceListening, setVoiceListening] = useState(false);
 
+  /* ── fetch ── */
   const fetchEmails = useCallback(async () => {
     setLoading(true);
     try {
@@ -241,6 +259,7 @@ export default function MessagesPage() {
     setDraftInstructions('');
     setShowReplyBox(false);
     setAttachmentSummaries([]);
+    // Detener cualquier audio al cambiar de email
     if (_currentAudio) {
       _currentAudio.pause();
       _currentAudio = null;
@@ -248,6 +267,7 @@ export default function MessagesPage() {
     try { window.speechSynthesis.cancel(); } catch (_) { }
   };
 
+  /* ── AI ── */
   const handleSummarize = async () => {
     if (!selectedEmail?.email?.id) return;
     setSummaryLoading(true);
@@ -314,15 +334,19 @@ export default function MessagesPage() {
   const renderEmailBody = () => {
     const body = selectedEmail?.email?.body || '';
     if (!body) return '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
+    // Si es texto plano (sin tags HTML), convertir saltos de línea
     const htmlContent = body.includes('<') ? body : body.replace(/\n/g, '<br/>');
+    // Sanitizar SIEMPRE antes de renderizar
     return sanitizeHTML(htmlContent);
   };
 
   const currentAttachments = selectedEmail?.email?.attachments || [];
 
+  /* ── UI ── */
   return (
     <Layout>
       <div className="flex h-[calc(100vh-64px)] overflow-hidden">
+        {/* ══ LEFT — Lista ══════════════════════════════════ */}
         <div className="w-full md:w-[38%] flex flex-col border-r border-[rgba(255,255,255,0.05)]"
           style={{ background: 'rgba(6,6,10,0.6)' }}>
           <div className="px-3 sm:px-5 py-2 border-b border-[rgba(255,255,255,0.03)]">
@@ -410,6 +434,7 @@ export default function MessagesPage() {
           </ScrollArea>
         </div>
 
+        {/* ══ RIGHT — Detalle ═══════════════════════════════ */}
         <div className="hidden md:flex md:flex-1 flex-col overflow-hidden"
           style={{ background: 'rgba(8,8,12,0.7)' }}>
 
@@ -423,6 +448,7 @@ export default function MessagesPage() {
                 transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="flex flex-col h-full"
               >
+                {/* Header */}
                 <div className="px-8 py-5 border-b border-[rgba(255,255,255,0.05)] flex-shrink-0">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
@@ -476,6 +502,7 @@ export default function MessagesPage() {
                 <ScrollArea className="flex-1 px-8 py-6">
                   <div className="space-y-5 max-w-2xl">
 
+                    {/* Resumen email */}
                     <AnimatePresence>
                       {summary && (
                         <motion.div
@@ -507,6 +534,7 @@ export default function MessagesPage() {
                       )}
                     </AnimatePresence>
 
+                    {/* Resúmenes de adjuntos */}
                     <AnimatePresence>
                       {attachmentSummaries.map((as) => (
                         <motion.div
@@ -539,6 +567,7 @@ export default function MessagesPage() {
                       ))}
                     </AnimatePresence>
 
+                    {/* Lista adjuntos */}
                     <AnimatePresence>
                       {currentAttachments.length > 0 && (
                         <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} className="space-y-2">
@@ -555,6 +584,7 @@ export default function MessagesPage() {
                       )}
                     </AnimatePresence>
 
+                    {/* Cuerpo email — SANITIZADO */}
                     <div className="rounded-2xl p-6 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
                       <div
                         className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed whitespace-pre-wrap"
@@ -563,6 +593,7 @@ export default function MessagesPage() {
                       />
                     </div>
 
+                    {/* Reply box */}
                     <AnimatePresence>
                       {showReplyBox && (
                         <motion.div
