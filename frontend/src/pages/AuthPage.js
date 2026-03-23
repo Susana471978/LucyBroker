@@ -185,7 +185,8 @@ export default function AuthPage() {
           width: 100%;
           height: 100%;
           object-fit: cover;
-          object-position: center 20%;
+          object-position: center 25%;
+          transform: scale(0.85);
           z-index: 1;
         }
 
@@ -193,8 +194,8 @@ export default function AuthPage() {
           position: absolute;
           inset: 0;
           background:
-            linear-gradient(to right,  #000000 0%, transparent 14%, transparent 86%, #000000 100%),
-            linear-gradient(to bottom, #000000 0%, transparent 8%, transparent 75%, #000000 100%);
+            linear-gradient(to right,  #000000 0%, transparent 20%, transparent 80%, #000000 100%),
+            linear-gradient(to bottom, #000000 0%, transparent 15%, transparent 60%, #000000 95%);
           z-index: 2;
           pointer-events: none;
         }
@@ -202,8 +203,8 @@ export default function AuthPage() {
         .lucy-label {
           position: relative;
           z-index: 4;
-          text-align: center;
-          padding: 0 1rem 2.5rem;
+          bottom: 18%;
+          padding: 0 1rem;
         }
 
         .lucy-title {

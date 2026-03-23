@@ -104,3 +104,4 @@ function handleGoTo(payload, navigate) {
             openMessageById(payload.id);
         }
     }
+}   

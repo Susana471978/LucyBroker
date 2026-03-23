@@ -289,7 +289,7 @@ async def tts_endpoint(
         raise HTTPException(status_code=400, detail="Texto vacío")
 
     try:
-        audio_bytes = generate_tts_audio(text)
+        audio_bytes = await generate_tts_audio(text)
         return Response(content=audio_bytes, media_type="audio/mpeg")
     except HTTPException:
         raise
@@ -406,6 +406,31 @@ async def get_me(
     legacy["gmail_connected"] = bool(user.get("gmail_connected", False))
 
     return build_response(request, data=legacy, legacy=legacy)
+
+from pydantic import BaseModel as _BaseModel
+ 
+class _LanguageUpdate(_BaseModel):
+    language: str   # "es" | "en"
+ 
+@api_router.put("/auth/language")
+async def update_language(
+    request: Request,
+    body: _LanguageUpdate,
+    user: Dict[str, Any] = Depends(get_current_user),
+    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+):
+    lang = body.language.strip().lower()
+    if lang not in ("es", "en"):
+        raise HTTPException(status_code=400, detail="Idioma no soportado. Usa 'es' o 'en'.")
+ 
+    await db_update_one(
+        db.users,
+        {"id": user["id"]},
+        {"$set": {"language": lang}},
+    )
+ 
+    data = {"language": lang}
+    return build_response(request, data=data, legacy=data)
 
 
 # ======================================================

@@ -8,13 +8,14 @@ from datetime import datetime, timezone, timedelta
 from pathlib import Path
 from typing import Any, Callable, Dict, List
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import RedirectResponse
 
 from google_auth_oauthlib.flow import Flow
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build as build_service
 
+from backend.services.google_auth import get_valid_credentials
 from backend.utils.response import build_response
 from backend.utils.logger import logger
 
@@ -64,21 +65,18 @@ def _parse_event(event: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-async def fetch_today_events(user: Dict[str, Any]) -> List[Dict[str, Any]]:
+async def fetch_today_events(user: Dict[str, Any], db) -> List[Dict[str, Any]]:
+    """Fetch today's events. Now accepts *db* so it can refresh tokens."""
     if not user.get("calendar_connected"):
         return []
-    tokens = user.get("calendar_tokens") or {}
-    if not tokens.get("token"):
+
+    creds = await get_valid_credentials(
+        user, db, token_field="calendar_tokens", default_scopes=CALENDAR_SCOPES,
+    )
+    if creds is None:
         return []
+
     try:
-        creds = Credentials(
-            token=tokens.get("token"),
-            refresh_token=tokens.get("refresh_token"),
-            token_uri=tokens.get("token_uri"),
-            client_id=tokens.get("client_id"),
-            client_secret=tokens.get("client_secret"),
-            scopes=tokens.get("scopes") or CALENDAR_SCOPES,
-        )
         service = build_service("calendar", "v3", credentials=creds)
         now = datetime.now(timezone.utc)
         start_of_day = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -99,23 +97,21 @@ async def fetch_today_events(user: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 async def fetch_upcoming_events(
     user: Dict[str, Any],
+    db,
     days: int = 7,
     max_results: int = 20,
 ) -> List[Dict[str, Any]]:
+    """Fetch upcoming events. Now accepts *db* so it can refresh tokens."""
     if not user.get("calendar_connected"):
         return []
-    tokens = user.get("calendar_tokens") or {}
-    if not tokens.get("token"):
+
+    creds = await get_valid_credentials(
+        user, db, token_field="calendar_tokens", default_scopes=CALENDAR_SCOPES,
+    )
+    if creds is None:
         return []
+
     try:
-        creds = Credentials(
-            token=tokens.get("token"),
-            refresh_token=tokens.get("refresh_token"),
-            token_uri=tokens.get("token_uri"),
-            client_id=tokens.get("client_id"),
-            client_secret=tokens.get("client_secret"),
-            scopes=tokens.get("scopes") or CALENDAR_SCOPES,
-        )
         service = build_service("calendar", "v3", credentials=creds)
         now = datetime.now(timezone.utc)
         end = now + timedelta(days=days)
@@ -146,7 +142,6 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         data = {"calendar_connected": bool(user.get("calendar_connected", False))}
         return build_response(request, data=data, legacy=data)
 
-
     @router.get("/calendar/auth")
     async def calendar_auth(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
         flow = _get_calendar_flow(REDIRECT_URI, state=user["id"])
@@ -159,6 +154,7 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
 
         data = {"auth_url": auth_url}
         return build_response(request, data=data, legacy=data)
+
     @router.get("/calendar/callback")
     async def calendar_callback(code: str, state: str = Query(...)):
         flow = _get_calendar_flow(REDIRECT_URI, state=state)
@@ -193,7 +189,7 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
 
     @router.get("/calendar/today")
     async def calendar_today(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
-        events = await fetch_today_events(user)
+        events = await fetch_today_events(user, db)
         return build_response(request, data=events, legacy=events)
 
     @router.get("/calendar/upcoming")
@@ -203,7 +199,7 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         days: int = Query(7, ge=1, le=30),
         max_results: int = Query(20, ge=1, le=50),
     ):
-        events = await fetch_upcoming_events(user, days=days, max_results=max_results)
+        events = await fetch_upcoming_events(user, db, days=days, max_results=max_results)
         return build_response(request, data=events, legacy=events)
 
     @router.post("/calendar/events")
@@ -217,12 +213,12 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         """
         body = await request.json()
         title = body.get("title", "").strip()
-        date = body.get("date", "")          # "2026-03-10"
-        start_time = body.get("start_time", "09:00")   # "HH:MM"
+        date = body.get("date", "")
+        start_time = body.get("start_time", "09:00")
         end_time = body.get("end_time", "10:00")
         description = body.get("description", "")
         location = body.get("location", "")
-        attendees_raw = body.get("attendees", [])        # ["email@x.com", ...]
+        attendees_raw = body.get("attendees", [])
 
         if not title or not date:
             raise HTTPException(status_code=400, detail="title y date son obligatorios")
@@ -230,15 +226,14 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         if not user.get("calendar_connected"):
             raise HTTPException(status_code=400, detail="Calendario no conectado")
 
-        tokens = user.get("calendar_tokens") or {}
-        creds = Credentials(
-            token=tokens.get("token"),
-            refresh_token=tokens.get("refresh_token"),
-            token_uri=tokens.get("token_uri"),
-            client_id=tokens.get("client_id"),
-            client_secret=tokens.get("client_secret"),
-            scopes=tokens.get("scopes") or CALENDAR_SCOPES,
+        creds = await get_valid_credentials(
+            user, db, token_field="calendar_tokens", default_scopes=CALENDAR_SCOPES,
         )
+        if creds is None:
+            raise HTTPException(
+                status_code=401,
+                detail="Token de calendario expirado. Por favor, reconecta tu calendario.",
+            )
 
         service = build_service("calendar", "v3", credentials=creds)
 

@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 from backend.models import EmailEvent
 from backend.services.rules_engine import calculate_priority
 from backend.services.contact_memory import record_interaction, get_contact_memory
+from backend.services.google_auth import get_valid_credentials
 from backend.utils.response import build_response
 
 
@@ -213,19 +214,11 @@ async def fetch_enriched_messages(
     if not user.get("gmail_connected"):
         return []
 
-    tokens = user.get("gmail_tokens") or {}
-
-    if not tokens.get("token"):
-        return []
-
-    creds = Credentials(
-        token=tokens.get("token"),
-        refresh_token=tokens.get("refresh_token"),
-        token_uri=tokens.get("token_uri"),
-        client_id=tokens.get("client_id"),
-        client_secret=tokens.get("client_secret"),
-        scopes=tokens.get("scopes") or SCOPES,
+    creds = await get_valid_credentials(
+        user, db, token_field="gmail_tokens", default_scopes=SCOPES,
     )
+    if creds is None:
+        return []
 
     service = build_service("gmail", "v1", credentials=creds)
 

@@ -20,6 +20,7 @@ from backend.services.executive_memory import set_memory, get_memory
 from backend.services.contact_memory import get_all_contacts, build_contact_insight
 from backend.services.user_memory import get_user_memory, build_user_memory_context
 from backend.services.ai_service import AIService, generate_llm_response
+from backend.utils.logger import logger
 
 router = APIRouter(prefix="/assistant", tags=["Assistant"])
 
@@ -319,22 +320,16 @@ async def _create_calendar_event_direct(
     user: Dict[str, Any],
     event_data: Dict[str, Any],
 ) -> Optional[Dict[str, Any]]:
-    from google.oauth2.credentials import Credentials
     from googleapiclient.discovery import build as build_service
+    from backend.services.google_auth import get_valid_credentials
 
-    tokens = user.get("calendar_tokens") or {}
-    if not tokens.get("token"):
+    creds = await get_valid_credentials(
+        user, db, token_field="calendar_tokens", default_scopes=CALENDAR_SCOPES,
+    )
+    if creds is None:
         return None
 
     try:
-        creds = Credentials(
-            token=tokens.get("token"),
-            refresh_token=tokens.get("refresh_token"),
-            token_uri=tokens.get("token_uri"),
-            client_id=tokens.get("client_id"),
-            client_secret=tokens.get("client_secret"),
-            scopes=tokens.get("scopes") or CALENDAR_SCOPES,
-        )
         service = build_service("calendar", "v3", credentials=creds)
 
         date       = event_data.get("date", "")
@@ -434,7 +429,7 @@ async def assistant_endpoint(
                     ),
                     actions=None,
                     status="ok",
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
 
             event_data = await _extract_event_data(user_text)
@@ -451,7 +446,7 @@ async def assistant_endpoint(
                     assistant_text=text,
                     actions=actions,
                     status="ok",
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
 
         # ── INTENCIÓN: crear tarea ─────────────────────────────────────────
@@ -510,7 +505,7 @@ Reglas:
                             payload={"id": str(_result.inserted_id), "title": _task_data["title"]},
                         )],
                         status="ok",
-                        timestamp=datetime.utcnow().isoformat(),
+                        timestamp=datetime.now(timezone.utc).isoformat(),
                     )
             except Exception as e:
                 print(f"[assistant] Task extraction error: {e}")
@@ -538,14 +533,14 @@ Reglas:
                         payload={"id": str(result.inserted_id), "text": reminder_data["text"], "remind_at": reminder_data["remind_at"]},
                     )],
                     status="ok",
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
             else:
                 return AssistantResponse(
                     assistant_text="¿A qué hora quieres que te lo recuerde?",
                     actions=None,
                     status="ok",
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
 
         # ── INTENCIÓN: guardar nota / idea / memoria ───────────────────────
@@ -558,7 +553,7 @@ Reglas:
                     assistant_text="¿Qué quieres que anote exactamente?",
                     actions=None,
                     status="ok",
-                    timestamp=datetime.utcnow().isoformat(),
+                    timestamp=datetime.now(timezone.utc).isoformat(),
                 )
 
             await add_memory_note(db, user["id"], note_text, category)
@@ -577,7 +572,7 @@ Reglas:
                 assistant_text=responses.get(category, responses["general"]),
                 actions=[AssistantAction(type="memory_saved", payload={"note": note_text, "category": category})],
                 status="ok",
-                timestamp=datetime.utcnow().isoformat(),
+                timestamp=datetime.now(timezone.utc).isoformat(),
             )
 
         # ── RECOPILAR CONTEXTO (PARALELO) ──────────────────────────────────
@@ -600,7 +595,7 @@ Reglas:
             if not user.get("calendar_connected"):
                 return []
             try:
-                return await fetch_today_events(user)
+                return await fetch_today_events(user, db)
             except Exception as e:
                 calendar_ok = False
                 print(f"[assistant] Calendar fetch error: {e}")
@@ -619,15 +614,7 @@ Reglas:
             except Exception:
                 return {"habits": [], "completed": 0, "total": 0}
 
-        (
-            items,
-            calendar_events,
-            exec_memory,
-            contacts,
-            user_mem_doc,
-            pending_tasks,
-            habits_summary,
-        ) = await asyncio.gather(
+        _results = await asyncio.gather(
             _fetch_gmail(),
             _fetch_calendar(),
             get_memory(db, user["id"]),
@@ -635,7 +622,25 @@ Reglas:
             get_user_memory(db, user["id"]),
             _fetch_tasks(),
             _fetch_habits(),
+            return_exceptions=True,
         )
+
+        # Safely unpack — replace any exception with a sensible default
+        def _safe(val, default):
+            return default if isinstance(val, BaseException) else val
+
+        items            = _safe(_results[0], [])
+        calendar_events  = _safe(_results[1], [])
+        exec_memory      = _safe(_results[2], {})
+        contacts         = _safe(_results[3], [])
+        user_mem_doc     = _safe(_results[4], None)
+        pending_tasks    = _safe(_results[5], [])
+        habits_summary   = _safe(_results[6], {"habits": [], "completed": 0, "total": 0})
+
+        # Log any failures (non-fatal)
+        for i, r in enumerate(_results):
+            if isinstance(r, BaseException):
+                logger.warning("Briefing gather task %d failed: %s", i, r)
 
         total = len(items)
         prioritarios = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"]
@@ -816,7 +821,7 @@ Si pide crear un evento pero faltan datos, pídele que concrete.
             assistant_text=assistant_text,
             actions=actions,
             status="ok",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
     except Exception as e:
@@ -825,7 +830,7 @@ Si pide crear un evento pero faltan datos, pídele que concrete.
             assistant_text="Disculpa, no he podido procesar tu solicitud en este momento. Inténtalo de nuevo.",
             actions=None,
             status="error",
-            timestamp=datetime.utcnow().isoformat(),
+            timestamp=datetime.now(timezone.utc).isoformat(),
         )
 
 
@@ -855,7 +860,7 @@ Correo:
                 "type": "summary",
                 "text": summary.strip(),
                 "audio": payload.audio_enabled,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         elif payload.mode == "auto_reply":
@@ -870,7 +875,7 @@ Correo:
                 "type": "auto_reply",
                 "text": reply.strip(),
                 "audio": payload.audio_enabled,
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
             }
 
         else:
