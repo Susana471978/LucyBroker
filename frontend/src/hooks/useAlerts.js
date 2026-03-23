@@ -1,9 +1,8 @@
 // frontend/src/hooks/useAlerts.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 
-const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 const POLL_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 export function useAlerts(token) {
@@ -15,14 +14,11 @@ export function useAlerts(token) {
     const fetchAlerts = useCallback(async () => {
         if (!token) return;
         try {
-            const res = await axios.get(`${API}/alerts/check`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            const res = await apiClient.get('/alerts/check');
             const data = res.data?.data || res.data;
             const newAlerts = data.alerts || [];
             setAlerts(newAlerts);
 
-            // Show first unshown alert
             if (newAlerts.length > 0 && !currentAlert) {
                 queueRef.current = [...newAlerts];
                 setCurrentAlert(queueRef.current.shift());
@@ -35,16 +31,13 @@ export function useAlerts(token) {
     const dismissAlert = useCallback(async (alertId) => {
         if (!token || !alertId) return;
         try {
-            await axios.post(`${API}/alerts/dismiss/${alertId}`, {}, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
+            await apiClient.post(`/alerts/dismiss/${alertId}`, {});
         } catch (err) {
             // Silent fail
         }
 
         setCurrentAlert(null);
 
-        // Show next alert in queue after a short delay
         setTimeout(() => {
             if (queueRef.current.length > 0) {
                 setCurrentAlert(queueRef.current.shift());
@@ -55,10 +48,7 @@ export function useAlerts(token) {
     useEffect(() => {
         if (!token) return;
 
-        // Initial fetch after 10 seconds (let the page load first)
         const initialTimer = setTimeout(fetchAlerts, 10000);
-
-        // Poll every 5 minutes
         intervalRef.current = setInterval(fetchAlerts, POLL_INTERVAL);
 
         return () => {

@@ -3,9 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Calendar, Plus, Clock, MapPin, Users, ChevronRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getTodayEvents, getUpcomingEvents, formatEventTime } from '../services/calendarService';
-import axios from 'axios';
-
-const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
+import apiClient from '../services/apiClient';
 
 const today = () => new Date().toISOString().split('T')[0];
 
@@ -70,7 +68,6 @@ export default function CalendarDrawer({ open, onClose }) {
         Promise.all([getTodayEvents(), getUpcomingEvents(7)])
             .then(([t, u]) => {
                 setTodayEvents(Array.isArray(t) ? t : []);
-                // upcoming excluye los de hoy
                 const todayStr = today();
                 setUpcomingEvents(Array.isArray(u) ? u.filter(e => {
                     const d = e.start?.split('T')[0] || '';
@@ -83,18 +80,16 @@ export default function CalendarDrawer({ open, onClose }) {
 
     const handleCreate = async () => {
         if (!form.title || !form.date) { setError('Título y fecha son obligatorios'); return; }
+        if (saving) return;
         setSaving(true); setError('');
         try {
             const attendees = form.attendees
                 ? form.attendees.split(',').map(e => e.trim()).filter(e => e.includes('@'))
                 : [];
-            await axios.post(`${API}/calendar/events`, { ...form, attendees }, {
-                headers: { Authorization: `Bearer ${token}` }
-            });
+            await apiClient.post('/calendar/events', { ...form, attendees });
             setSaved(true);
             setForm(EMPTY_FORM);
             setShowForm(false);
-            // Recargar eventos
             const [t, u] = await Promise.all([getTodayEvents(), getUpcomingEvents(7)]);
             setTodayEvents(Array.isArray(t) ? t : []);
             const todayStr = today();
@@ -109,20 +104,17 @@ export default function CalendarDrawer({ open, onClose }) {
         <AnimatePresence>
             {open && (
                 <>
-                    {/* Backdrop */}
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                         onClick={onClose}
                         className="fixed inset-0 z-40"
                         style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(4px)' }} />
 
-                    {/* Panel */}
                     <motion.div
                         initial={{ x: '100%' }} animate={{ x: 0 }} exit={{ x: '100%' }}
                         transition={{ type: 'spring', damping: 28, stiffness: 260 }}
                         className="fixed right-0 top-0 bottom-0 z-50 flex flex-col w-full sm:w-[380px]"
                         style={{ background: '#0C0E14', borderLeft: '1px solid rgba(201,178,124,0.1)' }}>
 
-                        {/* Header */}
                         <div className="flex items-center justify-between px-6 py-5 border-b border-[rgba(255,255,255,0.05)]">
                             <div className="flex items-center gap-2.5">
                                 <Calendar className="w-4 h-4 text-[rgba(201,178,124,0.6)]" />
@@ -140,7 +132,6 @@ export default function CalendarDrawer({ open, onClose }) {
                             </div>
                         </div>
 
-                        {/* Formulario nuevo evento */}
                         <AnimatePresence>
                             {showForm && (
                                 <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }}
@@ -195,7 +186,6 @@ export default function CalendarDrawer({ open, onClose }) {
                             )}
                         </AnimatePresence>
 
-                        {/* Confirmación */}
                         <AnimatePresence>
                             {saved && (
                                 <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -205,7 +195,6 @@ export default function CalendarDrawer({ open, onClose }) {
                             )}
                         </AnimatePresence>
 
-                        {/* Contenido */}
                         <div className="flex-1 overflow-y-auto py-4">
                             {loading ? (
                                 <div className="flex items-center justify-center py-16">
@@ -218,7 +207,6 @@ export default function CalendarDrawer({ open, onClose }) {
                                 </div>
                             ) : (
                                 <>
-                                    {/* Hoy */}
                                     <div className="px-6 mb-2">
                                         <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Hoy</p>
                                     </div>
@@ -231,7 +219,6 @@ export default function CalendarDrawer({ open, onClose }) {
                                         </div>
                                     )}
 
-                                    {/* Próximos */}
                                     {upcomingEvents.length > 0 && (
                                         <>
                                             <div className="px-6 mt-5 mb-2">
@@ -240,7 +227,6 @@ export default function CalendarDrawer({ open, onClose }) {
                                             <div className="px-2">
                                                 {upcomingEvents.map((e, i) => (
                                                     <div key={e.id || i}>
-                                                        {/* Separador de fecha si cambia */}
                                                         {(i === 0 || e.start?.split('T')[0] !== upcomingEvents[i - 1]?.start?.split('T')[0]) && (
                                                             <p className="px-4 pt-2 pb-1 text-xs text-[rgba(201,178,124,0.3)] capitalize">
                                                                 {new Date(e.start).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}
@@ -256,7 +242,6 @@ export default function CalendarDrawer({ open, onClose }) {
                             )}
                         </div>
 
-                        {/* Footer */}
                         <div className="px-6 py-4 border-t border-[rgba(255,255,255,0.05)]">
                             <p className="text-xs text-[rgba(255,255,255,0.08)] uppercase tracking-[0.1em] text-center">Google Calendar · sincronizado</p>
                         </div>

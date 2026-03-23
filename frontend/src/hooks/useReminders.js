@@ -1,9 +1,8 @@
 // frontend/src/hooks/useReminders.js
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 
-const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 const POLL_INTERVAL = 30000; // 30 seconds
 
 export function useReminders(token, ttsEnabled) {
@@ -12,26 +11,23 @@ export function useReminders(token, ttsEnabled) {
     const audioRef = useRef(null);
     const pollingRef = useRef(null);
 
-    const headers = { Authorization: `Bearer ${token}` };
-
     // ── Check for due reminders ──
     const checkReminders = useCallback(async () => {
         if (!token) return;
         try {
-            const res = await axios.get(`${API}/reminders/check`, { headers });
+            const res = await apiClient.get('/reminders/check');
             const data = res.data?.data || res.data;
             const due = data.due || [];
 
             if (due.length > 0) {
                 setDueReminders(prev => {
-                    // Only add new ones
                     const existingIds = new Set(prev.map(r => r.id));
                     const newOnes = due.filter(r => !existingIds.has(r.id));
                     return [...prev, ...newOnes];
                 });
             }
         } catch (err) {
-            // Silent fail — don't break the app for reminder polling
+            // Silent fail
         }
     }, [token]);
 
@@ -42,15 +38,11 @@ export function useReminders(token, ttsEnabled) {
             setCurrentReminder(next);
             setDueReminders(prev => prev.slice(1));
 
-            // Speak the reminder if TTS enabled
             if (ttsEnabled) {
                 speakReminder(next.text);
             }
 
-            // Show browser notification if permitted
             showNotification(next.text);
-
-            // Mark as notified on the server
             markNotified(next.id);
         }
     }, [dueReminders, currentReminder, ttsEnabled]);
@@ -59,17 +51,11 @@ export function useReminders(token, ttsEnabled) {
     const speakReminder = async (text) => {
         try {
             const lucyText = `Recordatorio: ${text}`;
-            const res = await fetch(`${API}/tts`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                body: JSON.stringify({ text: lucyText }),
-            });
-            if (res.ok) {
-                const blob = await res.blob();
-                const audio = new Audio(URL.createObjectURL(blob));
-                audioRef.current = audio;
-                await audio.play();
-            }
+            const res = await apiClient.post('/tts', { text: lucyText }, { responseType: 'blob' });
+            const blob = res.data;
+            const audio = new Audio(URL.createObjectURL(blob));
+            audioRef.current = audio;
+            await audio.play();
         } catch (err) {
             console.error('Reminder TTS error:', err);
         }
@@ -90,7 +76,7 @@ export function useReminders(token, ttsEnabled) {
     // ── Mark as notified on server ──
     const markNotified = async (reminderId) => {
         try {
-            await axios.post(`${API}/reminders/${reminderId}/mark`, {}, { headers });
+            await apiClient.post(`/reminders/${reminderId}/mark`, {});
         } catch (err) {
             console.error('Mark notified error:', err);
         }
@@ -116,13 +102,9 @@ export function useReminders(token, ttsEnabled) {
     useEffect(() => {
         if (!token) return;
 
-        // Request permission on mount
         requestPermission();
-
-        // Initial check
         checkReminders();
 
-        // Poll every 30 seconds
         pollingRef.current = setInterval(checkReminders, POLL_INTERVAL);
 
         return () => {

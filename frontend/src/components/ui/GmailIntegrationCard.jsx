@@ -1,14 +1,7 @@
 import { useEffect, useState, memo, useRef } from "react";
-import axios from "axios";
-
-
-const API =
-    process.env.NODE_ENV === "production"
-        ? "/api"
-        : "http://127.0.0.1:8000/api";
+import apiClient from "../../services/apiClient";
 
 function GmailIntegrationCard() {
-    // Hotfix: Ensure disconnect handler exists
     const handleDisconnectVisual = () => {
         setGmailConnected(false);
         setGmailEmail(null);
@@ -19,11 +12,10 @@ function GmailIntegrationCard() {
     const stableRef = useRef({ connected: null, email: null });
     const [loading, setLoading] = useState(false);
 
-    // CHECK STATUS
     const checkStatus = async () => {
         try {
-            const res = await axios.get(`${API}/gmail/status`, { withCredentials: true });
-            const data = res?.data || {};
+            const res = await apiClient.get("/gmail/status");
+            const data = res?.data?.data || res?.data || {};
 
             const normalizedConnected =
                 Boolean(data.gmail_connected) ||
@@ -32,7 +24,6 @@ function GmailIntegrationCard() {
 
             const nextEmail = data.email || null;
 
-            // Actualizar solo si cambia
             const prev = stableRef.current;
             const changed =
                 prev.connected !== normalizedConnected || prev.email !== nextEmail;
@@ -49,6 +40,16 @@ function GmailIntegrationCard() {
             setGmailEmail(null);
         } finally {
             setReady(true);
+        }
+    };
+
+    const connectGmail = async () => {
+        try {
+            const res = await apiClient.get("/gmail/auth");
+            const url = res.data?.data?.auth_url || res.data?.auth_url;
+            if (url) window.location.href = url;
+        } catch (err) {
+            console.error("Gmail connect error:", err);
         }
     };
 

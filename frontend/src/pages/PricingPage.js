@@ -3,10 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import Layout from '../components/Layout';
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 import { Check, Star, Zap, Shield, Crown, ArrowRight } from 'lucide-react';
-
-const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
 const FEATURE_LABELS = {
     briefing_matutino: 'Briefing matutino con IA',
@@ -28,9 +26,6 @@ const FEATURE_LABELS = {
     info_search: 'Búsqueda rápida de información',
 };
 
-/* ─────────────────────────────────────────────────────────
-   PLAN CARD
-───────────────────────────────────────────────────────── */
 const PlanCard = ({ plan, currentPlans, onCheckout, loading, featured = false, delay = 0 }) => {
     const isActive = currentPlans.includes(plan.key);
 
@@ -111,9 +106,6 @@ const PlanCard = ({ plan, currentPlans, onCheckout, loading, featured = false, d
     );
 };
 
-/* ─────────────────────────────────────────────────────────
-   BUNDLE CARD
-───────────────────────────────────────────────────────── */
 const BundleCard = ({ plan, savings, currentPlans, onCheckout, loading, delay = 0 }) => {
     const isActive = currentPlans.includes(plan.key);
 
@@ -181,9 +173,6 @@ const BundleCard = ({ plan, savings, currentPlans, onCheckout, loading, delay = 
     );
 };
 
-/* ─────────────────────────────────────────────────────────
-   PRICING PAGE
-───────────────────────────────────────────────────────── */
 export default function PricingPage() {
     const { token } = useAuth();
     const navigate = useNavigate();
@@ -193,12 +182,10 @@ export default function PricingPage() {
     const [loading, setLoading] = useState(true);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-    const headers = token ? { Authorization: `Bearer ${token}` } : {};
-
     useEffect(() => {
         const fetchPlans = async () => {
             try {
-                const res = await axios.get(`${API}/billing/plans`);
+                const res = await apiClient.get('/billing/plans');
                 const data = res.data?.data || res.data;
                 setPlans(data.plans || {});
             } catch (err) { console.error('Plans fetch:', err); }
@@ -211,7 +198,7 @@ export default function PricingPage() {
         if (!token) return;
         const fetchSub = async () => {
             try {
-                const res = await axios.get(`${API}/billing/subscription`, { headers });
+                const res = await apiClient.get('/billing/subscription');
                 const data = res.data?.data || res.data;
                 setCurrentPlans(data.plans || []);
             } catch (err) { console.error('Subscription fetch:', err); }
@@ -226,7 +213,7 @@ export default function PricingPage() {
         }
         setCheckoutLoading(true);
         try {
-            const res = await axios.post(`${API}/billing/checkout?plan=${planKey}`, {}, { headers });
+            const res = await apiClient.post(`/billing/checkout?plan=${planKey}`, {});
             const data = res.data?.data || res.data;
             if (data.checkout_url) {
                 window.location.href = data.checkout_url;
@@ -273,13 +260,8 @@ export default function PricingPage() {
                     </p>
                 </motion.div>
 
-                {/* ── SECRETARIA EJECUTIVA ── */}
                 <section>
-                    <motion.div
-                        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.1, duration: 0.5 }}
-                        className="flex items-center gap-3 mb-6"
-                    >
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1, duration: 0.5 }} className="flex items-center gap-3 mb-6">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(0,180,216,0.06)] border border-[rgba(0,180,216,0.15)]">
                             <Shield className="w-4 h-4 text-[rgba(0,180,216,0.6)]" />
                         </div>
@@ -288,29 +270,15 @@ export default function PricingPage() {
                             <p className="text-xs text-[rgba(224,247,250,0.25)]">Gestión profesional del día a día</p>
                         </div>
                     </motion.div>
-
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         {plans?.executive?.map((plan, i) => (
-                            <PlanCard
-                                key={plan.key}
-                                plan={plan}
-                                currentPlans={currentPlans}
-                                onCheckout={handleCheckout}
-                                loading={checkoutLoading}
-                                featured={plan.tier === 'pro'}
-                                delay={0.15 + i * 0.08}
-                            />
+                            <PlanCard key={plan.key} plan={plan} currentPlans={currentPlans} onCheckout={handleCheckout} loading={checkoutLoading} featured={plan.tier === 'pro'} delay={0.15 + i * 0.08} />
                         ))}
                     </div>
                 </section>
 
-                {/* ── ASISTENTE PERSONAL ── */}
                 <section>
-                    <motion.div
-                        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3, duration: 0.5 }}
-                        className="flex items-center gap-3 mb-6"
-                    >
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }} className="flex items-center gap-3 mb-6">
                         <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(0,180,216,0.06)] border border-[rgba(0,180,216,0.15)]">
                             <Zap className="w-4 h-4 text-[rgba(0,180,216,0.6)]" />
                         </div>
@@ -319,28 +287,15 @@ export default function PricingPage() {
                             <p className="text-xs text-[rgba(224,247,250,0.25)]">Tu vida organizada por voz</p>
                         </div>
                     </motion.div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 max-w-2xl">
                         {plans?.personal?.map((plan, i) => (
-                            <PlanCard
-                                key={plan.key}
-                                plan={plan}
-                                currentPlans={currentPlans}
-                                onCheckout={handleCheckout}
-                                loading={checkoutLoading}
-                                featured={plan.tier === 'pro'}
-                                delay={0.35 + i * 0.08}
-                            />
+                            <PlanCard key={plan.key} plan={plan} currentPlans={currentPlans} onCheckout={handleCheckout} loading={checkoutLoading} featured={plan.tier === 'pro'} delay={0.35 + i * 0.08} />
                         ))}
                     </div>
                 </section>
 
-                {/* ── BUNDLE ── */}
                 <section>
-                    <motion.div
-                        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.5, duration: 0.5 }}
-                    >
+                    <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5, duration: 0.5 }}>
                         <div className="flex items-center gap-3 mb-6">
                             <div className="w-8 h-8 rounded-xl flex items-center justify-center bg-[rgba(201,178,124,0.06)] border border-[rgba(201,178,124,0.15)]">
                                 <Crown className="w-4 h-4 text-[rgba(201,178,124,0.6)]" />
@@ -350,28 +305,15 @@ export default function PricingPage() {
                                 <p className="text-xs text-[rgba(224,247,250,0.25)]">Ambos productos con 25% de descuento</p>
                             </div>
                         </div>
-
                         <div className="space-y-3">
                             {plans?.bundle?.map((plan, i) => (
-                                <BundleCard
-                                    key={plan.key}
-                                    plan={plan}
-                                    savings={bundleSavings[plan.key] || 0}
-                                    currentPlans={currentPlans}
-                                    onCheckout={handleCheckout}
-                                    loading={checkoutLoading}
-                                    delay={0.55 + i * 0.08}
-                                />
+                                <BundleCard key={plan.key} plan={plan} savings={bundleSavings[plan.key] || 0} currentPlans={currentPlans} onCheckout={handleCheckout} loading={checkoutLoading} delay={0.55 + i * 0.08} />
                             ))}
                         </div>
                     </motion.div>
                 </section>
 
-                <motion.div
-                    initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    transition={{ delay: 0.7, duration: 0.5 }}
-                    className="text-center py-8"
-                >
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.7, duration: 0.5 }} className="text-center py-8">
                     <p className="text-xs text-[rgba(224,247,250,0.2)] leading-relaxed max-w-md mx-auto">
                         Prueba Lucy gratis durante 4 horas. Sin compromiso, cancela cuando quieras.
                         Los precios no incluyen IVA.
