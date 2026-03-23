@@ -16,6 +16,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build as build_service
 
 from backend.services.google_auth import get_valid_credentials
+from backend.services.token_encryption import encrypt_tokens
 from backend.utils.response import build_response
 from backend.utils.logger import logger
 
@@ -173,8 +174,7 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         }
         await db.users.update_one(
             {"id": state},
-            {"$set": {"calendar_tokens": tokens, "calendar_connected": True}},
-        )
+            {"$set": {"calendar_tokens": encrypt_tokens(tokens), "calendar_connected": True}},        )
         frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
         return RedirectResponse(url=f"{frontend_url}/app")
 
