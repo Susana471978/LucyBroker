@@ -1,15 +1,12 @@
 import apiClient from './apiClient';
 
-const BASE_URL = process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000';
-const BASE = `${BASE_URL}/api/calendar`;
-
 export const getCalendarStatus = async () => {
-    const res = await apiClient.get(`${BASE}/status`);
+    const res = await apiClient.get('/calendar/status');
     return res.data?.data ?? res.data;
 };
 
 export const connectCalendar = async () => {
-    const res = await apiClient.get(`${BASE}/auth`);
+    const res = await apiClient.get('/calendar/auth');
     const data = res.data?.data ?? res.data;
     if (data?.auth_url) {
         window.location.href = data.auth_url;
@@ -17,24 +14,24 @@ export const connectCalendar = async () => {
 };
 
 export const disconnectCalendar = async () => {
-    const res = await apiClient.post(`${BASE}/disconnect`);
+    const res = await apiClient.post('/calendar/disconnect');
     return res.data?.data ?? res.data;
 };
 
 export const getTodayEvents = async () => {
-    const res = await apiClient.get(`${BASE}/today`);
+    const res = await apiClient.get('/calendar/today');
     return res.data?.data ?? res.data ?? [];
 };
 
 export const getUpcomingEvents = async (days = 7, maxResults = 20) => {
-    const res = await apiClient.get(`${BASE}/upcoming`, {
+    const res = await apiClient.get('/calendar/upcoming', {
         params: { days, max_results: maxResults },
     });
     return res.data?.data ?? res.data ?? [];
 };
 
 export const createEvent = async ({ title, date, start_time, end_time, description, location, attendees }) => {
-    const res = await apiClient.post(`${BASE}/events`, {
+    const res = await apiClient.post('/calendar/events', {
         title,
         date,
         start_time: start_time || '09:00',

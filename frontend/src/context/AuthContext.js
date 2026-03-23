@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/apiClient';
 
 const TOKEN_KEY = 'auth_token';
+const HEARTBEAT_LOCK_KEY = 'trial_heartbeat_leader';
+const HEARTBEAT_LOCK_TTL = 50000; // 50s — shorter than the 60s interval
 
 const AuthContext = createContext(null);
 
@@ -27,9 +29,13 @@ export const AuthProvider = ({ children }) => {
   // Trial state
   const [trial, setTrial] = useState(null);
 
+  // Unique tab ID for leader election
+  const tabId = useRef(`tab_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
+
   // ---------- Logout ----------
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(HEARTBEAT_LOCK_KEY);
     setToken(null);
     setUser(null);
     setTrial(null);
@@ -117,19 +123,46 @@ export const AuthProvider = ({ children }) => {
     localStorage.setItem('language', lang);
     if (token) {
       try {
-        await api.put(`/auth/language?language=${lang}`);
+        await api.put('/auth/language', { language: lang });
       } catch (error) {
         console.error('Failed to update language:', error);
       }
     }
   };
 
-  // ---------- Trial Heartbeat ----------
+  // ---------- Leader Election for Heartbeat ----------
+  const _tryAcquireLock = useCallback(() => {
+    try {
+      const raw = localStorage.getItem(HEARTBEAT_LOCK_KEY);
+      if (raw) {
+        const lock = JSON.parse(raw);
+        // If the lock is still fresh and belongs to another tab, we're not leader
+        if (lock.tab !== tabId.current && Date.now() - lock.ts < HEARTBEAT_LOCK_TTL) {
+          return false;
+        }
+      }
+      // Acquire or renew the lock
+      localStorage.setItem(
+        HEARTBEAT_LOCK_KEY,
+        JSON.stringify({ tab: tabId.current, ts: Date.now() })
+      );
+      return true;
+    } catch {
+      // localStorage error — assume leader to avoid silent trial freeze
+      return true;
+    }
+  }, []);
+
+  // ---------- Trial Heartbeat (single-tab only) ----------
   useEffect(() => {
     if (!token || !trial) return;
     // Don't heartbeat if subscribed or trial expired
     if (trial.subscription_active || trial.trial_expired) return;
+
     const interval = setInterval(async () => {
+      // Only the leader tab sends heartbeats
+      if (!_tryAcquireLock()) return;
+
       try {
         const response = await api.post('/trial/heartbeat');
         const data = response.data?.data || response.data;
@@ -143,8 +176,28 @@ export const AuthProvider = ({ children }) => {
         console.error('Trial heartbeat error:', error);
       }
     }, 60000); // every 60 seconds
-    return () => clearInterval(interval);
-  }, [token, trial]);
+
+    // Release lock on unmount (tab close)
+    const cleanup = () => {
+      try {
+        const raw = localStorage.getItem(HEARTBEAT_LOCK_KEY);
+        if (raw) {
+          const lock = JSON.parse(raw);
+          if (lock.tab === tabId.current) {
+            localStorage.removeItem(HEARTBEAT_LOCK_KEY);
+          }
+        }
+      } catch { /* ignore */ }
+    };
+
+    window.addEventListener('beforeunload', cleanup);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', cleanup);
+      cleanup();
+    };
+  }, [token, trial, _tryAcquireLock]);
 
   return (
     <AuthContext.Provider

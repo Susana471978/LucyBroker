@@ -15,6 +15,9 @@ from backend.core.database import db
 
 router = APIRouter(prefix="/habits", tags=["habits"])
 
+# Max completions to keep per habit (1 year of daily entries)
+_MAX_COMPLETIONS = 365
+
 
 def _serialize(doc: Dict) -> Dict:
     doc["id"] = str(doc.pop("_id"))
@@ -135,7 +138,7 @@ async def create_habit(
 
 
 # =====================================================
-# TOGGLE COMPLETION (today)
+# TOGGLE COMPLETION (today) — atomic push/pull + $slice
 # =====================================================
 
 @router.post("/{habit_id}/toggle")
@@ -155,20 +158,29 @@ async def toggle_habit(
 
     today = _today_str()
     completions = habit.get("completions", [])
+    already_done = today in completions
 
-    if today in completions:
-        # Unmark
-        completions.remove(today)
+    if already_done:
+        # Unmark — atomic pull
+        await db.habits.update_one(
+            {"_id": oid},
+            {"$pull": {"completions": today}},
+        )
+        completions = [d for d in completions if d != today]
         completed_today = False
     else:
-        # Mark
-        completions.append(today)
+        # Mark — atomic push with $slice to cap at _MAX_COMPLETIONS
+        # $sort -1 keeps newest first so $slice keeps the most recent entries
+        await db.habits.update_one(
+            {"_id": oid},
+            {"$push": {"completions": {
+                "$each": [today],
+                "$sort": -1,
+                "$slice": _MAX_COMPLETIONS,
+            }}},
+        )
+        completions = completions + [today]
         completed_today = True
-
-    await db.habits.update_one(
-        {"_id": oid},
-        {"$set": {"completions": completions}},
-    )
 
     streak = _calculate_streak(completions, today)
 

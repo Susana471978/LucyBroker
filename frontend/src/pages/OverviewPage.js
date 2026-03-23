@@ -5,7 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../voice/VoiceProvider';
 import { setGlobalAudio, stopGlobalAudio } from '../voice/useVoiceEngine';
 import { t } from '../i18n';
-import axios from 'axios';
+import apiClient from '../services/apiClient';
 
 import {
     Inbox, Clock, Paperclip, Sparkles, Link2, Calendar, Brain, FileText
@@ -20,8 +20,6 @@ import { useAlerts } from '../hooks/useAlerts';
 import OnboardingBanner from '../components/OnboardingBanner';
 import { disconnectGmail } from '../services/mailService';
 import { getCalendarStatus, connectCalendar, disconnectCalendar, getTodayEvents, formatEventTime } from '../services/calendarService';
-
-const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
 /* ─────────────────────────────────────────────────────────
    WELCOME OVERLAY
@@ -236,8 +234,7 @@ export default function OverviewPage() {
     const fetchData = useCallback(async () => {
         if (!token) return;
         try {
-            const headers = { Authorization: `Bearer ${token}` };
-            const emailsRes = await axios.get(`${API}/gmail/messages`, { headers });
+            const emailsRes = await apiClient.get('/gmail/messages');
             const emailsData = emailsRes.data?.data || emailsRes.data || [];
             const list = Array.isArray(emailsData) ? emailsData : [];
             setStats({ total: list.length, prioritarios: list.filter(e => e.priority?.priority_label === 'PRIORITARIO').length, seguimiento: list.filter(e => e.priority?.priority_label === 'SEGUIMIENTO').length, with_attachments: list.filter(e => e.email?.has_attachments).length });
@@ -247,7 +244,7 @@ export default function OverviewPage() {
 
     useEffect(() => {
         if (!token) return;
-        axios.get(`${API}/gmail/status`, { headers: { Authorization: `Bearer ${token}` } })
+        apiClient.get('/gmail/status')
             .then(res => { const d = res.data?.data || res.data; setGmailConnected(!!d.gmail_connected); setGmailEmail(d.gmail_email || ''); })
             .catch(console.error).finally(() => setGmailLoading(false));
     }, [token]);
@@ -277,11 +274,11 @@ export default function OverviewPage() {
     // ── sendToLucy — con guard contra doble ejecución ──
     const sendToLucy = useCallback(async (text) => {
         if (!text?.trim()) return;
-        if (briefingInFlightRef.current) return; // Guard contra doble briefing
+        if (briefingInFlightRef.current) return;
         briefingInFlightRef.current = true;
         setSending(true);
         try {
-            const res = await axios.post(`${API}/assistant`, { text }, { headers: { Authorization: `Bearer ${token}` } });
+            const res = await apiClient.post('/assistant', { text });
             const reply = res.data?.assistant_text || res.data?.data?.assistant_text || '';
             if (reply) {
                 setBriefingText(reply);
@@ -291,27 +288,24 @@ export default function OverviewPage() {
                 if (ttsEnabled) {
                     setBriefingIsSpeaking(true);
                     try {
-                        const ttsRes = await fetch(`${API}/tts`, { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }, body: JSON.stringify({ text: reply }) });
-                        if (ttsRes.ok) {
-                            const blob = await ttsRes.blob();
-                            const url = URL.createObjectURL(blob);
-                            const audio = new Audio(url);
+                        const ttsRes = await apiClient.post('/tts', { text: reply }, { responseType: 'blob' });
+                        const blob = ttsRes.data;
+                        const url = URL.createObjectURL(blob);
+                        const audio = new Audio(url);
 
-                            // Registrar en el sistema global de audio para que cancel()/silenciar lo detenga
-                            setGlobalAudio(audio);
+                        setGlobalAudio(audio);
 
-                            audio.onended = () => {
-                                setGlobalAudio(null);
-                                URL.revokeObjectURL(url);
-                                setBriefingIsSpeaking(false);
-                            };
-                            audio.onerror = () => {
-                                setGlobalAudio(null);
-                                URL.revokeObjectURL(url);
-                                setBriefingIsSpeaking(false);
-                            };
-                            await audio.play();
-                        } else { setBriefingIsSpeaking(false); }
+                        audio.onended = () => {
+                            setGlobalAudio(null);
+                            URL.revokeObjectURL(url);
+                            setBriefingIsSpeaking(false);
+                        };
+                        audio.onerror = () => {
+                            setGlobalAudio(null);
+                            URL.revokeObjectURL(url);
+                            setBriefingIsSpeaking(false);
+                        };
+                        await audio.play();
                     } catch { setBriefingIsSpeaking(false); }
                 }
             }
@@ -323,7 +317,7 @@ export default function OverviewPage() {
         }
     }, [token, ttsEnabled]);
 
-    // ── runBriefing — solo se ejecuta una vez por sesión (o si el usuario lo pide explícitamente) ──
+    // ── runBriefing ──
     const runBriefing = useCallback(async (promptText = 'buenos días Lucy, dame mi briefing matutino') => {
         setShowWelcome(false);
         const todayKey = `lucy_briefing_${new Date().toDateString()}`;
@@ -338,13 +332,12 @@ export default function OverviewPage() {
     };
 
     const dismissBriefing = () => {
-        // Detener audio global
         stopGlobalAudio();
         setBriefingVisible(false);
         setBriefingIsSpeaking(false);
     };
 
-    const handleGmailConnect = async () => { try { const res = await axios.get(`${API}/gmail/auth`, { headers: { Authorization: `Bearer ${token}` } }); const url = res.data?.data?.auth_url || res.data?.auth_url; if (url) window.location.href = url; } catch (err) { console.error(err); } };
+    const handleGmailConnect = async () => { try { const res = await apiClient.get('/gmail/auth'); const url = res.data?.data?.auth_url || res.data?.auth_url; if (url) window.location.href = url; } catch (err) { console.error(err); } };
     const handleDisconnect = async () => { try { await disconnectGmail(); setGmailConnected(false); setGmailEmail(''); setStats({ total: 0, prioritarios: 0, seguimiento: 0, with_attachments: 0 }); } catch (err) { console.error(err); } };
     const handleCalendarConnect = async () => { try { await connectCalendar(); } catch (err) { console.error('Calendar connect:', err); } };
     const handleCalendarDisconnect = async () => { try { await disconnectCalendar(); setCalendarConnected(false); setTodayEvents([]); } catch (err) { console.error('Calendar disconnect:', err); } };
@@ -367,7 +360,6 @@ export default function OverviewPage() {
                     <p className="text-sm text-[rgba(255,255,255,0.35)] max-w-xl leading-relaxed">{t(language, 'welcomeSubtitle')}</p>
                 </motion.div>
 
-                {/* ── ONBOARDING — NO puede disparar briefing si ya se completó ── */}
                 <OnboardingBanner
                     gmailConnected={gmailConnected}
                     calendarConnected={calendarConnected}
@@ -377,7 +369,6 @@ export default function OverviewPage() {
                     onRunBriefing={() => { if (!briefingInFlightRef.current) runBriefing(); }}
                 />
 
-                {/* ── ACTION CARDS ── */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ActionCard icon={<Inbox className="w-4.5 h-4.5" />} title="Correo" description="Conecta tu Gmail y Lucy priorizará tu bandeja cada mañana." actionLabel="Conectar correo" onAction={handleGmailConnect} connected={gmailConnected} connectedLabel={gmailEmail || 'Gmail sincronizado'} onDisconnect={handleDisconnect} delay={0.1} />
                     <ActionCard icon={<Calendar className="w-4.5 h-4.5" />} title="Agenda" description="Conecta Google Calendar para incluir eventos en tu briefing." actionLabel="Conectar agenda" onAction={handleCalendarConnect} connected={calendarConnected} connectedLabel={todayEvents.length === 0 ? 'Sin eventos hoy' : `${todayEvents.length} evento${todayEvents.length !== 1 ? 's' : ''} hoy`} onDisconnect={handleCalendarDisconnect} delay={0.15} />
@@ -385,7 +376,6 @@ export default function OverviewPage() {
                     <ActionCard icon={<FileText className="w-4.5 h-4.5" />} title="Resumen de correos" description="Lucy analiza tu bandeja y te prepara un briefing ejecutivo." actionLabel="Generar briefing" onAction={() => { if (!briefingInFlightRef.current) runBriefing(); }} connected={gmailConnected && stats?.total > 0} connectedLabel={stats ? `${stats.total} emails · ${stats.prioritarios} prioritarios` : 'Listo'} delay={0.25} />
                 </div>
 
-                {/* ── CALENDAR EVENTS ── */}
                 {!calendarLoading && calendarConnected && todayEvents.length > 0 && (
                     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, duration: 0.5 }}
                         className="rounded-2xl border backdrop-blur-sm transition-all duration-300 bg-[rgba(255,255,255,0.025)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.1)] overflow-hidden">
@@ -404,8 +394,6 @@ export default function OverviewPage() {
                     </motion.div>
                 )}
 
-                {/* ── STATS ── */}
-
                 {!loading && stats && gmailConnected && (<>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                         <StatCard icon={<Inbox className="w-4 h-4" />} label="Emails" value={stats.total} highlight onClick={() => navigate('/app/messages')} delay={0.15} />
@@ -413,8 +401,6 @@ export default function OverviewPage() {
                         <StatCard icon={<Clock className="w-4 h-4" />} label="Seguimiento" value={stats.seguimiento} onClick={() => navigate('/app/messages?filter=SEGUIMIENTO')} delay={0.25} />
                         <StatCard icon={<Paperclip className="w-4 h-4" />} label="Adjuntos" value={stats.with_attachments} onClick={() => navigate('/app/messages?filter=attachments')} delay={0.3} />
                     </div>
-
-                    {/* ── LUCY PANEL ── */}
 
                     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                         className="relative rounded-2xl overflow-hidden bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.08)] backdrop-blur-xl">
