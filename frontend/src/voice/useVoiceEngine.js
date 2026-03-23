@@ -1,7 +1,6 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { executeVoiceActions } from "./voiceCommandRouter";
-
-const API = `${process.env.REACT_APP_BACKEND_URL || "http://127.0.0.1:8000"}/api`;
+import apiClient from "../services/apiClient";
 
 export const STATES = {
     IDLE: "IDLE",
@@ -110,26 +109,15 @@ export function useVoiceEngine() {
             return;
         }
         try {
-            // Detener cualquier audio previo
             stopGlobalAudio();
             setVoiceState(STATES.SPEAKING);
             postSpeakGuardRef.current = true;
 
-            const token = localStorage.getItem("auth_token");
-            const response = await fetch(`${API}/tts`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({ text }),
-            });
-            if (!response.ok) throw new Error("TTS failed");
-            const audioBlob = await response.blob();
+            const res = await apiClient.post("/tts", { text }, { responseType: "blob" });
+            const audioBlob = res.data;
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
 
-            // Registrar audio globalmente para que cancel() pueda detenerlo
             setGlobalAudio(audio);
 
             audio.onended = () => {
@@ -154,11 +142,10 @@ export function useVoiceEngine() {
             postSpeakGuardRef.current = false;
             setVoiceState(STATES.IDLE);
             onEnd?.();
-            // NO fallback a Web Speech API — voz diferente confunde al usuario
         }
     }, []);
 
-    // ─── cancel — detiene TODO: audio, speech, recognition ────────────
+    // ─── cancel ────────────────────────────────────────────────────────
     const cancel = useCallback(() => {
         clearSilenceTimer();
         handsFreeModeRef.current = false;
@@ -166,7 +153,6 @@ export function useVoiceEngine() {
         wakeWordCooldownRef.current = false;
         setHandsFreeModeActive(false);
 
-        // Detener audio global (briefing, TTS, lo que sea)
         stopGlobalAudio();
 
         if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch (_) { } }
@@ -174,12 +160,10 @@ export function useVoiceEngine() {
         setVoiceState(STATES.IDLE);
     }, [clearSilenceTimer]);
 
-    // ─── Wrapper para setTtsEnabled que también detiene audio si se desactiva ──
     const setTtsEnabledWithStop = useCallback((value) => {
         const newValue = typeof value === 'function' ? value(ttsEnabledRef.current) : value;
         setTtsEnabled(newValue);
         if (!newValue) {
-            // Si se desactiva TTS, detener audio inmediatamente
             stopGlobalAudio();
             setVoiceState(STATES.IDLE);
             postSpeakGuardRef.current = false;
@@ -192,17 +176,8 @@ export function useVoiceEngine() {
         isRequestInFlight.current = true;
         setVoiceState(STATES.PROCESSING);
         try {
-            const token = localStorage.getItem("auth_token");
-            const response = await fetch(`${API}/assistant`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    ...(token ? { Authorization: `Bearer ${token}` } : {}),
-                },
-                body: JSON.stringify({ text }),
-            });
-            if (!response.ok) { setVoiceState(STATES.ERROR); return null; }
-            const data = await response.json();
+            const res = await apiClient.post("/assistant", { text });
+            const data = res.data;
             const assistantText = data?.assistant_text || "";
             setLastInteraction(assistantText);
             setTranscript("");
@@ -365,7 +340,6 @@ export function useVoiceEngine() {
     }, [sendToAssistant, speak, playBeep, listenForCommand, getAudioCtx]);
 
     // ─── startWakeWordListener ────────────────────────────────────────
-    // Escucha "para" incluso mientras Lucy habla (SPEAKING state)
     const startWakeWordListener = useCallback(() => {
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SpeechRecognition) return;
@@ -382,7 +356,6 @@ export function useVoiceEngine() {
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const text = event.results[i][0].transcript.toLowerCase().trim();
 
-                // ── Detectar "para" / "stop" INCLUSO durante SPEAKING ──
                 if (voiceStateRef.current === STATES.SPEAKING) {
                     const isStop = STOP_COMMANDS.some(c => text.includes(c));
                     if (isStop) {
@@ -394,11 +367,9 @@ export function useVoiceEngine() {
                         setHandsFreeModeActive(false);
                         return;
                     }
-                    // Si Lucy está hablando y no es "para", ignorar
                     continue;
                 }
 
-                // ── Solo procesar wake word si estamos IDLE ──
                 if (voiceStateRef.current !== STATES.IDLE) continue;
                 if (postSpeakGuardRef.current) continue;
                 if (handsFreeModeRef.current) continue;
@@ -477,7 +448,6 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    // ─── Wake word lifecycle ──────────────────────────────────────────
     useEffect(() => {
         if (wakeWordEnabled && !handsFreeModeActive) {
             const timer = setTimeout(() => startWakeWordListener(), 1000);

@@ -385,7 +385,7 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
             {"id": state},
             {
                 "$set": {
-                    "gmail_tokens": encrypt_tokens(tokens)
+                    "gmail_tokens": encrypt_tokens(tokens),
                     "gmail_connected": True,
                 }
             },
