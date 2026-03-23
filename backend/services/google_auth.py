@@ -20,6 +20,7 @@ from typing import Any, Dict, List, Optional
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request as GoogleAuthRequest
 
+from backend.services.token_encryption import decrypt_tokens, encrypt_tokens
 from backend.utils.logger import logger
 
 
@@ -43,10 +44,13 @@ async def get_valid_credentials(
       already expired (the user must re-authenticate).
     """
 
-    tokens: Dict[str, Any] = user.get(token_field) or {}
+    raw_tokens: Dict[str, Any] = user.get(token_field) or {}
 
-    if not tokens.get("token"):
+    if not raw_tokens.get("token"):
         return None
+
+    # Decrypt tokens read from MongoDB
+    tokens = decrypt_tokens(raw_tokens)
 
     creds = Credentials(
         token=tokens.get("token"),
@@ -82,22 +86,23 @@ async def get_valid_credentials(
         )
         return None
 
-    # ── Persist the fresh access-token back to MongoDB ─────────────
-    updated_tokens = {
-        f"{token_field}.token": creds.token,
-    }
-    # Google sometimes rotates the refresh-token too
+    # ── Persist the fresh access-token back to MongoDB (encrypted) ──
+    new_token_data = {"token": creds.token}
     if creds.refresh_token and creds.refresh_token != tokens.get("refresh_token"):
-        updated_tokens[f"{token_field}.refresh_token"] = creds.refresh_token
+        new_token_data["refresh_token"] = creds.refresh_token
+
+    encrypted = encrypt_tokens(new_token_data)
+
+    updated_fields = {
+        f"{token_field}.{k}": v for k, v in encrypted.items()
+    }
 
     try:
         await db.users.update_one(
             {"id": user["id"]},
-            {"$set": updated_tokens},
+            {"$set": updated_fields},
         )
     except Exception:
-        # Non-fatal: the token works for this request even if we fail
-        # to persist it.  Next request will just refresh again.
         logger.exception("Failed to persist refreshed Google token to DB")
 
     return creds

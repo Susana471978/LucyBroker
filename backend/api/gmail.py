@@ -19,6 +19,7 @@ from backend.models import EmailEvent
 from backend.services.rules_engine import calculate_priority
 from backend.services.contact_memory import record_interaction, get_contact_memory
 from backend.services.google_auth import get_valid_credentials
+from backend.services.token_encryption import encrypt_tokens
 from backend.utils.response import build_response
 
 

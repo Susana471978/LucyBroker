@@ -1,27 +1,23 @@
 // service-worker.js
-// SyntexIA PWA Service Worker
+// Lucy PWA Service Worker
+// CACHE_NAME se actualiza automáticamente en cada deploy via sed o build script
 
-const CACHE_NAME = 'syntexia-v1';
-
-const STATIC_ASSETS = [
-    '/',
-    '/index.html',
-    '/static/js/main.chunk.js',
-    '/static/js/bundle.js',
-    '/static/css/main.chunk.css',
-    '/manifest.json',
-    '/icons/icon-192.png',
-    '/icons/icon-512.png',
-];
+const CACHE_NAME = 'lucy-BUILD_HASH';
 
 // =====================================================
-// INSTALL — cachear assets estáticos
+// INSTALL — precache solo el shell mínimo
 // =====================================================
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(STATIC_ASSETS).catch(() => {
-                // Si algún asset falla, continuar igualmente
+            // Solo cachear lo que sabemos que existe siempre
+            // Los JS/CSS con hash se cachean en el fetch handler
+            return cache.addAll([
+                '/',
+                '/index.html',
+                '/manifest.json',
+            ]).catch(() => {
+                // Si algún asset falla (ej: offline), continuar igualmente
             });
         })
     );
@@ -29,7 +25,7 @@ self.addEventListener('install', (event) => {
 });
 
 // =====================================================
-// ACTIVATE — limpiar caches antiguas
+// ACTIVATE — limpiar TODAS las caches antiguas
 // =====================================================
 self.addEventListener('activate', (event) => {
     event.waitUntil(
@@ -45,35 +41,49 @@ self.addEventListener('activate', (event) => {
 });
 
 // =====================================================
-// FETCH — estrategia: Network first, cache fallback
+// FETCH — Network first, cache fallback
 // =====================================================
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Las llamadas a la API siempre van a la red (nunca cacheamos datos)
+    // API calls: always network, never cache
     if (url.pathname.startsWith('/api/')) {
         return;
     }
 
-    // Para assets estáticos: network first, cache fallback
+    // Hashed static assets (e.g. /static/js/main.a1b2c3.js):
+    // Cache first — the hash guarantees uniqueness
+    if (url.pathname.startsWith('/static/')) {
+        event.respondWith(
+            caches.match(request).then((cached) => {
+                if (cached) return cached;
+                return fetch(request).then((response) => {
+                    if (response && response.status === 200) {
+                        const clone = response.clone();
+                        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+                    }
+                    return response;
+                });
+            })
+        );
+        return;
+    }
+
+    // Everything else: network first, cache fallback
     event.respondWith(
         fetch(request)
             .then((response) => {
-                // Guardar copia en cache si la respuesta es válida
                 if (response && response.status === 200 && response.type === 'basic') {
-                    const responseClone = response.clone();
-                    caches.open(CACHE_NAME).then((cache) => {
-                        cache.put(request, responseClone);
-                    });
+                    const clone = response.clone();
+                    caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
                 }
                 return response;
             })
             .catch(() => {
-                // Sin red: devolver desde cache
                 return caches.match(request).then((cached) => {
                     if (cached) return cached;
-                    // Si no hay cache y es navegación, devolver index.html
+                    // SPA fallback: return index.html for navigation requests
                     if (request.mode === 'navigate') {
                         return caches.match('/index.html');
                     }
@@ -83,7 +93,7 @@ self.addEventListener('fetch', (event) => {
 });
 
 // =====================================================
-// PUSH NOTIFICATIONS (preparado para futuro)
+// PUSH NOTIFICATIONS
 // =====================================================
 self.addEventListener('push', (event) => {
     if (!event.data) return;
@@ -101,7 +111,7 @@ self.addEventListener('push', (event) => {
     };
 
     event.waitUntil(
-        self.registration.showNotification(data.title || 'SyntexIA Executive', options)
+        self.registration.showNotification(data.title || 'Lucy', options)
     );
 });
 
