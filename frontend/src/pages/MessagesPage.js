@@ -8,7 +8,7 @@ import DOMPurify from 'dompurify';
 import {
   Paperclip, Send, Sparkles, Loader2,
   Clock, AlertCircle, Info, ChevronRight,
-  Mail, X, FileText, Mic, MicOff
+  Mail, X, FileText, Mic, MicOff, Eye
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -16,7 +16,7 @@ import { Textarea } from '../components/ui/textarea';
 import { ScrollArea } from '../components/ui/scroll-area';
 import Layout from '../components/Layout';
 
-import { fetchEmails as fetchEmailsService } from '../services/mailService';
+import { fetchEmails as fetchEmailsService, fetchMessageDetail } from '../services/mailService';
 import { summarizeEmail, generateDraft } from '../services/aiService';
 import apiClient from '../services/apiClient';
 import { useVoice } from '../voice/VoiceProvider';
@@ -221,6 +221,8 @@ export default function MessagesPage() {
   const [attachmentSummaries, setAttachmentSummaries] = useState([]);
   const { startListening, voiceState, STATES, setWakeWordEnabled } = useVoice();
   const [voiceListening, setVoiceListening] = useState(false);
+  const [fullBody, setFullBody] = useState(null);
+  const [bodyLoading, setBodyLoading] = useState(false);
 
   /* ── fetch ── */
   const fetchEmails = useCallback(async () => {
@@ -259,12 +261,36 @@ export default function MessagesPage() {
     setDraftInstructions('');
     setShowReplyBox(false);
     setAttachmentSummaries([]);
+    setFullBody(null);
+    setBodyLoading(false);
     // Detener cualquier audio al cambiar de email
     if (_currentAudio) {
       _currentAudio.pause();
       _currentAudio = null;
     }
     try { window.speechSynthesis.cancel(); } catch (_) { }
+  };
+
+  /* ── Load full body on demand ── */
+
+  const handleLoadFullBody = async () => {
+    // El body ya viene del endpoint /gmail/messages — solo lo mostramos
+    const body = selectedEmail?.email?.body || '';
+    if (body) {
+      setFullBody(body);
+      return;
+    }
+    // Fallback: si no hay body, traerlo del endpoint individual
+    if (!selectedEmail?.email?.id || bodyLoading) return;
+    setBodyLoading(true);
+    try {
+      const detail = await fetchMessageDetail(selectedEmail.email.id);
+      setFullBody(detail.body || detail.body_text || '');
+    } catch (error) {
+      console.error('Load body error:', error);
+    } finally {
+      setBodyLoading(false);
+    }
   };
 
   /* ── AI ── */
@@ -332,12 +358,16 @@ export default function MessagesPage() {
   };
 
   const renderEmailBody = () => {
-    const body = selectedEmail?.email?.body || '';
-    if (!body) return '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
-    // Si es texto plano (sin tags HTML), convertir saltos de línea
-    const htmlContent = body.includes('<') ? body : body.replace(/\n/g, '<br/>');
-    // Sanitizar SIEMPRE antes de renderizar
-    return sanitizeHTML(htmlContent);
+    if (fullBody) {
+      const htmlContent = fullBody.includes('<') ? fullBody : fullBody.replace(/\n/g, '<br/>');
+      return sanitizeHTML(htmlContent);
+    }
+    // Mostrar solo snippet hasta que el usuario pida ver el mensaje completo
+    let snippet = selectedEmail?.email?.snippet || '';
+    console.log('SNIPPET LENGTH:', snippet.length, 'FULLBODY:', fullBody ? 'YES' : 'NO');
+    if (snippet.length > 200) snippet = snippet.substring(0, 200) + '…';
+    if (!snippet) return '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
+    return sanitizeHTML(snippet.replace(/\n/g, '<br/>'));
   };
 
   const currentAttachments = selectedEmail?.email?.attachments || [];
@@ -584,15 +614,32 @@ export default function MessagesPage() {
                       )}
                     </AnimatePresence>
 
-                    {/* Cuerpo email — SANITIZADO */}
+                    {/* Cuerpo email */}
                     <div className="rounded-2xl p-6 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+                      {!fullBody && (
+                        <p className="text-[10px] text-[rgba(201,178,124,0.4)] uppercase tracking-[0.1em] mb-3">
+                          Vista previa
+                        </p>
+                      )}
                       <div
                         className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed whitespace-pre-wrap"
                         style={{ fontFamily: 'DM Sans, sans-serif' }}
                         dangerouslySetInnerHTML={{ __html: renderEmailBody() }}
                       />
+                      {!fullBody && !bodyLoading && (
+                        <button onClick={handleLoadFullBody}
+                          className="mt-4 flex items-center gap-1.5 text-xs text-[rgba(201,178,124,0.5)] hover:text-[#C9B27C] transition-colors">
+                          <Eye className="w-3 h-3" />
+                          Ver mensaje completo
+                        </button>
+                      )}
+                      {bodyLoading && (
+                        <div className="mt-4 flex items-center gap-2 text-xs text-[rgba(255,255,255,0.2)]">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          Cargando mensaje…
+                        </div>
+                      )}
                     </div>
-
                     {/* Reply box */}
                     <AnimatePresence>
                       {showReplyBox && (

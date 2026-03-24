@@ -18,6 +18,15 @@ export async function fetchEmails(params = {}) {
 }
 
 /* ===========================
+   FETCH SINGLE EMAIL (full body)
+=========================== */
+export async function fetchMessageDetail(msgId) {
+    const res = await api.get(`/gmail/message/${msgId}`);
+    return res.data?.data || res.data;
+}
+
+
+/* ===========================
    GMAIL STATUS
 =========================== */
 export async function getGmailStatus() {
@@ -40,3 +49,4 @@ export async function disconnectGmail() {
     const res = await api.post('/gmail/disconnect');
     return res.data?.data || res.data;
 }
+

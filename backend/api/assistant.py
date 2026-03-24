@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.core.dependencies import get_current_user
-from backend.api.gmail import fetch_enriched_messages
+from backend.api.gmail import fetch_enriched_messages, fetch_enriched_messages_light
 from backend.api.calendar import fetch_today_events, _parse_event, CALENDAR_SCOPES
 from backend.api.habits import get_habits_summary
 from backend.core.database import db
@@ -584,7 +584,7 @@ Reglas:
             if not user.get("gmail_connected"):
                 return []
             try:
-                return await fetch_enriched_messages(user, db, max_results=20)
+                return await fetch_enriched_messages_light(user, db, max_results=50)
             except Exception as e:
                 gmail_ok = False
                 print(f"[assistant] Gmail fetch error: {e}")

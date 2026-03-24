@@ -319,6 +319,91 @@ async def fetch_enriched_messages(
 
 
 # =========================================================
+# FETCH LIGHT (headers + snippet only, for briefing)
+# =========================================================
+
+async def fetch_enriched_messages_light(
+    user: Dict[str, Any],
+    db,
+    max_results: int = 50,
+) -> List[Dict[str, Any]]:
+    """
+    Lightweight fetch for briefing: uses q="category:primary" to skip
+    newsletters/promos, format=metadata (no body). ~10x faster.
+    Returns sorted by priority_score descending.
+    """
+    if not user.get("gmail_connected"):
+        return []
+
+    creds = await get_valid_credentials(
+        user, db, token_field="gmail_tokens", default_scopes=SCOPES,
+    )
+    if creds is None:
+        return []
+
+    service = build_service("gmail", "v1", credentials=creds)
+
+    try:
+        results = service.users().messages().list(
+            userId="me",
+            labelIds=["INBOX"],
+            q="category:primary",
+            maxResults=max_results,
+        ).execute()
+    except Exception:
+        # Fallback: si category:primary falla, usar INBOX sin filtro
+        results = service.users().messages().list(
+            userId="me",
+            labelIds=["INBOX"],
+            maxResults=max_results,
+        ).execute()
+
+    message_ids = results.get("messages", []) or []
+    enriched: List[Dict[str, Any]] = []
+
+    for msg_stub in message_ids:
+        msg_id = msg_stub["id"]
+
+        detail = service.users().messages().get(
+            userId="me",
+            id=msg_id,
+            format="metadata",
+            metadataHeaders=["From", "Subject", "Date"],
+        ).execute()
+
+        headers = {
+            h["name"].lower(): h["value"]
+            for h in detail.get("payload", {}).get("headers", []) or []
+        }
+
+        snippet = detail.get("snippet", "")
+        labels = detail.get("labelIds", []) or []
+
+        email_event = EmailEvent(
+            id=msg_id,
+            thread_id=detail.get("threadId", ""),
+            from_name=headers.get("from", ""),
+            from_email=headers.get("from", ""),
+            subject=headers.get("subject", "(Sin asunto)"),
+            date=headers.get("date", datetime.now(timezone.utc).isoformat()),
+            snippet=snippet,
+            body=snippet,
+            labels=labels,
+            has_attachments="ATTACHMENT" in " ".join(labels),
+            attachments=[],
+        )
+
+        priority = calculate_priority(email_event)
+
+        enriched.append({
+            "email": email_event.model_dump(),
+            "priority": priority.model_dump(),
+        })
+
+    enriched.sort(key=lambda x: x["priority"]["priority_score"], reverse=True)
+    return enriched
+
+# =========================================================
 # ROUTER
 # =========================================================
 
@@ -408,6 +493,84 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         enriched = await fetch_enriched_messages(user, db, max_results=max_results, label=label)
         return build_response(request, data=enriched, legacy=enriched)
 
+
+# ================= SINGLE MESSAGE DETAIL =================
+
+    @router.get("/gmail/message/{msg_id}")
+    async def gmail_message_detail(
+        msg_id: str,
+        request: Request,
+        user: Dict[str, Any] = Depends(get_current_user),
+    ):
+        """Fetch a single email with full body on demand."""
+        if not user.get("gmail_connected"):
+            raise HTTPException(status_code=400, detail="Gmail no conectado")
+
+        creds = await get_valid_credentials(
+            user, db, token_field="gmail_tokens", default_scopes=SCOPES,
+        )
+        if creds is None:
+            raise HTTPException(status_code=401, detail="Token expirado. Reconecta Gmail.")
+
+        service = build_service("gmail", "v1", credentials=creds)
+
+        try:
+            detail = service.users().messages().get(
+                userId="me",
+                id=msg_id,
+                format="full",
+            ).execute()
+        except Exception:
+            raise HTTPException(status_code=404, detail="Mensaje no encontrado")
+
+        headers_raw = {
+            h["name"].lower(): h["value"]
+            for h in (detail.get("payload", {}) or {}).get("headers", []) or []
+        }
+
+        snippet = detail.get("snippet", "")
+        payload = detail.get("payload", {}) or {}
+
+        html_raw, text_raw = _extract_best_body(payload)
+        html_display = _clean_html_for_display(html_raw) if html_raw else ""
+        text_from_html = _strip_html_to_text(html_raw) if html_raw else ""
+        ai_base_text = text_from_html or text_raw or snippet or ""
+        text_for_ai = _clean_text_for_ai(ai_base_text)
+
+        if html_display:
+            body_for_ui = html_display
+        else:
+            body_for_ui = _text_to_safe_html(text_raw or snippet or "")
+
+        data = {
+            "id": msg_id,
+            "subject": headers_raw.get("subject", "(Sin asunto)"),
+            "from": headers_raw.get("from", ""),
+            "date": headers_raw.get("date", ""),
+            "body": body_for_ui or _text_to_safe_html(snippet or ""),
+            "body_text": text_for_ai,
+            "snippet": snippet,
+            "labels": detail.get("labelIds", []) or [],
+        }
+
+        now = datetime.now(timezone.utc).isoformat()
+        await db.emails.update_one(
+            {"_id": msg_id},
+            {
+                "$set": {
+                    "_id": msg_id,
+                    "gmail_id": msg_id,
+                    "user_id": user["id"],
+                    **data,
+                    "updated_at": now,
+                },
+                "$setOnInsert": {"created_at": now},
+            },
+            upsert=True,
+        )
+
+        return build_response(request, data=data, legacy=data)
+    
     # ================= DISCONNECT =================
 
     @router.post("/gmail/disconnect")
