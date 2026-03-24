@@ -28,7 +28,7 @@ export default function LandingPage() {
     setMicState('loading');
     try {
       const token = localStorage.getItem('auth_token');
-      const res = await fetch('https://ecs.syntexia-solutions.es/api/tts', {
+      const res = await fetch('https://lucy.syntexia-solutions.es/api/tts', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
