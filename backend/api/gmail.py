@@ -202,7 +202,7 @@ def _clean_html_for_display(html: str) -> str:
 
 
 # =========================================================
-# FETCH + SAVE
+# FETCH + SAVE (full body — used by /gmail/message/{msg_id})
 # =========================================================
 
 async def fetch_enriched_messages(
@@ -319,7 +319,7 @@ async def fetch_enriched_messages(
 
 
 # =========================================================
-# FETCH LIGHT (headers + snippet only, for briefing)
+# FETCH LIGHT (headers + snippet only, for briefing + list)
 # =========================================================
 
 async def fetch_enriched_messages_light(
@@ -328,8 +328,8 @@ async def fetch_enriched_messages_light(
     max_results: int = 50,
 ) -> List[Dict[str, Any]]:
     """
-    Lightweight fetch for briefing: uses q="category:primary" to skip
-    newsletters/promos, format=metadata (no body). ~10x faster.
+    Lightweight fetch for briefing and message list: uses q="category:primary"
+    to skip newsletters/promos, format=metadata (no body). ~10x faster.
     Returns sorted by priority_score descending.
     """
     if not user.get("gmail_connected"):
@@ -479,7 +479,7 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
         return RedirectResponse(url=f"{frontend_url}/app")
 
-    # ================= MESSAGES =================
+    # ================= MESSAGES (light mode — no body) =================
 
     @router.get("/gmail/messages")
     async def gmail_messages(
@@ -489,12 +489,13 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         label: str = Query("inbox"),
         attachments: bool = Query(False),
     ):
-        _ = attachments
-        enriched = await fetch_enriched_messages(user, db, max_results=max_results, label=label)
+        # Use light mode: only headers + snippet, no body
+        # Filtering by priority/attachments is done client-side
+        enriched = await fetch_enriched_messages_light(user, db, max_results=max_results)
         return build_response(request, data=enriched, legacy=enriched)
 
 
-# ================= SINGLE MESSAGE DETAIL =================
+    # ================= SINGLE MESSAGE DETAIL =================
 
     @router.get("/gmail/message/{msg_id}")
     async def gmail_message_detail(

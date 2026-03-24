@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
@@ -8,7 +8,7 @@ import DOMPurify from 'dompurify';
 import {
   Paperclip, Send, Sparkles, Loader2,
   Clock, AlertCircle, Info, ChevronRight,
-  Mail, X, FileText, Mic, MicOff, Eye
+  Mail, X, FileText, Mic, MicOff, Eye, EyeOff
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -61,11 +61,9 @@ const speakExecutive = async (text) => {
       await audio.play();
     } else {
       console.error('TTS error: server returned', res.status);
-      // NO fallback a Web Speech API — voz diferente confunde al usuario
     }
   } catch (err) {
     console.error('TTS error:', err);
-    // NO fallback a Web Speech API
   }
 };
 
@@ -209,8 +207,7 @@ export default function MessagesPage() {
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedEmail, setSelectedEmail] = useState(null);
-  const [filter, setFilter] = useState(searchParams.get('filter') || searchParams.get('label') || 'all');
-  const [attachmentsOnly, setAttachmentsOnly] = useState(searchParams.get('filter') === 'attachments');
+  const [filter, setFilter] = useState(searchParams.get('filter') || 'all');
 
   const [summary, setSummary] = useState(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -224,11 +221,12 @@ export default function MessagesPage() {
   const [fullBody, setFullBody] = useState(null);
   const [bodyLoading, setBodyLoading] = useState(false);
 
-  /* ── fetch ── */
+  /* ── fetch (always light mode — no body) ── */
   const fetchEmails = useCallback(async () => {
     setLoading(true);
     try {
-      const response = await fetchEmailsService({ label: filter, attachments: attachmentsOnly });
+      // Always fetch all emails (light mode); filtering is client-side
+      const response = await fetchEmailsService({ max_results: 50 });
       let normalized = [];
       if (Array.isArray(response)) normalized = response;
       else if (Array.isArray(response?.data)) normalized = response.data;
@@ -239,18 +237,22 @@ export default function MessagesPage() {
     } finally {
       setLoading(false);
     }
-  }, [filter, attachmentsOnly]);
+  }, []);
 
   useEffect(() => { fetchEmails(); }, [fetchEmails]);
 
-  const handleFilterChange = (newFilter) => {
-    if (newFilter === 'attachments') {
-      setFilter('all');
-      setAttachmentsOnly(true);
-    } else {
-      setFilter(newFilter);
-      setAttachmentsOnly(false);
+  /* ── Client-side filtering ── */
+  const filteredEmails = useMemo(() => {
+    if (filter === 'all') return emails;
+    if (filter === 'attachments') {
+      return emails.filter(item => item?.email?.has_attachments);
     }
+    // Filter by priority label (PRIORITARIO, SEGUIMIENTO)
+    return emails.filter(item => item?.priority?.priority_label === filter);
+  }, [emails, filter]);
+
+  const handleFilterChange = (newFilter) => {
+    setFilter(newFilter);
     setSearchParams({ filter: newFilter });
   };
 
@@ -272,15 +274,7 @@ export default function MessagesPage() {
   };
 
   /* ── Load full body on demand ── */
-
   const handleLoadFullBody = async () => {
-    // El body ya viene del endpoint /gmail/messages — solo lo mostramos
-    const body = selectedEmail?.email?.body || '';
-    if (body) {
-      setFullBody(body);
-      return;
-    }
-    // Fallback: si no hay body, traerlo del endpoint individual
     if (!selectedEmail?.email?.id || bodyLoading) return;
     setBodyLoading(true);
     try {
@@ -362,12 +356,15 @@ export default function MessagesPage() {
       const htmlContent = fullBody.includes('<') ? fullBody : fullBody.replace(/\n/g, '<br/>');
       return sanitizeHTML(htmlContent);
     }
-    // Mostrar solo snippet hasta que el usuario pida ver el mensaje completo
-    let snippet = selectedEmail?.email?.snippet || '';
-    console.log('SNIPPET LENGTH:', snippet.length, 'FULLBODY:', fullBody ? 'YES' : 'NO');
-    if (snippet.length > 200) snippet = snippet.substring(0, 200) + '…';
+    // Light mode: snippet is plain text, short (~160 chars from Gmail)
+    const snippet = selectedEmail?.email?.snippet || '';
     if (!snippet) return '<div style="color:rgba(255,255,255,0.2)">(Sin contenido)</div>';
-    return sanitizeHTML(snippet.replace(/\n/g, '<br/>'));
+    // Escape HTML entities in snippet (it's plain text from Gmail metadata)
+    const escaped = snippet
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    return `<div>${escaped}</div>`;
   };
 
   const currentAttachments = selectedEmail?.email?.attachments || [];
@@ -387,10 +384,10 @@ export default function MessagesPage() {
             </button>
           </div>
           <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <FilterPill active={filter === 'all' && !attachmentsOnly} onClick={() => handleFilterChange('all')} label="Todos" />
+            <FilterPill active={filter === 'all'} onClick={() => handleFilterChange('all')} label="Todos" />
             <FilterPill active={filter === 'PRIORITARIO'} onClick={() => handleFilterChange('PRIORITARIO')} label="Prioritarios" />
             <FilterPill active={filter === 'SEGUIMIENTO'} onClick={() => handleFilterChange('SEGUIMIENTO')} label="Seguimiento" />
-            <FilterPill active={attachmentsOnly} onClick={() => handleFilterChange('attachments')} label="Adjuntos" />
+            <FilterPill active={filter === 'attachments'} onClick={() => handleFilterChange('attachments')} label="Adjuntos" />
           </div>
 
           <ScrollArea className="flex-1">
@@ -405,14 +402,14 @@ export default function MessagesPage() {
                 </div>
                 <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em]">Cargando correos…</p>
               </div>
-            ) : emails.length === 0 ? (
+            ) : filteredEmails.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
                 <Mail className="w-8 h-8 text-[rgba(255,255,255,0.1)]" />
                 <p className="text-sm text-[rgba(255,255,255,0.2)]">Sin correos</p>
               </div>
             ) : (
               <div className="divide-y divide-[rgba(255,255,255,0.04)]">
-                {emails.map((item, idx) => {
+                {filteredEmails.map((item, idx) => {
                   const email = item?.email;
                   const priority = item?.priority?.priority_label;
                   if (!email?.id) return null;
@@ -616,11 +613,20 @@ export default function MessagesPage() {
 
                     {/* Cuerpo email */}
                     <div className="rounded-2xl p-6 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
-                      {!fullBody && (
-                        <p className="text-[10px] text-[rgba(201,178,124,0.4)] uppercase tracking-[0.1em] mb-3">
-                          Vista previa
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-[10px] text-[rgba(201,178,124,0.4)] uppercase tracking-[0.1em]">
+                          {fullBody ? 'Mensaje completo' : 'Vista previa'}
                         </p>
-                      )}
+                        {fullBody && (
+                          <button
+                            onClick={() => setFullBody(null)}
+                            className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] transition-colors"
+                          >
+                            <EyeOff className="w-3 h-3" />
+                            Cerrar
+                          </button>
+                        )}
+                      </div>
                       <div
                         className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed whitespace-pre-wrap"
                         style={{ fontFamily: 'DM Sans, sans-serif' }}
