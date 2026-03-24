@@ -330,6 +330,7 @@ async def fetch_enriched_messages_light(
     """
     Lightweight fetch for briefing and message list: uses q="category:primary"
     to skip newsletters/promos, format=metadata (no body). ~10x faster.
+    Checks VIP company domains and boosts priority accordingly.
     Returns sorted by priority_score descending.
     """
     if not user.get("gmail_connected"):
@@ -342,6 +343,18 @@ async def fetch_enriched_messages_light(
         return []
 
     service = build_service("gmail", "v1", credentials=creds)
+
+    # Load VIP domains for this user (cached per request)
+    vip_domains: Dict[str, str] = {}
+    try:
+        cursor = db.vip_companies.find(
+            {"user_id": user["id"]},
+            {"domain": 1, "name": 1},
+        )
+        async for doc in cursor:
+            vip_domains[doc["domain"].lower()] = doc["name"]
+    except Exception:
+        pass
 
     try:
         results = service.users().messages().list(
@@ -378,12 +391,23 @@ async def fetch_enriched_messages_light(
 
         snippet = detail.get("snippet", "")
         labels = detail.get("labelIds", []) or []
+        from_header = headers.get("from", "")
+
+        # Check if sender matches a VIP domain
+        is_vip = False
+        vip_company_name = ""
+        from_lower = from_header.lower()
+        for domain, company_name in vip_domains.items():
+            if f"@{domain}" in from_lower or f".{domain}" in from_lower:
+                is_vip = True
+                vip_company_name = company_name
+                break
 
         email_event = EmailEvent(
             id=msg_id,
             thread_id=detail.get("threadId", ""),
-            from_name=headers.get("from", ""),
-            from_email=headers.get("from", ""),
+            from_name=from_header,
+            from_email=from_header,
             subject=headers.get("subject", "(Sin asunto)"),
             date=headers.get("date", datetime.now(timezone.utc).isoformat()),
             snippet=snippet,
@@ -393,10 +417,16 @@ async def fetch_enriched_messages_light(
             attachments=[],
         )
 
-        priority = calculate_priority(email_event)
+        # Pass VIP info to priority engine via contact_memory
+        contact_mem = {"is_vip": True} if is_vip else None
+        priority = calculate_priority(email_event, contact_memory=contact_mem)
+
+        email_dict = email_event.model_dump()
+        email_dict["is_vip"] = is_vip
+        email_dict["vip_company_name"] = vip_company_name
 
         enriched.append({
-            "email": email_event.model_dump(),
+            "email": email_dict,
             "priority": priority.model_dump(),
         })
 

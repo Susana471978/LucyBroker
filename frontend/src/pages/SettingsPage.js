@@ -6,7 +6,8 @@ import Layout from '../components/Layout';
 import apiClient from '../services/apiClient';
 import {
     Brain, Trash2, Plus, Mail, Calendar, Volume2, VolumeX,
-    Briefcase, Users, Heart, StickyNote, ChevronDown, X
+    Briefcase, Users, Heart, StickyNote, ChevronDown, X,
+    Building2, Globe
 } from 'lucide-react';
 
 const CATEGORIES = {
@@ -205,6 +206,128 @@ const ConnectionCard = ({ icon, title, connected, detail, onConnect, onDisconnec
     </motion.div>
 );
 
+/* ─── VIP Company Card ────────────────────────────────── */
+const VipCompanyCard = ({ company, onDelete, delay = 0 }) => {
+    const [confirming, setConfirming] = useState(false);
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8, scale: 0.95 }}
+            transition={{ delay, duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="group flex items-center gap-3 rounded-xl px-4 py-3 transition-all duration-300"
+            style={{
+                background: 'rgba(201,178,124,0.03)',
+                border: '1px solid rgba(201,178,124,0.1)',
+            }}
+            onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(201,178,124,0.2)'; }}
+            onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(201,178,124,0.1)'; }}
+        >
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                style={{ background: 'rgba(201,178,124,0.08)', border: '1px solid rgba(201,178,124,0.15)' }}>
+                <Building2 className="w-3.5 h-3.5 text-[#C9B27C]" />
+            </div>
+            <div className="flex-1 min-w-0">
+                <p className="text-sm text-[rgba(224,247,250,0.75)] truncate">{company.name}</p>
+                <div className="flex items-center gap-1.5 mt-0.5">
+                    <Globe className="w-2.5 h-2.5 text-[rgba(201,178,124,0.35)]" />
+                    <p className="text-[11px] text-[rgba(201,178,124,0.4)]">@{company.domain}</p>
+                </div>
+            </div>
+
+            {confirming ? (
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <button onClick={() => { onDelete(company.id); setConfirming(false); }}
+                        className="text-[10px] text-red-400 border border-red-400/30 px-2 py-1 rounded-lg hover:bg-red-400/10 transition-all duration-200">
+                        Borrar
+                    </button>
+                    <button onClick={() => setConfirming(false)}
+                        className="text-[10px] text-[rgba(224,247,250,0.3)] border border-[rgba(0,180,216,0.1)] px-2 py-1 rounded-lg hover:bg-[rgba(0,180,216,0.05)] transition-all duration-200">
+                        No
+                    </button>
+                </div>
+            ) : (
+                <button onClick={() => setConfirming(true)}
+                    className="flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 text-[rgba(224,247,250,0.2)] hover:text-red-400 hover:bg-red-400/10">
+                    <Trash2 className="w-3.5 h-3.5" />
+                </button>
+            )}
+        </motion.div>
+    );
+};
+
+const AddVipForm = ({ onAdd, onCancel }) => {
+    const [name, setName] = useState('');
+    const [domain, setDomain] = useState('');
+    const [submitting, setSubmitting] = useState(false);
+
+    const handleSubmit = async () => {
+        if (!name.trim() || !domain.trim()) return;
+        setSubmitting(true);
+        await onAdd(name.trim(), domain.trim());
+        setName('');
+        setDomain('');
+        setSubmitting(false);
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 12, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -8, height: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+        >
+            <div className="rounded-2xl p-5 space-y-4"
+                style={{ background: 'rgba(201,178,124,0.03)', border: '1px solid rgba(201,178,124,0.15)' }}>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <label className="text-[10px] text-[rgba(224,247,250,0.3)] uppercase tracking-[0.1em] mb-1.5 block">
+                            Nombre de la empresa
+                        </label>
+                        <input
+                            value={name}
+                            onChange={e => setName(e.target.value)}
+                            placeholder="Ej: Google"
+                            className="w-full bg-transparent text-sm text-[rgba(224,247,250,0.7)] placeholder-[rgba(224,247,250,0.2)] rounded-xl px-4 py-2.5 transition-colors duration-200 outline-none"
+                            style={{ border: '1px solid rgba(201,178,124,0.1)' }}
+                            onFocus={e => e.target.style.borderColor = 'rgba(201,178,124,0.3)'}
+                            onBlur={e => e.target.style.borderColor = 'rgba(201,178,124,0.1)'}
+                            autoFocus
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] text-[rgba(224,247,250,0.3)] uppercase tracking-[0.1em] mb-1.5 block">
+                            Dominio de email
+                        </label>
+                        <input
+                            value={domain}
+                            onChange={e => setDomain(e.target.value)}
+                            placeholder="Ej: google.com"
+                            className="w-full bg-transparent text-sm text-[rgba(224,247,250,0.7)] placeholder-[rgba(224,247,250,0.2)] rounded-xl px-4 py-2.5 transition-colors duration-200 outline-none"
+                            style={{ border: '1px solid rgba(201,178,124,0.1)' }}
+                            onFocus={e => e.target.style.borderColor = 'rgba(201,178,124,0.3)'}
+                            onBlur={e => e.target.style.borderColor = 'rgba(201,178,124,0.1)'}
+                        />
+                    </div>
+                </div>
+                <div className="flex items-center justify-end gap-2">
+                    <button onClick={onCancel}
+                        className="text-xs text-[rgba(224,247,250,0.25)] hover:text-[rgba(224,247,250,0.5)] px-3 py-2 transition-colors">
+                        Cancelar
+                    </button>
+                    <button onClick={handleSubmit}
+                        disabled={!name.trim() || !domain.trim() || submitting}
+                        className="text-xs text-[#C9B27C] border border-[rgba(201,178,124,0.25)] px-4 py-2 rounded-lg bg-[rgba(201,178,124,0.06)] hover:bg-[rgba(201,178,124,0.12)] hover:border-[rgba(201,178,124,0.4)] disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200">
+                        {submitting ? 'Guardando…' : 'Añadir empresa'}
+                    </button>
+                </div>
+            </div>
+        </motion.div>
+    );
+};
+
 export default function SettingsPage() {
     const { token } = useAuth();
     const { ttsEnabled, setTtsEnabled } = useVoice();
@@ -217,6 +340,12 @@ export default function SettingsPage() {
     const [gmailConnected, setGmailConnected] = useState(false);
     const [gmailEmail, setGmailEmail] = useState('');
     const [calendarConnected, setCalendarConnected] = useState(false);
+
+    // VIP Companies
+    const [vipCompanies, setVipCompanies] = useState([]);
+    const [vipLoading, setVipLoading] = useState(true);
+    const [showAddVip, setShowAddVip] = useState(false);
+    const [vipError, setVipError] = useState('');
 
     const fetchNotes = useCallback(async () => {
         try {
@@ -241,7 +370,22 @@ export default function SettingsPage() {
         } catch (err) { console.error('Connections:', err); }
     }, []);
 
-    useEffect(() => { if (token) { fetchNotes(); fetchConnections(); } }, [fetchNotes, fetchConnections, token]);
+    const fetchVipCompanies = useCallback(async () => {
+        try {
+            const res = await apiClient.get('/vip-companies');
+            const data = res.data?.data || res.data;
+            setVipCompanies(data.companies || []);
+        } catch (err) { console.error('VIP fetch:', err); }
+        finally { setVipLoading(false); }
+    }, []);
+
+    useEffect(() => {
+        if (token) {
+            fetchNotes();
+            fetchConnections();
+            fetchVipCompanies();
+        }
+    }, [fetchNotes, fetchConnections, fetchVipCompanies, token]);
 
     const handleAddNote = async (text, category) => {
         try {
@@ -258,6 +402,28 @@ export default function SettingsPage() {
             const data = res.data?.data || res.data;
             setNotes(data.notes || []);
         } catch (err) { console.error('Delete note:', err); }
+    };
+
+    const handleAddVip = async (name, domain) => {
+        setVipError('');
+        try {
+            const res = await apiClient.post('/vip-companies', { name, domain });
+            const data = res.data?.data || res.data;
+            setVipCompanies(data.companies || []);
+            setShowAddVip(false);
+        } catch (err) {
+            const detail = err.response?.data?.detail || 'Error al añadir empresa';
+            setVipError(detail);
+            console.error('Add VIP:', err);
+        }
+    };
+
+    const handleDeleteVip = async (companyId) => {
+        try {
+            const res = await apiClient.delete(`/vip-companies/${companyId}`);
+            const data = res.data?.data || res.data;
+            setVipCompanies(data.companies || []);
+        } catch (err) { console.error('Delete VIP:', err); }
     };
 
     const handleGmailConnect = async () => {
@@ -321,6 +487,89 @@ export default function SettingsPage() {
                         <ConnectionCard icon={<Mail className="w-4 h-4" />} title="Gmail" connected={gmailConnected} detail={gmailEmail} onConnect={handleGmailConnect} onDisconnect={handleGmailDisconnect} delay={0.15} />
                         <ConnectionCard icon={<Calendar className="w-4 h-4" />} title="Google Calendar" connected={calendarConnected} onConnect={handleCalendarConnect} onDisconnect={handleCalendarDisconnect} delay={0.2} />
                     </div>
+                </motion.div>
+
+                {/* ── Empresas VIP ── */}
+                <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15, duration: 0.5 }}>
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 className="text-xs text-[rgba(201,178,124,0.5)] uppercase tracking-[0.1em] font-medium">
+                                Empresas prioritarias
+                            </h2>
+                            <p className="text-[11px] text-[rgba(224,247,250,0.2)] mt-1">
+                                Los correos de estas empresas tendrán prioridad máxima
+                            </p>
+                        </div>
+                        {!showAddVip && (
+                            <button onClick={() => { setShowAddVip(true); setVipError(''); }}
+                                className="flex items-center gap-1.5 text-xs text-[#C9B27C] border border-[rgba(201,178,124,0.2)] px-3 py-1.5 rounded-lg bg-[rgba(201,178,124,0.04)] hover:bg-[rgba(201,178,124,0.1)] hover:border-[rgba(201,178,124,0.4)] transition-all duration-200">
+                                <Plus className="w-3 h-3" />
+                                Añadir empresa
+                            </button>
+                        )}
+                    </div>
+
+                    <AnimatePresence>
+                        {showAddVip && (
+                            <div className="mb-4">
+                                <AddVipForm onAdd={handleAddVip} onCancel={() => { setShowAddVip(false); setVipError(''); }} />
+                            </div>
+                        )}
+                    </AnimatePresence>
+
+                    <AnimatePresence>
+                        {vipError && (
+                            <motion.p
+                                initial={{ opacity: 0, y: -4 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0 }}
+                                className="text-xs text-red-400 mb-3 px-1"
+                            >
+                                {vipError}
+                            </motion.p>
+                        )}
+                    </AnimatePresence>
+
+                    {vipLoading ? (
+                        <div className="flex items-center justify-center py-8">
+                            <div className="w-5 h-5 border-2 border-[rgba(201,178,124,0.3)] border-t-[#C9B27C] rounded-full animate-spin" />
+                        </div>
+                    ) : vipCompanies.length === 0 ? (
+                        <div className="text-center py-8 rounded-xl"
+                            style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.06)' }}>
+                            <Building2 className="w-8 h-8 mx-auto text-[rgba(201,178,124,0.15)] mb-3" />
+                            <p className="text-sm text-[rgba(224,247,250,0.2)]">
+                                Aún no has añadido empresas prioritarias
+                            </p>
+                            <p className="text-xs text-[rgba(224,247,250,0.12)] mt-1">
+                                Lucy te avisará cuando llegue un correo de estas empresas
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="space-y-2">
+                            <AnimatePresence mode="popLayout">
+                                {vipCompanies.map((company, i) => (
+                                    <VipCompanyCard
+                                        key={company.id}
+                                        company={company}
+                                        onDelete={handleDeleteVip}
+                                        delay={i * 0.03}
+                                    />
+                                ))}
+                            </AnimatePresence>
+                        </div>
+                    )}
+
+                    {vipCompanies.length > 0 && vipCompanies.length < 3 && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
+                            className="mt-4 rounded-xl px-4 py-3"
+                            style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.06)' }}>
+                            <p className="text-xs text-[rgba(201,178,124,0.35)] leading-relaxed">
+                                <span className="text-[rgba(201,178,124,0.6)] font-medium">Tip:</span> Añade el dominio exacto del email corporativo.
+                                Por ejemplo, para Telefónica usa <span className="text-[rgba(201,178,124,0.5)]">telefonica.com</span>.
+                            </p>
+                        </motion.div>
+                    )}
                 </motion.div>
 
                 <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2, duration: 0.5 }}>

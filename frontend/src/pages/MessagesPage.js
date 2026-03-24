@@ -8,7 +8,7 @@ import DOMPurify from 'dompurify';
 import {
   Paperclip, Send, Sparkles, Loader2,
   Clock, AlertCircle, Info, ChevronRight,
-  Mail, X, FileText, Mic, MicOff, Eye, EyeOff
+  Mail, X, FileText, Mic, MicOff, Eye, EyeOff, Building2
 } from 'lucide-react';
 
 import { Button } from '../components/ui/button';
@@ -94,6 +94,18 @@ const PriorityChip = ({ label }) => {
     </span>
   );
   return null;
+};
+
+const VipChip = ({ companyName }) => {
+  if (!companyName) return null;
+  return (
+    <span className="text-[10px] uppercase tracking-[0.1em] px-2 py-0.5 rounded-full inline-flex items-center gap-1
+      bg-[rgba(201,178,124,0.12)] text-[#C9B27C] border border-[rgba(201,178,124,0.3)]
+      shadow-[0_0_8px_rgba(201,178,124,0.15)]">
+      <Building2 className="w-2.5 h-2.5" />
+      {companyName}
+    </span>
+  );
 };
 
 /* ─── Filter pill ─────────────────────────────────────── */
@@ -247,6 +259,9 @@ export default function MessagesPage() {
     if (filter === 'attachments') {
       return emails.filter(item => item?.email?.has_attachments);
     }
+    if (filter === 'vip') {
+      return emails.filter(item => item?.email?.is_vip);
+    }
     // Filter by priority label (PRIORITARIO, SEGUIMIENTO)
     return emails.filter(item => item?.priority?.priority_label === filter);
   }, [emails, filter]);
@@ -387,6 +402,7 @@ export default function MessagesPage() {
             <FilterPill active={filter === 'all'} onClick={() => handleFilterChange('all')} label="Todos" />
             <FilterPill active={filter === 'PRIORITARIO'} onClick={() => handleFilterChange('PRIORITARIO')} label="Prioritarios" />
             <FilterPill active={filter === 'SEGUIMIENTO'} onClick={() => handleFilterChange('SEGUIMIENTO')} label="Seguimiento" />
+            <FilterPill active={filter === 'vip'} onClick={() => handleFilterChange('vip')} label="VIP" />
             <FilterPill active={filter === 'attachments'} onClick={() => handleFilterChange('attachments')} label="Adjuntos" />
           </div>
 
@@ -446,9 +462,10 @@ export default function MessagesPage() {
                           <p className="text-xs text-[rgba(255,255,255,0.25)] truncate leading-relaxed">
                             {email.snippet || ''}
                           </p>
-                          {priority && priority !== 'INFORMATIVO' && (
-                            <div className="mt-2">
-                              <PriorityChip label={priority} />
+                          {(priority && priority !== 'INFORMATIVO' || email.is_vip) && (
+                            <div className="mt-2 flex items-center gap-1.5">
+                              {email.is_vip && <VipChip companyName={email.vip_company_name} />}
+                              {priority && priority !== 'INFORMATIVO' && !email.is_vip && <PriorityChip label={priority} />}
                             </div>
                           )}
                         </div>
@@ -483,6 +500,9 @@ export default function MessagesPage() {
                         {selectedEmail.email.subject || '(Sin asunto)'}
                       </h2>
                       <div className="flex items-center gap-3">
+                        {selectedEmail.email.is_vip && (
+                          <VipChip companyName={selectedEmail.email.vip_company_name} />
+                        )}
                         {selectedEmail.priority?.priority_label && (
                           <PriorityChip label={selectedEmail.priority.priority_label} />
                         )}

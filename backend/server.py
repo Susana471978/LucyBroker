@@ -53,6 +53,9 @@ from backend.api.habits import router as habits_router
 
 from backend.api.alerts import router as alerts_router
 
+from backend.api.vip_companies import create_vip_companies_router
+
+
 # =========================
 # STRIPE
 # =========================
@@ -174,6 +177,7 @@ api_router.include_router(habits_router)
 
 api_router.include_router(billing_router)
 
+
 # ======================================================
 # AUTH HELPERS
 # ======================================================
@@ -240,6 +244,8 @@ async def get_current_user(
         logger.exception("Auth error (DB/unknown)")
         raise HTTPException(status_code=401, detail="Token inválido")
 
+vip_router = create_vip_companies_router(db, get_current_user)
+app.include_router(vip_router, prefix="/api")
 
 # ======================================================
 # ROUTERS (orden importante)
