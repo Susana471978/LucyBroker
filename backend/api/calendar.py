@@ -19,6 +19,7 @@ from backend.services.google_auth import get_valid_credentials
 from backend.services.token_encryption import encrypt_tokens
 from backend.utils.response import build_response
 from backend.utils.logger import logger
+from backend.core.feature_gate import check_feature
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -67,7 +68,7 @@ def _parse_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def fetch_today_events(user: Dict[str, Any], db) -> List[Dict[str, Any]]:
-    """Fetch today's events. Now accepts *db* so it can refresh tokens."""
+    """Fetch today's events. Internal use (briefing) — no gating here."""
     if not user.get("calendar_connected"):
         return []
 
@@ -102,7 +103,7 @@ async def fetch_upcoming_events(
     days: int = 7,
     max_results: int = 20,
 ) -> List[Dict[str, Any]]:
-    """Fetch upcoming events. Now accepts *db* so it can refresh tokens."""
+    """Fetch upcoming events. Internal use (briefing) — no gating here."""
     if not user.get("calendar_connected"):
         return []
 
@@ -138,28 +139,30 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         "http://127.0.0.1:8000/api/calendar/callback",
     )
 
+    # Status — no gating (needed to show connection state)
     @router.get("/calendar/status")
     async def calendar_status(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
         data = {"calendar_connected": bool(user.get("calendar_connected", False))}
         return build_response(request, data=data, legacy=data)
 
+    # Auth start — gate here so Basic users can't even start connecting
     @router.get("/calendar/auth")
     async def calendar_auth(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
-        flow = _get_calendar_flow(REDIRECT_URI, state=user["id"])
+        check_feature(user, "calendar_integration")
 
+        flow = _get_calendar_flow(REDIRECT_URI, state=user["id"])
         auth_url, _state = flow.authorization_url(
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
         )
-
         data = {"auth_url": auth_url}
         return build_response(request, data=data, legacy=data)
 
+    # Callback — no gating (Google redirects here, can't block)
     @router.get("/calendar/callback")
     async def calendar_callback(code: str, state: str = Query(...)):
         flow = _get_calendar_flow(REDIRECT_URI, state=state)
-        # Google devuelve gmail+calendar scopes juntos — ignoramos el warning de scope
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             flow.fetch_token(code=code, code_verifier=None)
@@ -174,10 +177,12 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         }
         await db.users.update_one(
             {"id": state},
-            {"$set": {"calendar_tokens": encrypt_tokens(tokens), "calendar_connected": True}},        )
+            {"$set": {"calendar_tokens": encrypt_tokens(tokens), "calendar_connected": True}},
+        )
         frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
         return RedirectResponse(url=f"{frontend_url}/app")
 
+    # Disconnect — no gating (always allow disconnecting)
     @router.post("/calendar/disconnect")
     async def calendar_disconnect(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
         await db.users.update_one(
@@ -187,8 +192,10 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         data = {"calendar_connected": False}
         return build_response(request, data=data, legacy=data)
 
+    # Data endpoints — gated
     @router.get("/calendar/today")
     async def calendar_today(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
+        check_feature(user, "calendar_integration")
         events = await fetch_today_events(user, db)
         return build_response(request, data=events, legacy=events)
 
@@ -199,6 +206,7 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         days: int = Query(7, ge=1, le=30),
         max_results: int = Query(20, ge=1, le=50),
     ):
+        check_feature(user, "calendar_integration")
         events = await fetch_upcoming_events(user, db, days=days, max_results=max_results)
         return build_response(request, data=events, legacy=events)
 
@@ -207,10 +215,8 @@ def create_calendar_router(db, get_current_user: Callable) -> APIRouter:
         request: Request,
         user: Dict[str, Any] = Depends(get_current_user),
     ):
-        """
-        Crea un evento en el calendario principal del usuario.
-        Body: { title, date, start_time, end_time, description?, location?, attendees? }
-        """
+        check_feature(user, "calendar_integration")
+
         body = await request.json()
         title = body.get("title", "").strip()
         date = body.get("date", "")

@@ -2,8 +2,8 @@
 
 """
 Sistema de planes de Lucy.
-Dos productos independientes + bundle.
-Cada usuario puede tener uno o ambos productos activos.
+Primer lanzamiento: solo Lucy Secretaria Ejecutiva (3 tiers).
+Personal y Bundle comentados para segundo lanzamiento.
 """
 
 from __future__ import annotations
@@ -20,14 +20,14 @@ PRICE_IDS = {
     "executive_pro":      "price_1TCdFbL07UaiQy6MqamCQpu3",   # €29/mes
     "executive_business": "price_1TCdG3L07UaiQy6MhgMvqLlG",   # €49/mes
 
-    # Lucy Asistente Personal
-    "personal_basic":     "price_1TCdGUL07UaiQy6MKdLzsQAg",   # €14/mes
-    "personal_pro":       "price_1TCdGnL07UaiQy6MRKQ759N0",   # €24/mes
+    # Lucy Asistente Personal (segundo lanzamiento)
+    # "personal_basic":     "price_1TCdGUL07UaiQy6MKdLzsQAg",   # €14/mes
+    # "personal_pro":       "price_1TCdGnL07UaiQy6MRKQ759N0",   # €24/mes
 
-    # Lucy Completa (Bundle)
-    "bundle_basic":       "price_1TCdHFL07UaiQy6MNrMBJtal",   # €25/mes
-    "bundle_pro":         "price_1TCdHYL07UaiQy6MOQqzlImb",   # €40/mes
-    "bundle_business":    "price_1TCdHvL07UaiQy6MgfsoRsJo",   # €55/mes
+    # Lucy Completa — Bundle (segundo lanzamiento)
+    # "bundle_basic":       "price_1TCdHFL07UaiQy6MNrMBJtal",   # €25/mes
+    # "bundle_pro":         "price_1TCdHYL07UaiQy6MOQqzlImb",   # €40/mes
+    # "bundle_business":    "price_1TCdHvL07UaiQy6MgfsoRsJo",   # €55/mes
 }
 
 # Reverse lookup: price_id → plan_key
@@ -65,6 +65,7 @@ PLANS = {
             "calendar_integration",
             "tasks_management",
             "voice_commands",
+            "vip_companies",
         ],
     },
     "executive_business": {
@@ -80,105 +81,21 @@ PLANS = {
             "calendar_integration",
             "tasks_management",
             "voice_commands",
+            "vip_companies",
             "multi_email_accounts",
             "crm_contacts",
             "auto_reply",
         ],
     },
 
-    # ── Asistente Personal ──
-    "personal_basic": {
-        "product": "personal",
-        "tier": "basic",
-        "name": "Asistente Personal — Básico",
-        "price": 14,
-        "features": [
-            "reminders",
-            "personal_memory",
-            "daily_organization",
-            "habits_tracking",
-        ],
-    },
-    "personal_pro": {
-        "product": "personal",
-        "tier": "pro",
-        "name": "Asistente Personal — Pro",
-        "price": 24,
-        "features": [
-            "reminders",
-            "personal_memory",
-            "daily_organization",
-            "habits_tracking",
-            "smart_notes",
-            "proactive_alerts",
-            "info_search",
-        ],
-    },
+    # ── Asistente Personal (segundo lanzamiento) ──
+    # "personal_basic": { ... },
+    # "personal_pro": { ... },
 
-    # ── Bundle ──
-    "bundle_basic": {
-        "product": "bundle",
-        "tier": "basic",
-        "name": "Lucy Completa — Básico",
-        "price": 25,
-        "features": [
-            "briefing_matutino",
-            "email_prioritization",
-            "email_summary",
-            "single_email_account",
-            "reminders",
-            "personal_memory",
-            "daily_organization",
-            "habits_tracking",
-        ],
-    },
-    "bundle_pro": {
-        "product": "bundle",
-        "tier": "pro",
-        "name": "Lucy Completa — Pro",
-        "price": 40,
-        "features": [
-            "briefing_matutino",
-            "email_prioritization",
-            "email_summary",
-            "single_email_account",
-            "calendar_integration",
-            "tasks_management",
-            "voice_commands",
-            "reminders",
-            "personal_memory",
-            "daily_organization",
-            "habits_tracking",
-            "smart_notes",
-            "proactive_alerts",
-            "info_search",
-        ],
-    },
-    "bundle_business": {
-        "product": "bundle",
-        "tier": "business",
-        "name": "Lucy Completa — Business+Pro",
-        "price": 55,
-        "features": [
-            "briefing_matutino",
-            "email_prioritization",
-            "email_summary",
-            "single_email_account",
-            "calendar_integration",
-            "tasks_management",
-            "voice_commands",
-            "multi_email_accounts",
-            "crm_contacts",
-            "auto_reply",
-            "reminders",
-            "personal_memory",
-            "daily_organization",
-            "habits_tracking",
-            "smart_notes",
-            "proactive_alerts",
-            "info_search",
-        ],
-    },
+    # ── Bundle (segundo lanzamiento) ──
+    # "bundle_basic": { ... },
+    # "bundle_pro": { ... },
+    # "bundle_business": { ... },
 }
 
 
@@ -191,18 +108,15 @@ TRIAL_FEATURES = [
     "email_prioritization",
     "email_summary",
     "single_email_account",
-    "reminders",
-    "personal_memory",
-    "habits_tracking",
 ]
 
 TRIAL_LIMITS = {
     "trial_hours": 4,
     "trial_seconds": 14400,
     "max_emails_per_day": 10,
-    "max_reminders": 5,
-    "max_habits": 3,
-    "tts_enabled": True,
+    "max_reminders": 3,
+    "max_habits": 2,
+    "tts_enabled": False,
 }
 
 
@@ -218,7 +132,7 @@ def get_user_plan(user: Dict[str, Any]) -> Dict[str, Any]:
             "is_admin": True,
             "is_trial": False,
             "executive_tier": "business",
-            "personal_tier": "pro",
+            "personal_tier": None,
         }
 
     subscriptions = user.get("subscriptions", {})
@@ -238,6 +152,7 @@ def get_user_plan(user: Dict[str, Any]) -> Dict[str, Any]:
             if plan["product"] in ("personal", "bundle"):
                 personal_tier = plan["tier"]
 
+    # Legacy fallback: old subscription_active flag
     if not active_plans and user.get("subscription_active"):
         active_plans.append("executive_pro")
         plan = PLANS["executive_pro"]
@@ -268,8 +183,11 @@ def get_plan_from_price(price_id: str) -> Optional[str]:
 
 
 def get_available_plans() -> List[Dict[str, Any]]:
+    """Returns only plans available for the current launch (executive only)."""
     result = []
     for key, plan in PLANS.items():
+        if key not in PRICE_IDS:
+            continue  # Skip commented-out plans
         result.append({
             "key": key,
             "product": plan["product"],

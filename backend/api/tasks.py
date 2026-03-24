@@ -8,6 +8,7 @@ from bson import ObjectId
 from backend.utils.response import build_response
 from backend.core.dependencies import get_current_user
 from backend.core.database import db
+from backend.core.feature_gate import check_feature
 
 router = APIRouter(prefix="/tasks", tags=["tasks"])
 
@@ -27,6 +28,8 @@ async def list_tasks(
     done: Optional[bool] = None,
     user: Dict[str, Any] = Depends(get_current_user),
 ):
+    check_feature(user, "tasks_management")
+
     query: Dict[str, Any] = {"user_id": user["id"]}
     if done is not None:
         query["done"] = done
@@ -49,6 +52,8 @@ async def create_task(
     payload: Dict[str, Any],
     user: Dict[str, Any] = Depends(get_current_user),
 ):
+    check_feature(user, "tasks_management")
+
     title = (payload.get("title") or "").strip()
     if not title:
         raise HTTPException(status_code=400, detail="El título es obligatorio")
@@ -59,12 +64,12 @@ async def create_task(
         "user_id": user["id"],
         "title": title,
         "notes": (payload.get("notes") or "").strip(),
-        "due_date": payload.get("due_date"),       # YYYY-MM-DD opcional
-        "priority": payload.get("priority", "normal"),  # high / normal / low
+        "due_date": payload.get("due_date"),
+        "priority": payload.get("priority", "normal"),
         "done": False,
         "done_at": None,
         "created_at": now,
-        "source_email_id": payload.get("source_email_id"),  # si viene de un email
+        "source_email_id": payload.get("source_email_id"),
     }
 
     result = await db.tasks.insert_one(doc)
@@ -85,6 +90,8 @@ async def toggle_done(
     payload: Dict[str, Any],
     user: Dict[str, Any] = Depends(get_current_user),
 ):
+    check_feature(user, "tasks_management")
+
     try:
         oid = ObjectId(task_id)
     except Exception:
@@ -118,6 +125,8 @@ async def update_task(
     payload: Dict[str, Any],
     user: Dict[str, Any] = Depends(get_current_user),
 ):
+    check_feature(user, "tasks_management")
+
     try:
         oid = ObjectId(task_id)
     except Exception:
@@ -153,6 +162,8 @@ async def delete_task(
     request: Request,
     user: Dict[str, Any] = Depends(get_current_user),
 ):
+    check_feature(user, "tasks_management")
+
     try:
         oid = ObjectId(task_id)
     except Exception:
@@ -167,7 +178,7 @@ async def delete_task(
 
 
 # ======================================================
-# TAREAS PENDIENTES (para briefing)
+# TAREAS PENDIENTES (para briefing — NO gated, internal use)
 # ======================================================
 
 async def get_pending_tasks(user_id: str) -> List[Dict]:

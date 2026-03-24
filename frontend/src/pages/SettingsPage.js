@@ -7,7 +7,7 @@ import apiClient from '../services/apiClient';
 import {
     Brain, Trash2, Plus, Mail, Calendar, Volume2, VolumeX,
     Briefcase, Users, Heart, StickyNote, ChevronDown, X,
-    Building2, Globe
+    Building2, Globe, Lock
 } from 'lucide-react';
 
 const CATEGORIES = {
@@ -346,6 +346,8 @@ export default function SettingsPage() {
     const [vipLoading, setVipLoading] = useState(true);
     const [showAddVip, setShowAddVip] = useState(false);
     const [vipError, setVipError] = useState('');
+    const [vipLocked, setVipLocked] = useState(false);
+    const [vipMinPlan, setVipMinPlan] = useState('');
 
     const fetchNotes = useCallback(async () => {
         try {
@@ -375,7 +377,16 @@ export default function SettingsPage() {
             const res = await apiClient.get('/vip-companies');
             const data = res.data?.data || res.data;
             setVipCompanies(data.companies || []);
-        } catch (err) { console.error('VIP fetch:', err); }
+            setVipLocked(false);
+        } catch (err) {
+            if (err.response?.status === 403) {
+                const detail = err.response?.data?.detail || {};
+                setVipLocked(true);
+                setVipMinPlan(detail.min_plan || 'Executive Pro');
+            } else {
+                console.error('VIP fetch:', err);
+            }
+        }
         finally { setVipLoading(false); }
     }, []);
 
@@ -500,7 +511,7 @@ export default function SettingsPage() {
                                 Los correos de estas empresas tendrán prioridad máxima
                             </p>
                         </div>
-                        {!showAddVip && (
+                        {!vipLocked && !showAddVip && !vipLoading && (
                             <button onClick={() => { setShowAddVip(true); setVipError(''); }}
                                 className="flex items-center gap-1.5 text-xs text-[#C9B27C] border border-[rgba(201,178,124,0.2)] px-3 py-1.5 rounded-lg bg-[rgba(201,178,124,0.04)] hover:bg-[rgba(201,178,124,0.1)] hover:border-[rgba(201,178,124,0.4)] transition-all duration-200">
                                 <Plus className="w-3 h-3" />
@@ -509,66 +520,88 @@ export default function SettingsPage() {
                         )}
                     </div>
 
-                    <AnimatePresence>
-                        {showAddVip && (
-                            <div className="mb-4">
-                                <AddVipForm onAdd={handleAddVip} onCancel={() => { setShowAddVip(false); setVipError(''); }} />
-                            </div>
-                        )}
-                    </AnimatePresence>
-
-                    <AnimatePresence>
-                        {vipError && (
-                            <motion.p
-                                initial={{ opacity: 0, y: -4 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0 }}
-                                className="text-xs text-red-400 mb-3 px-1"
+                    {vipLocked ? (
+                        <div className="text-center py-10 rounded-xl relative overflow-hidden"
+                            style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.08)' }}>
+                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.2)] to-transparent" />
+                            <Lock className="w-8 h-8 mx-auto text-[rgba(201,178,124,0.2)] mb-3" />
+                            <p className="text-sm text-[rgba(224,247,250,0.35)]">
+                                Disponible desde <span className="text-[#C9B27C]">{vipMinPlan}</span>
+                            </p>
+                            <p className="text-xs text-[rgba(224,247,250,0.15)] mt-1 mb-4">
+                                Mejora tu plan para que Lucy priorice los correos de tus empresas clave
+                            </p>
+                            <button
+                                onClick={() => window.location.href = '/app/pricing'}
+                                className="text-xs text-[#C9B27C] border border-[rgba(201,178,124,0.25)] px-5 py-2 rounded-xl bg-[rgba(201,178,124,0.06)] hover:bg-[rgba(201,178,124,0.12)] hover:border-[rgba(201,178,124,0.4)] transition-all duration-200"
                             >
-                                {vipError}
-                            </motion.p>
-                        )}
-                    </AnimatePresence>
-
-                    {vipLoading ? (
-                        <div className="flex items-center justify-center py-8">
-                            <div className="w-5 h-5 border-2 border-[rgba(201,178,124,0.3)] border-t-[#C9B27C] rounded-full animate-spin" />
-                        </div>
-                    ) : vipCompanies.length === 0 ? (
-                        <div className="text-center py-8 rounded-xl"
-                            style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.06)' }}>
-                            <Building2 className="w-8 h-8 mx-auto text-[rgba(201,178,124,0.15)] mb-3" />
-                            <p className="text-sm text-[rgba(224,247,250,0.2)]">
-                                Aún no has añadido empresas prioritarias
-                            </p>
-                            <p className="text-xs text-[rgba(224,247,250,0.12)] mt-1">
-                                Lucy te avisará cuando llegue un correo de estas empresas
-                            </p>
+                                Ver planes
+                            </button>
                         </div>
                     ) : (
-                        <div className="space-y-2">
-                            <AnimatePresence mode="popLayout">
-                                {vipCompanies.map((company, i) => (
-                                    <VipCompanyCard
-                                        key={company.id}
-                                        company={company}
-                                        onDelete={handleDeleteVip}
-                                        delay={i * 0.03}
-                                    />
-                                ))}
+                        <>
+                            <AnimatePresence>
+                                {showAddVip && (
+                                    <div className="mb-4">
+                                        <AddVipForm onAdd={handleAddVip} onCancel={() => { setShowAddVip(false); setVipError(''); }} />
+                                    </div>
+                                )}
                             </AnimatePresence>
-                        </div>
-                    )}
 
-                    {vipCompanies.length > 0 && vipCompanies.length < 3 && (
-                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
-                            className="mt-4 rounded-xl px-4 py-3"
-                            style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.06)' }}>
-                            <p className="text-xs text-[rgba(201,178,124,0.35)] leading-relaxed">
-                                <span className="text-[rgba(201,178,124,0.6)] font-medium">Tip:</span> Añade el dominio exacto del email corporativo.
-                                Por ejemplo, para Telefónica usa <span className="text-[rgba(201,178,124,0.5)]">telefonica.com</span>.
-                            </p>
-                        </motion.div>
+                            <AnimatePresence>
+                                {vipError && (
+                                    <motion.p
+                                        initial={{ opacity: 0, y: -4 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0 }}
+                                        className="text-xs text-red-400 mb-3 px-1"
+                                    >
+                                        {vipError}
+                                    </motion.p>
+                                )}
+                            </AnimatePresence>
+
+                            {vipLoading ? (
+                                <div className="flex items-center justify-center py-8">
+                                    <div className="w-5 h-5 border-2 border-[rgba(201,178,124,0.3)] border-t-[#C9B27C] rounded-full animate-spin" />
+                                </div>
+                            ) : vipCompanies.length === 0 ? (
+                                <div className="text-center py-8 rounded-xl"
+                                    style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.06)' }}>
+                                    <Building2 className="w-8 h-8 mx-auto text-[rgba(201,178,124,0.15)] mb-3" />
+                                    <p className="text-sm text-[rgba(224,247,250,0.2)]">
+                                        Aún no has añadido empresas prioritarias
+                                    </p>
+                                    <p className="text-xs text-[rgba(224,247,250,0.12)] mt-1">
+                                        Lucy te avisará cuando llegue un correo de estas empresas
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    <AnimatePresence mode="popLayout">
+                                        {vipCompanies.map((company, i) => (
+                                            <VipCompanyCard
+                                                key={company.id}
+                                                company={company}
+                                                onDelete={handleDeleteVip}
+                                                delay={i * 0.03}
+                                            />
+                                        ))}
+                                    </AnimatePresence>
+                                </div>
+                            )}
+
+                            {vipCompanies.length > 0 && vipCompanies.length < 3 && (
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.4, duration: 0.5 }}
+                                    className="mt-4 rounded-xl px-4 py-3"
+                                    style={{ background: 'rgba(201,178,124,0.02)', border: '1px solid rgba(201,178,124,0.06)' }}>
+                                    <p className="text-xs text-[rgba(201,178,124,0.35)] leading-relaxed">
+                                        <span className="text-[rgba(201,178,124,0.6)] font-medium">Tip:</span> Añade el dominio exacto del email corporativo.
+                                        Por ejemplo, para Telefónica usa <span className="text-[rgba(201,178,124,0.5)]">telefonica.com</span>.
+                                    </p>
+                                </motion.div>
+                            )}
+                        </>
                     )}
                 </motion.div>
 
