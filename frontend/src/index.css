@@ -694,3 +694,23 @@ textarea:focus-visible {
     font-size: 2rem;
   }
 }
+
+/* ============================= */
+/* Lucy Particles Layer          */
+/* ============================= */
+
+.lucy-particles-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  /* 🔥 IMPORTANTE: detrás del contenido, delante del fondo */
+  pointer-events: none;
+
+  opacity: 0.45;
+  /* más elegante que 0.6 */
+  filter: blur(0.5px);
+  /* suaviza partículas */
+
+  mix-blend-mode: screen;
+  /* 🔥 esto es el toque premium */
+}

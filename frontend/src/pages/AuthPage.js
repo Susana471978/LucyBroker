@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Lock, ArrowRight, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+import HeroImage from '../assets/Lucy.png';
+
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
-import lucyActive from '../assets/Lucy.jpeg';
 
 // ── Partículas — doradas con destellos azules ─────────────────────────────────
 function ParticleCanvas() {
@@ -85,7 +86,7 @@ function LucyImageSide() {
       <div className="lucy-video-wrapper">
         <img
           className="lucy-video"
-          src={lucyActive}
+          src={HeroImage}
           alt="Lucy — Executive AI Assistant"
           style={{ mixBlendMode: 'screen' }}
         />
@@ -102,7 +103,6 @@ function LucyImageSide() {
     </div>
   );
 }
-
 export default function AuthPage() {
   const { login, register, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();

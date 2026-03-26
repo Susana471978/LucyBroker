@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+// 🔥 Asegúrate de que esta ruta sea correcta en tu proyecto
+import HeroImage from '../assets/Lucy.png';
 
 const LUCY_PRESENTATION = "Hola, soy Lucy, tu secretaria ejecutiva y asistente personal impulsada por inteligencia artificial. Voy a ayudarte a organizar tu día, gestionar tus correos, tus hábitos y liberar tu mente para lo que realmente importa. ¿Por dónde empezamos?";
 
-/* ─── Golden particles canvas ─────────────────────────── */
+/* ─── Golden particles canvas ────────────────────────── */
 function GoldParticles() {
   const canvasRef = useRef(null);
 
@@ -51,7 +53,6 @@ function GoldParticles() {
         ctx.fillStyle = `rgba(201,178,124,${o})`;
         ctx.fill();
 
-        // Glow
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r * 3, 0, Math.PI * 2);
         ctx.fillStyle = `rgba(201,178,124,${o * 0.15})`;
@@ -115,7 +116,6 @@ export default function LandingPage() {
         const audio = new Audio(url);
         audioRef.current = audio;
         audio.onended = () => { setMicState('idle'); audioRef.current = null; URL.revokeObjectURL(url); };
-        audio.onerror = () => { setMicState('idle'); audioRef.current = null; URL.revokeObjectURL(url); };
         await audio.play();
         setMicState('playing');
       } else { throw new Error('TTS failed'); }
@@ -148,20 +148,6 @@ export default function LandingPage() {
     document.addEventListener('mousemove', onMove);
     rafRef.current = requestAnimationFrame(animateRing);
 
-    const interactables = document.querySelectorAll('a, button');
-    interactables.forEach(el => {
-      el.addEventListener('mouseenter', () => {
-        cursor.style.transform = 'scale(2.5)';
-        ring.style.transform = 'scale(1.5)';
-        ring.style.borderColor = 'rgba(201,178,124,0.8)';
-      });
-      el.addEventListener('mouseleave', () => {
-        cursor.style.transform = 'scale(1)';
-        ring.style.transform = 'scale(1)';
-        ring.style.borderColor = 'rgba(201,178,124,0.3)';
-      });
-    });
-
     const observer = new IntersectionObserver(entries => {
       entries.forEach(e => {
         if (e.isIntersecting) {
@@ -182,8 +168,6 @@ export default function LandingPage() {
       document.removeEventListener('mousemove', onMove);
       cancelAnimationFrame(rafRef.current);
       observer.disconnect();
-      if (audioRef.current) { audioRef.current.pause(); }
-      window.speechSynthesis?.cancel();
     };
   }, []);
 
@@ -193,249 +177,225 @@ export default function LandingPage() {
       <div ref={ringRef} className="lp-cursor-ring" />
 
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Plus+Jakarta+Sans:wght@200;300;400;500&display=swap');
+
         .lp-wrap * { margin: 0; padding: 0; box-sizing: border-box; }
         .lp-wrap {
-          --black: #050508; --deep: #0a0f1a; --surface: #0d1525;
-          --ocean: #00B4D8; --ocean-light: #4DD9F0; --ocean-dim: rgba(0,180,216,0.15);
-          --gold: #C9B27C; --gold-light: #D4C08A; --gold-dim: rgba(201,178,124,0.15);
-          --silver: #E0F7FA; --silver-dim: rgba(224,247,250,0.55); --silver-faint: rgba(224,247,250,0.08);
+          --black: #030305; --gold: #C9B27C; --silver: #ffffff; --gray: rgba(255,255,255,0.6);
+          <li><button className="lp-nav-cta" onClick={() => navigate('/auth')}>Acceder</button></li>          
           background: var(--black); color: var(--silver);
-          font-family: 'DM Sans', sans-serif; font-weight: 300;
-          overflow-x: hidden; cursor: none; min-height: 100vh;
-          position: relative;
+          font-family: 'Plus Jakarta Sans', sans-serif; font-weight: 300;
+          overflow-x: hidden; min-height: 100vh; position: relative;
         }
-        .lp-cursor { position: fixed; width: 8px; height: 8px; background: var(--gold); border-radius: 50%; pointer-events: none; z-index: 9999; transition: transform 0.15s ease; mix-blend-mode: difference; }
-        .lp-cursor-ring { position: fixed; width: 32px; height: 32px; border: 1px solid rgba(201,178,124,0.3); border-radius: 50%; pointer-events: none; z-index: 9998; transition: border-color 0.3s, transform 0.3s; }
 
-        /* Subtle noise texture */
-        .lp-wrap::before { content: ''; position: fixed; inset: 0; background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E"); pointer-events: none; z-index: 1; opacity: 0.3; }
+        .lp-cursor { position: fixed; width: 8px; height: 8px; background: var(--gold); border-radius: 50%; pointer-events: none; z-index: 9999; mix-blend-mode: difference; }
+        .lp-cursor-ring { position: fixed; width: 32px; height: 32px; border: 1px solid rgba(201,178,124,0.3); border-radius: 50%; pointer-events: none; z-index: 9998; }
 
         /* ══ NAV ══ */
-        .lp-nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; padding: 1.8rem 4rem; display: flex; align-items: center; justify-content: space-between; background: linear-gradient(to bottom, rgba(5,5,8,0.98) 0%, rgba(5,5,8,0.7) 60%, transparent 100%); backdrop-filter: blur(12px); }
-        .lp-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 300; letter-spacing: 0.15em; color: var(--silver); cursor: pointer; }
-        .lp-logo span { color: var(--gold); }
-        .lp-nav-links { display: flex; align-items: center; gap: 3rem; list-style: none; }
-        .lp-nav-links a { text-decoration: none; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--silver-dim); transition: color 0.3s; cursor: none; }
-        .lp-nav-links a:hover { color: var(--gold); }
-        .lp-nav-cta { padding: 0.6rem 1.8rem !important; border: 1px solid rgba(201,178,124,0.3) !important; color: var(--gold) !important; background: transparent; font-family: 'DM Sans', sans-serif; font-size: 0.75rem; letter-spacing: 0.12em; text-transform: uppercase; cursor: none; transition: all 0.3s; }
-        .lp-nav-cta:hover { background: rgba(201,178,124,0.08) !important; border-color: var(--gold) !important; }
-
+        .lp-nav { position:absolute; top:0; left:0; right:0; z-index:100; padding:2.5rem 10%; display:flex; align-items:center; justify-content:space-between; }
+        .lp-nav-links { display:flex; flex-direction:row; align-items:center; justify-content:flex-end; gap:2.8rem; list-style:none; margin:0; padding:0; }
+        .lp-nav-links li { display:flex; align-items:center; }
+        .lp-nav-links a { text-decoration:none; font-size:0.7rem; letter-spacing:0.2em; text-transform:uppercase; color:#EAF4FF; transition:0.3s; white-space:nowrap; }        
+        .lp-nav-links a:hover { color:#FFFFFF; }
+        .lp-logo { font-family:'Cormorant Garamond', serif; font-size:2rem; letter-spacing:0.2em; color:#9FCCFF; cursor:pointer; text-shadow:0 0 12px rgba(120,190,255,0.28), 0 0 28px rgba(54,126,255,0.20), 0 0 48px rgba(54,126,255,0.12); transition:color .28s ease, text-shadow .28s ease, transform .28s ease; }
+        .lp-logo span { color:#CBE4FF; text-shadow:0 0 14px rgba(120,190,255,0.34), 0 0 30px rgba(54,126,255,0.24); }
+        .lp-logo:hover { color:#DDF0FF; text-shadow:0 0 16px rgba(120,190,255,0.34), 0 0 34px rgba(54,126,255,0.24), 0 0 56px rgba(54,126,255,0.16); transform:translateY(-1px); }
+        .lp-nav-cta:hover { border-color:rgba(115,186,255,0.72); color:#FFFFFF; background:linear-gradient(180deg, rgba(10,18,36,0.96) 0%, rgba(6,11,24,0.92) 100%); box-shadow:0 0 0 1px rgba(120,190,255,0.16) inset, 0 0 14px rgba(64,140,255,0.30), 0 0 30px rgba(64,140,255,0.24), 0 0 52px rgba(36,104,255,0.18); transform:translateY(-1px); }
+        .lp-nav-cta { padding:0.78rem 1.75rem; border:1px solid rgba(88,160,255,0.42); border-radius:999px; color:#EAF4FF; background:linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%); font-size:0.68rem; font-weight:500; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; position:relative; box-shadow:0 0 0 1px rgba(90,170,255,0.10) inset, 0 0 10px rgba(54,126,255,0.22), 0 0 22px rgba(54,126,255,0.18); transition:border-color .28s ease, box-shadow .28s ease, transform .28s ease, color .28s ease, background .28s ease; }        
+        .lp-nav-cta:hover { border-color:rgba(201,178,124,0.88); color:#FFF7E8; background:linear-gradient(180deg, rgba(24,18,10,0.96) 0%, rgba(14,10,6,0.92) 100%); box-shadow:0 0 0 1px rgba(201,178,124,0.14) inset, 0 0 14px rgba(201,178,124,0.26), 0 0 30px rgba(201,178,124,0.20), 0 0 52px rgba(201,178,124,0.14); transform:translateY(-1px); }
+        .lp-nav-cta:active { transform:translateY(0); box-shadow:0 0 0 1px rgba(120,190,255,0.12) inset, 0 0 10px rgba(64,140,255,0.22), 0 0 20px rgba(36,104,255,0.16); }
+        
         /* ══ HERO ══ */
-        .lp-hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden; }
-        .lp-hero-bg { position: absolute; inset: 0; z-index: 0; }
-        .lp-hero-img { width: 100%; height: 100%; object-fit: cover; object-position: center 20%; opacity: 0.55; }
-        .lp-hero-overlay { position: absolute; inset: 0; background: linear-gradient(to bottom, rgba(5,5,8,0.5) 0%, rgba(5,5,8,0.2) 30%, rgba(5,5,8,0.6) 70%, rgba(5,5,8,0.98) 100%); }
-        .lp-hero-overlay-left { position: absolute; inset: 0; background: linear-gradient(to right, rgba(5,5,8,0.9) 0%, transparent 60%); }
-        .lp-hero-content { position: relative; z-index: 2; max-width: 700px; padding: 8rem 4rem 6rem; }
-        .lp-eyebrow { font-size: 0.7rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold); margin-bottom: 2rem; opacity: 0; animation: lp-fadeUp 0.8s ease 0.2s forwards; }
-        .lp-h1 { font-family: 'Cormorant Garamond', serif; font-size: clamp(3.5rem, 8vw, 6rem); font-weight: 300; line-height: 1; letter-spacing: -0.02em; color: var(--silver); opacity: 0; animation: lp-fadeUp 0.9s ease 0.35s forwards; }
-        .lp-h1 em { font-style: italic; color: var(--gold); }
-        .lp-subtitle { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.1rem, 2vw, 1.5rem); font-weight: 300; font-style: italic; color: var(--silver-dim); margin-top: 1.5rem; margin-bottom: 3.5rem; opacity: 0; animation: lp-fadeUp 0.9s ease 0.5s forwards; }
-        .lp-actions { display: flex; gap: 1.5rem; align-items: center; opacity: 0; animation: lp-fadeUp 0.9s ease 0.65s forwards; }
-        .lp-btn-primary { padding: 1rem 3rem; background: var(--gold); color: #050508; font-family: 'DM Sans', sans-serif; font-size: 0.78rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; border: none; cursor: none; transition: all 0.3s ease; }
-        .lp-btn-primary:hover { background: var(--gold-light); transform: translateY(-2px); box-shadow: 0 8px 40px rgba(201,178,124,0.3); }
-        .lp-btn-secondary { font-size: 0.75rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver-dim); background: none; border: none; display: flex; align-items: center; gap: 0.5rem; transition: color 0.3s; cursor: none; }
-        .lp-btn-secondary:hover { color: var(--gold); }
-        .lp-btn-secondary::after { content: '→'; }
-
-        /* ══ DIVIDERS ══ */
-        .lp-wave { width: 1px; height: 100px; background: linear-gradient(to bottom, transparent, rgba(201,178,124,0.25), transparent); margin: 0 auto; }
-        .lp-section-label { font-size: 0.68rem; letter-spacing: 0.3em; text-transform: uppercase; color: var(--gold); text-align: center; }
+        .lp-hero { height: 100vh; display: flex; align-items: center; padding: 0 10%; position: relative; z-index: 10; }
+        .hero-img-container { position: absolute; right: 0; top: 0; width: 75%; height: 100%; z-index: 1; }
+        .hero-img { width: 100%; height: 100%; object-fit: cover; mask-image: linear-gradient(to left, black 65%, transparent 100%); opacity: 0.9; }
+        .hero-content { position: relative; z-index: 10; max-width: 600px; }
+        .lp-h1 { font-family:'Cormorant Garamond', serif; font-size:clamp(2.8rem,6vw,4.5rem); line-height:1; font-weight:300; margin-bottom:1.5rem; }        .lp-h1 em { font-style: italic; color: var(--gold); }
+        .hero-subtext { font-size: 1.1rem; color: var(--gray); margin-bottom: 3rem; max-width: 400px; }
+        .btn-main { padding:0.78rem 1.75rem; border:1px solid rgba(88,160,255,0.42); border-radius:999px; color:#EAF4FF; background:linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%); font-size:0.68rem; font-weight:500; letter-spacing:0.14em; text-transform:uppercase; cursor:pointer; position:relative; box-shadow:0 0 0 1px rgba(90,170,255,0.10) inset, 0 0 10px rgba(54,126,255,0.22), 0 0 22px rgba(54,126,255,0.18); transition:border-color .28s ease, box-shadow .28s ease, transform .28s ease, color .28s ease, background .28s ease; } 
+        .btn-main:hover { border-color:rgba(201,178,124,0.88); color:#FFF7E8; background:linear-gradient(180deg, rgba(24,18,10,0.96) 0%, rgba(14,10,6,0.92) 100%); box-shadow:0 0 0 1px rgba(201,178,124,0.14) inset, 0 0 14px rgba(201,178,124,0.26), 0 0 30px rgba(201,178,124,0.20), 0 0 52px rgba(201,178,124,0.14); transform:translateY(-1px); }
+        
+        /* ══ SECTIONS ══ */
+        .section-padding { padding: 8rem 10%; position: relative; z-index: 2; }
+        .label { color: var(--gold); text-transform: uppercase; letter-spacing: 0.4em; font-size: 0.7rem; margin-bottom: 2rem; display: block; }
+        .lp-wave { width: 1px; height: 100px; background: linear-gradient(to bottom, transparent, rgba(201,178,124,0.3), transparent); margin: 0 auto; }
 
         /* ══ VOICE DEMO ══ */
-        .lp-voice { padding: 8rem 4rem; display: flex; flex-direction: column; align-items: center; gap: 3rem; position: relative; z-index: 2; }
-        .lp-voice::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 600px; height: 600px; background: radial-gradient(ellipse, rgba(201,178,124,0.03) 0%, transparent 70%); pointer-events: none; }
-        .lp-voice-circle { position: relative; width: 160px; height: 160px; display: flex; align-items: center; justify-content: center; cursor: none; }
-        .lp-voice-ring { position: absolute; border-radius: 50%; border: 1px solid rgba(201,178,124,0.15); animation: lp-pulse 3s ease infinite; }
-        .lp-voice-ring:nth-child(1) { width: 100%; height: 100%; }
-        .lp-voice-ring:nth-child(2) { width: 70%; height: 70%; animation-delay: 0.6s; border-color: rgba(201,178,124,0.25); }
-        .lp-voice-ring:nth-child(3) { width: 42%; height: 42%; animation-delay: 1.2s; border-color: rgba(201,178,124,0.4); }
-        .lp-voice-circle.playing .lp-voice-ring { animation-duration: 0.9s !important; border-color: rgba(201,178,124,0.5); }
-        .lp-voice-center { width: 56px; height: 56px; background: rgba(201,178,124,0.06); border: 1px solid rgba(201,178,124,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; z-index: 1; transition: all 0.3s; }
-        .lp-voice-circle:hover .lp-voice-center { background: rgba(201,178,124,0.12); border-color: var(--gold); }
-        .lp-voice-circle.playing .lp-voice-center { background: rgba(201,178,124,0.15); border-color: var(--gold); box-shadow: 0 0 30px rgba(201,178,124,0.2); }
-        .lp-voice-hint { font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: rgba(224,247,250,0.25); text-align: center; transition: color 0.3s; margin-top: -1.5rem; }
-        .lp-voice-hint.playing { color: rgba(201,178,124,0.6); }
-        .lp-spin { animation: lp-spin-anim 1s linear infinite; }
-        @keyframes lp-spin-anim { to { transform: rotate(360deg); } }
-
-        .lp-conversation { max-width: 580px; width: 100%; display: flex; flex-direction: column; gap: 1.5rem; position: relative; z-index: 2; }
-        .lp-msg { display: flex; flex-direction: column; gap: 0.4rem; opacity: 0; transform: translateY(10px); animation: lp-fadeUp 0.6s ease forwards; }
-        .lp-msg:nth-child(1) { animation-delay: 0.3s; }
-        .lp-msg:nth-child(2) { animation-delay: 1s; }
-        .lp-msg:nth-child(3) { animation-delay: 1.8s; }
-        .lp-msg:nth-child(4) { animation-delay: 2.6s; }
-        .lp-msg-who { font-size: 0.62rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--silver-dim); }
-        .lp-msg-who.lucy { color: var(--gold); }
-        .lp-msg-text { font-family: 'Cormorant Garamond', serif; font-size: 1.25rem; font-weight: 300; line-height: 1.55; color: var(--silver); padding: 1.2rem 1.8rem; border-left: 1px solid rgba(201,178,124,0.08); }
-        .lp-msg-lucy { border-left-color: rgba(201,178,124,0.3); background: linear-gradient(to right, rgba(201,178,124,0.04), transparent); }
+        .lp-voice { display:flex; flex-direction:column; align-items:center; gap:3rem; background:#030305; }        .lp-voice-circle { position:relative; width:220px; height:220px; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+        .lp-voice-ring { position:absolute; border-radius:50%; pointer-events:none; }
+        .lp-voice-ring:nth-child(1) { width:100%; height:100%; border:1px solid rgba(88,160,255,0.16); box-shadow:0 0 24px rgba(54,126,255,0.10), inset 0 0 18px rgba(54,126,255,0.05); animation:lpOrbPulse 4.2s ease-in-out infinite; }
+        .lp-voice-ring:nth-child(2) { width:74%; height:74%; border:1px solid rgba(118,186,255,0.20); box-shadow:0 0 18px rgba(88,160,255,0.14), inset 0 0 12px rgba(88,160,255,0.08); animation:lpOrbPulse 3.4s ease-in-out infinite reverse; }
+        .lp-voice-ring:nth-child(3) { width:48%; height:48%; border:1px solid rgba(160,215,255,0.22); box-shadow:0 0 14px rgba(118,186,255,0.18), inset 0 0 10px rgba(118,186,255,0.10); animation:lpOrbPulse 2.8s ease-in-out infinite; }
+        @keyframes lpOrbPulse { 0%,100% { transform:scale(1); opacity:0.42; } 50% { transform:scale(1.06); opacity:0.88; } }
+        .lp-voice-center { width:88px; height:88px; border-radius:50%; display:flex; align-items:center; justify-content:center; position:relative; background:radial-gradient(circle at 35% 30%, rgba(170,220,255,0.95) 0%, rgba(88,160,255,0.82) 22%, rgba(32,84,190,0.52) 48%, rgba(8,18,42,0.94) 100%); border:1px solid rgba(160,215,255,0.38); box-shadow:0 0 18px rgba(88,160,255,0.30), 0 0 42px rgba(54,126,255,0.22), inset 0 0 18px rgba(255,255,255,0.10); transition:transform .3s ease, box-shadow .3s ease, border-color .3s ease; overflow:hidden; }
+        .lp-voice-center::before { content:''; position:absolute; inset:10px; border-radius:50%; background:radial-gradient(circle, rgba(215,240,255,0.92) 0%, rgba(120,190,255,0.34) 38%, rgba(12,22,46,0) 72%); filter:blur(2px); opacity:0.95; }
+        .lp-voice-center::after { content:''; position:absolute; width:120%; height:120%; border-radius:50%; background:conic-gradient(from 0deg, rgba(255,255,255,0) 0deg, rgba(170,220,255,0.22) 90deg, rgba(255,255,255,0) 180deg, rgba(88,160,255,0.18) 270deg, rgba(255,255,255,0) 360deg); animation:lpOrbRotate 8s linear infinite; mix-blend-mode:screen; opacity:0.65; }
+        @keyframes lpOrbRotate { to { transform:rotate(360deg); } }
+        .lp-voice-circle:hover .lp-voice-center { transform:scale(1.04); border-color:rgba(188,228,255,0.62); box-shadow:0 0 22px rgba(118,186,255,0.38), 0 0 56px rgba(54,126,255,0.28), inset 0 0 22px rgba(255,255,255,0.14); }
+        .lp-voice-circle.playing .lp-voice-center { animation:lpOrbSpeaking 1.2s ease-in-out infinite; border-color:rgba(201,178,124,0.58); box-shadow:0 0 26px rgba(118,186,255,0.42), 0 0 70px rgba(54,126,255,0.30), 0 0 24px rgba(201,178,124,0.14), inset 0 0 24px rgba(255,255,255,0.16); }
+        .lp-voice-circle.playing .lp-voice-ring:nth-child(1) { border-color:rgba(201,178,124,0.20); box-shadow:0 0 28px rgba(54,126,255,0.14), 0 0 18px rgba(201,178,124,0.08); animation-duration:2.2s; }
+        .lp-voice-circle.playing .lp-voice-ring:nth-child(2) { border-color:rgba(160,215,255,0.28); animation-duration:1.8s; }
+        .lp-voice-circle.playing .lp-voice-ring:nth-child(3) { border-color:rgba(201,178,124,0.28); animation-duration:1.4s; }
+        @keyframes lpOrbSpeaking { 0%,100% { transform:scale(1); } 30% { transform:scale(1.06); } 60% { transform:scale(0.98); } }
+        .lp-voice-hint { font-size:0.68rem; letter-spacing:0.16em; text-transform:uppercase; color:rgba(234,244,255,0.42); text-align:center; margin-top:-1.2rem; transition:color .28s ease; }
+        .lp-voice-hint.playing { color:rgba(201,178,124,0.78); }
+        .lp-conversation { max-width: 600px; width: 100%; display: flex; flex-direction: column; gap: 2rem; }
+        .lp-msg { border-left: 1px solid rgba(201,178,124,0.2); padding-left: 2rem; }
+        .lp-msg-who { font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.2em; color: var(--gold); margin-bottom: 0.5rem; display: block; }
+        .lp-msg-text { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 300; line-height: 1.5; }
 
         /* ══ FEATURES ══ */
-        .lp-features { padding: 8rem 4rem; max-width: 1200px; margin: 0 auto; position: relative; z-index: 2; }
-        .lp-features-header { text-align: center; margin-bottom: 5rem; }
-        .lp-features-header h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.2rem, 4.5vw, 4rem); font-weight: 300; line-height: 1.15; margin-top: 1.5rem; color: var(--silver); }
-        .lp-features-header h2 em { font-style: italic; color: var(--gold); }
-        .lp-features-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 1px; background: rgba(201,178,124,0.06); }
-        .feature-card { background: var(--black); padding: 3rem 2.5rem; position: relative; overflow: hidden; transition: background 0.4s; }
-        .feature-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(to right, transparent, rgba(201,178,124,0.15), transparent); }
-        .feature-card::after { content: ''; position: absolute; bottom: 0; left: 0; width: 100%; height: 1px; background: linear-gradient(to right, transparent, var(--gold), transparent); opacity: 0; transition: opacity 0.4s; }
-        .feature-card:hover { background: var(--deep); }
-        .feature-card:hover::after { opacity: 0.5; }
-        .lp-feature-num { font-family: 'Cormorant Garamond', serif; font-size: 3.5rem; font-weight: 300; color: rgba(201,178,124,0.07); line-height: 1; margin-bottom: 2rem; transition: color 0.4s; }
-        .feature-card:hover .lp-feature-num { color: rgba(201,178,124,0.18); }
-        .lp-feature-title { font-size: 0.8rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--silver); margin-bottom: 1rem; font-weight: 500; }
-        .lp-feature-desc { font-size: 0.85rem; line-height: 1.8; color: var(--silver-dim); }
+        .lp-features-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:1.15rem; background:transparent; margin-top:4rem; }
+        .feature-card { background:linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%); padding:4rem 2.5rem; transition:border-color .28s ease, box-shadow .28s ease, transform .28s ease, background .28s ease; border:1px solid rgba(88,160,255,0.24); border-radius:24px; box-shadow:0 0 0 1px rgba(90,170,255,0.08) inset, 0 0 10px rgba(54,126,255,0.10), 0 0 22px rgba(54,126,255,0.08); }
+        .feature-card:hover { background:linear-gradient(180deg, rgba(24,18,10,0.96) 0%, rgba(14,10,6,0.92) 100%); border-color:rgba(201,178,124,0.72); box-shadow:0 0 0 1px rgba(201,178,124,0.12) inset, 0 0 14px rgba(201,178,124,0.18), 0 0 30px rgba(201,178,124,0.14), 0 0 52px rgba(201,178,124,0.10); transform:translateY(-3px); }
+        .lp-feature-num { font-family:'Cormorant Garamond', serif; font-size:3rem; color:rgba(88,160,255,0.42); margin-bottom:1.5rem; transition:color .28s ease; }
+        .feature-card:hover .lp-feature-num { color:rgba(201,178,124,0.78); }
+        .lp-feature-title { font-size:0.8rem; letter-spacing:0.14em; text-transform:uppercase; margin-bottom:1rem; color:#F4F8FF; transition:color .28s ease; }
+        .feature-card:hover .lp-feature-title { color:#FFF7E8; }
+        .lp-feature-desc { font-size:0.9rem; color:rgba(234,244,255,0.68); line-height:1.7; transition:color .28s ease; }
+        .feature-card:hover .lp-feature-desc { color:rgba(255,247,232,0.78); }
+        .lp-features-header { text-align:center; margin-bottom:4.5rem; }
+        .lp-features-headline { font-family:'Cormorant Garamond', serif; font-size:clamp(2.1rem,4.2vw,3.8rem); font-weight:300; line-height:1.15; letter-spacing:-0.02em; color:#F3F7FF; text-align:center; margin:0 auto; max-width:1180px; }
+        .lp-features-headline em { font-style:italic; color:var(--gold); }
 
         /* ══ QUOTE ══ */
-        .lp-quote { padding: 10rem 4rem; text-align: center; position: relative; z-index: 2; }
-        .lp-quote::before { content: ''; position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%); width: 800px; height: 400px; background: radial-gradient(ellipse, rgba(201,178,124,0.03) 0%, transparent 70%); }
-        .lp-quote-mark { font-family: 'Cormorant Garamond', serif; font-size: 8rem; line-height: 0.5; color: var(--gold); opacity: 0.15; display: block; margin-bottom: 2rem; }
-        .lp-quote blockquote { font-family: 'Cormorant Garamond', serif; font-size: clamp(1.6rem, 3.5vw, 2.6rem); font-weight: 300; font-style: italic; line-height: 1.45; color: var(--silver); max-width: 860px; margin: 0 auto; position: relative; z-index: 1; }
-        .lp-gold-line { width: 40px; height: 1px; background: var(--gold); margin: 3rem auto 0; opacity: 0.3; }
-
-        /* ══ PRICING ══ */
-        .lp-pricing { padding: 8rem 4rem; max-width: 860px; margin: 0 auto; text-align: center; position: relative; z-index: 2; }
-        .lp-pricing h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.2rem, 4.5vw, 3.8rem); font-weight: 300; margin: 1.5rem 0 5rem; color: var(--silver); }
-        .lp-pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(201,178,124,0.06); }
-        .pricing-card { background: var(--black); padding: 3.5rem 3rem; text-align: left; transition: background 0.4s; }
-        .pricing-card:hover { background: var(--deep); }
-        .pricing-card.featured { background: var(--deep); position: relative; }
-        .pricing-card.featured::before { content: 'Nuevo'; position: absolute; top: 0; left: 50%; transform: translateX(-50%) translateY(-50%); background: var(--gold); color: #050508; font-size: 0.6rem; letter-spacing: 0.15em; text-transform: uppercase; padding: 0.3rem 1rem; font-weight: 500; }
-        .lp-pricing-name { font-size: 0.65rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--gold); margin-bottom: 1.5rem; }
-        .lp-pricing-price { font-family: 'Cormorant Garamond', serif; font-size: 4.5rem; font-weight: 300; line-height: 1; color: var(--silver); margin-bottom: 0.4rem; }
-        .lp-pricing-price span { font-size: 1.2rem; color: var(--silver-dim); }
-        .lp-pricing-period { font-size: 0.75rem; color: var(--silver-dim); margin-bottom: 2.5rem; }
-        .lp-pricing-features { list-style: none; display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 2.5rem; }
-        .lp-pricing-features li { font-size: 0.82rem; color: var(--silver-dim); display: flex; align-items: center; gap: 0.75rem; }
-        .lp-pricing-features li::before { content: '—'; color: var(--gold); opacity: 0.4; flex-shrink: 0; }
-        .lp-pricing-btn { display: block; width: 100%; padding: 0.9rem; text-align: center; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; background: none; border: 1px solid rgba(201,178,124,0.15); color: var(--silver-dim); transition: all 0.3s; cursor: none; font-family: 'DM Sans', sans-serif; }
-        .lp-pricing-btn:hover { background: var(--gold); border-color: var(--gold); color: #050508; }
-        .pricing-card.featured .lp-pricing-btn { background: rgba(201,178,124,0.1); border-color: rgba(201,178,124,0.3); color: var(--gold); }
-        .pricing-card.featured .lp-pricing-btn:hover { background: var(--gold); color: #050508; }
-        .lp-pricing-bundle { margin-top: 2.5rem; padding: 1.5rem 2rem; background: rgba(201,178,124,0.03); border: 1px solid rgba(201,178,124,0.08); text-align: center; }
-        .lp-pricing-bundle p { font-size: 0.82rem; color: var(--silver-dim); line-height: 1.7; }
-        .lp-pricing-bundle strong { color: var(--gold); font-weight: 500; }
-
-        /* ══ CTA FINAL ══ */
-        .lp-cta { padding: 10rem 4rem; text-align: center; position: relative; z-index: 2; border-top: 1px solid rgba(201,178,124,0.06); }
-        .lp-cta::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 800px; height: 500px; background: radial-gradient(ellipse, rgba(201,178,124,0.04) 0%, transparent 70%); pointer-events: none; }
-        .lp-cta h2 { font-family: 'Cormorant Garamond', serif; font-size: clamp(2.8rem, 6vw, 5.5rem); font-weight: 300; line-height: 1; margin: 1.5rem 0 2rem; color: var(--silver); position: relative; z-index: 1; }
-        .lp-cta h2 em { font-style: italic; color: var(--gold); }
-        .lp-cta p { font-size: 0.9rem; color: var(--silver-dim); margin-bottom: 3.5rem; max-width: 460px; margin-left: auto; margin-right: auto; line-height: 1.8; position: relative; z-index: 1; }
+        .lp-quote { text-align:center; padding:8rem 10%; background:#030305; }        .lp-quote-mark { display:block; font-family:'Cormorant Garamond', serif; font-size:7rem; line-height:0.7; color:rgba(255,255,255,0.08); margin-bottom:1.2rem; }
+        .lp-quote blockquote { font-family:'Cormorant Garamond', serif; font-size:clamp(1.6rem,3.1vw,2.9rem); font-style:italic; font-weight:300; line-height:1.55; color:#F3F7FF; max-width:1120px; margin:0 auto; }        
+        .lp-pricing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: rgba(255,255,255,0.05); margin-top: 4rem; }
+        .pricing-card { background: var(--black); padding: 4rem; text-align: left; }
+        .pricing-card.featured { background: #08080a; border: 1px solid rgba(201,178,124,0.2); }
+        .lp-pricing-price { font-family: 'Cormorant Garamond', serif; font-size: 4rem; margin: 1rem 0; }
+        .lp-pricing-features { list-style: none; margin: 2rem 0; font-size: 0.9rem; color: var(--gray); }
+        .lp-pricing-features li { margin-bottom: 0.8rem; }
+        .lp-pricing-features li::before { content: "— "; color: var(--gold); }
 
         /* ══ FOOTER ══ */
-        .lp-footer { padding: 3rem 4rem; border-top: 1px solid rgba(201,178,124,0.06); display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 2; }
-        .lp-footer-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.1rem; font-weight: 300; letter-spacing: 0.15em; color: var(--silver-dim); }
-        .lp-footer-logo span { color: var(--gold); }
-        .lp-footer p { font-size: 0.7rem; color: rgba(224,247,250,0.15); letter-spacing: 0.05em; }
+        .lp-footer { padding: 4rem 10%; border-top: 1px solid rgba(255,255,255,0.05); display: flex; justify-content: space-between; align-items: center; }
 
-        @keyframes lp-fadeUp { to { opacity: 1; transform: translateY(0); } }
-        @keyframes lp-pulse { 0%,100% { transform: scale(1); opacity: 0.6; } 50% { transform: scale(1.05); opacity: 0.25; } }
-
+        @media (max-width: 1024px) { .lp-features-grid { grid-template-columns: 1fr 1fr; } }
         @media (max-width: 768px) {
-          .lp-nav { padding: 1.2rem 1.5rem; }
-          .lp-nav-links { display: none; }
-          .lp-hero-content { padding: 7rem 2rem 4rem; }
           .lp-features-grid, .lp-pricing-grid { grid-template-columns: 1fr; }
-          .lp-features, .lp-voice, .lp-pricing, .lp-quote, .lp-cta { padding: 5rem 2rem; }
-          .lp-footer { flex-direction: column; gap: 1rem; text-align: center; }
-          .lp-hero-overlay-left { background: linear-gradient(to right, rgba(5,5,8,0.95) 0%, rgba(5,5,8,0.4) 100%); }
+          .hero-img-container { width: 100%; opacity: 0.4; }
+          .section-padding { padding: 6rem 5%; }
         }
       `}</style>
 
-      <link rel="preconnect" href="https://fonts.googleapis.com" />
-      <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
-
       <div className="lp-wrap">
-
         <GoldParticles />
 
         <nav className="lp-nav">
-          <div className="lp-logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>Lucy<span>.</span></div>
+          <div className="lp-logo" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>LUCY<span>.</span></div>
           <ul className="lp-nav-links">
             <li><a href="#features">Funciones</a></li>
-            <li><a href="#pricing">Precios</a></li>
+            <li><a href="#pricing">Planes</a></li>
             <li><button className="lp-nav-cta" onClick={() => navigate('/auth')}>Acceder</button></li>
           </ul>
         </nav>
 
-        {/* ══ HERO with Lucy image ══ */}
         <section className="lp-hero">
-          <div className="lp-hero-bg">
-            <img src="/lucy-hero.png" alt="" className="lp-hero-img" />
-            <div className="lp-hero-overlay" />
-            <div className="lp-hero-overlay-left" />
-          </div>
-          <div className="lp-hero-content">
-            <p className="lp-eyebrow">Secretaria ejecutiva y asistente personal con IA</p>
-            <h1 className="lp-h1">La asistente ejecutiva<br />que transforma<br />tu <em>día.</em></h1>
-            <p className="lp-subtitle">Tu asistente virtual de IA para optimizar tus tareas y gestionar tu negocio con elegancia y eficiencia.</p>
-            <div className="lp-actions">
-              <button className="lp-btn-primary" onClick={() => navigate('/auth')}>Probar gratis 4 horas</button>
-              <button className="lp-btn-secondary" onClick={() => document.getElementById('demo')?.scrollIntoView({ behavior: 'smooth' })}>Ver cómo funciona</button>
+          <div className="hero-content">
+            <h1 className="lp-h1">
+              La asistente<br />
+              que transforma<br />
+              tu <em>día.</em>
+            </h1>
+
+            <p className="hero-subtext">
+              Secretaría ejecutiva e inteligencia personal diseñada para el máximo enfoque.
+            </p>
+
+            {/* 🔥 BOTÓN PRINCIPAL (OPERATIVO) */}
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', position: 'relative', zIndex: 20 }}>
+
+              {/* 🔥 PROBAR 4 HORAS */}
+              <button
+                type="button"
+                className="btn-main"
+                onClick={() => {
+                  localStorage.setItem('lucy_trial_start', Date.now().toString());
+                  navigate('/overview');
+                }}
+              >
+                Probar gratis 4 horas
+              </button>
+
             </div>
+          </div>
+
+          <div className="hero-img-container">
+            <img src={HeroImage} alt="Lucy Asistente" className="hero-img" />
           </div>
         </section>
 
         <div className="lp-wave" />
 
-        {/* ══ VOICE DEMO ══ */}
-        <section className="lp-voice" id="demo">
-          <p className="lp-section-label">Experiencia de voz</p>
+        {/* VOICE DEMO & CONVERSATION */}
+        <section className="section-padding lp-voice" id="demo">
+          <span className="label">Experiencia de voz</span>
 
-          <div className={`lp-voice-circle${micState === 'playing' ? ' playing' : ''}`} onClick={handleMicClick}>
+          <div
+            className={`lp-voice-circle${micState === 'playing' ? ' playing' : ''}`}
+            onClick={handleMicClick}
+          >
             <div className="lp-voice-ring" />
             <div className="lp-voice-ring" />
             <div className="lp-voice-ring" />
+
             <div className="lp-voice-center">
-              {micState === 'loading' ? (
-                <svg className="lp-spin" viewBox="0 0 24 24" fill="none" stroke="#C9B27C" strokeWidth="1.5" style={{ width: 20, height: 20 }}>
-                  <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
-                  <path d="M12 2a10 10 0 0 1 10 10" strokeLinecap="round" />
-                </svg>
-              ) : micState === 'playing' ? (
-                <svg viewBox="0 0 24 24" fill="#C9B27C" style={{ width: 18, height: 18 }}>
-                  <rect x="6" y="6" width="12" height="12" rx="2" />
-                </svg>
+              {micState === 'playing' ? (
+                <div style={{ width: '14px', height: '14px', borderRadius: '50%', background: 'rgba(255,255,255,0.95)', boxShadow: '0 0 18px rgba(255,255,255,0.45)' }} />
               ) : (
-                <svg viewBox="0 0 24 24" fill="none" stroke="#C9B27C" strokeWidth="1.5" style={{ width: 20, height: 20 }}>
-                  <path d="M12 2a3 3 0 0 1 3 3v7a3 3 0 0 1-6 0V5a3 3 0 0 1 3-3z" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8" />
-                </svg>
+                <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'rgba(220,240,255,0.9)', boxShadow: '0 0 14px rgba(118,186,255,0.35)' }} />
               )}
             </div>
           </div>
 
           <p className={`lp-voice-hint${micState === 'playing' ? ' playing' : ''}`}>
-            {micState === 'idle' && 'Pulsa para escuchar a Lucy'}
-            {micState === 'loading' && 'Conectando...'}
+            {micState === 'idle' && 'Pulsa para conocer a Lucy'}
+            {micState === 'loading' && 'Lucy se está preparando...'}
             {micState === 'playing' && 'Pulsa para detener'}
           </p>
 
           <div className="lp-conversation">
-            <div className="lp-msg"><span className="lp-msg-who">Tú</span><div className="lp-msg-text">"Lucy, buenos días."</div></div>
-            <div className="lp-msg"><span className="lp-msg-who lucy">Lucy</span><div className="lp-msg-text lp-msg-lucy">"Buenos días. Tienes 18 correos nuevos, 3 requieren respuesta urgente. Hoy tienes dos reuniones: a las 11 con Sara y a las 17 con Pedro. Tus hábitos de hoy: agua y ejercicio pendientes. ¿Empezamos?"</div></div>
-            <div className="lp-msg"><span className="lp-msg-who">Tú</span><div className="lp-msg-text">"Sí. Y recuérdame comprar comida para Ocean a las 6."</div></div>
-            <div className="lp-msg"><span className="lp-msg-who lucy">Lucy</span><div className="lp-msg-text lp-msg-lucy">"Listo. Te recordaré comprar comida para Ocean hoy a las 18:00. Primer correo prioritario: de Sara García — propuesta de colaboración para el primer trimestre..."</div></div>
+            <div className="lp-msg">
+              <span className="lp-msg-who">Tú</span>
+              <div className="lp-msg-text">"Lucy, buenos días."</div>
+            </div>
+
+            <div className="lp-msg">
+              <span className="lp-msg-who" style={{ color: 'var(--gold)' }}>Lucy</span>
+              <div className="lp-msg-text">
+                "Hola. Soy Lucy. Inteligencia ejecutiva diseñada para aportar claridad, orden y enfoque a tu día. Cuando quieras, empezamos."
+              </div>
+            </div>
+
+            <div className="lp-msg">
+              <span className="lp-msg-who">Tú</span>
+              <div className="lp-msg-text">"Perfecto. Empecemos."</div>
+            </div>
           </div>
         </section>
 
         <div className="lp-wave" />
 
-        {/* ══ FEATURES ══ */}
-        <section className="lp-features" id="features">
+        {/* FEATURES GRID */}
+        <section className="section-padding" id="features">
           <div className="lp-features-header">
-            <p className="lp-section-label">Capacidades</p>
-            <h2>Una nueva forma de gestionar tu tiempo,<br /><em>tu trabajo y tu vida personal.</em></h2>
+            <span className="label">Capacidades</span>
+            <h2 className="lp-features-headline">
+              Una nueva forma de gestionar tu tiempo,<br />
+              <em>tu trabajo y tu vida personal.</em>
+            </h2>
           </div>
+
           <div className="lp-features-grid">
             {[
-              ['01', 'Briefing Matutino', 'Cada mañana, Lucy te resume lo esencial: correos, reuniones, tareas y hábitos. Sin abrir el ordenador.'],
-              ['02', 'Correo Inteligente', 'Lee, resume, prioriza y responde correos por voz. Lucy aprende tu estilo y lo replica.'],
-              ['03', 'Gestión de Agenda', 'Crea, mueve y cancela reuniones. Lucy sincroniza con tu calendario y avisa con tiempo.'],
-              ['04', 'Memoria Personal', 'Lucy recuerda tus preferencias, contactos importantes, ideas y notas. Todo accesible por voz.'],
-              ['05', 'Hábitos y Recordatorios', 'Registra hábitos diarios, crea recordatorios por voz. Lucy te motiva a mantener tu racha.'],
-              ['06', 'Modo Manos Libres', 'En el coche, corriendo o en casa. Lucy opera solo con tu voz, como Siri pero para tu trabajo y tu vida.'],
+              ['01', 'Briefing Matutino', 'Lucy te resume lo esencial: correos, reuniones y tareas sin abrir el ordenador.'],
+              ['02', 'Correo Inteligente', 'Lee, resume y prioriza emails por voz. Lucy aprende tu estilo de respuesta.'],
+              ['03', 'Gestión de Agenda', 'Crea y mueve reuniones de forma natural. Sincronización total en tiempo real.'],
+              ['04', 'Memoria Personal', 'Recuerda contactos, ideas y notas importantes. Todo accesible al instante.'],
+              ['05', 'Hábitos y Salud', 'Seguimiento de hidratación, ejercicio y pausas. Lucy cuida de tu racha diaria.'],
+              ['06', 'Manos Libres', 'Diseñada para operar mientras conduces, caminas o cocinas. Solo tu voz.'],
             ].map(([num, title, desc]) => (
               <div className="feature-card" key={num}>
                 <div className="lp-feature-num">{num}</div>
@@ -446,55 +406,55 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ══ QUOTE ══ */}
+        {/* QUOTE SECTION */}
         <section className="lp-quote">
           <span className="lp-quote-mark">"</span>
-          <blockquote>En un mundo saturado de notificaciones, Lucy representa una nueva forma de relacionarse con la tecnología. Más natural. Más humana. Profundamente orientada a la eficiencia.</blockquote>
+          <blockquote>
+            En un mundo saturado de notificaciones, Lucy representa
+            una nueva forma de relacionarse con la tecnología. Más
+            natural. Más humana. Profundamente orientada a la
+            eficiencia.
+          </blockquote>
           <div className="lp-gold-line" />
         </section>
 
-        {/* ══ PRICING ══ */}
-        <section className="lp-pricing" id="pricing">
-          <p className="lp-section-label">Planes</p>
-          <h2>Invierte en tu tiempo.</h2>
+        {/* PRICING SECTION */}
+        <section className="section-padding" id="pricing">
+          <span className="label">Planes</span>
+          <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '3.5rem', fontWeight: '300', textAlign: 'center' }}>Invierte en tu tiempo.</h2>
           <div className="lp-pricing-grid">
             <div className="pricing-card">
-              <div className="lp-pricing-name">Secretaria Ejecutiva</div>
-              <div className="lp-pricing-price"><span>desde €</span>19</div>
-              <div className="lp-pricing-period">por mes</div>
+              <span className="label" style={{ fontSize: '0.6rem' }}>Ejecutiva</span>
+              <div className="lp-pricing-price">19€<span>/mes</span></div>
               <ul className="lp-pricing-features">
-                {['Briefing matutino con IA', 'Priorización inteligente de emails', 'Gestión de agenda y tareas', 'Comandos de voz (Hola Lucy)', 'CRM de contactos'].map(f => <li key={f}>{f}</li>)}
+                <li>Briefing matutino con IA</li>
+                <li>Priorización de emails</li>
+                <li>Gestión de agenda completa</li>
               </ul>
-              <button className="lp-pricing-btn" onClick={() => navigate('/pricing')}>Ver planes</button>
+              <button className="lp-nav-cta" style={{ width: '100%' }}>Comenzar ahora</button>
             </div>
             <div className="pricing-card featured">
-              <div className="lp-pricing-name">Asistente Personal</div>
-              <div className="lp-pricing-price"><span>desde €</span>14</div>
-              <div className="lp-pricing-period">por mes</div>
+              <span className="label" style={{ fontSize: '0.6rem' }}>Personal</span>
+              <div className="lp-pricing-price">14€<span>/mes</span></div>
               <ul className="lp-pricing-features">
-                {['Recordatorios por voz y texto', 'Memoria personal persistente', 'Seguimiento de hábitos', 'Notas inteligentes', 'Alertas proactivas'].map(f => <li key={f}>{f}</li>)}
+                <li>Recordatorios por voz</li>
+                <li>Memoria personal persistente</li>
+                <li>Seguimiento de hábitos</li>
               </ul>
-              <button className="lp-pricing-btn" onClick={() => navigate('/pricing')}>Ver planes</button>
+              <button className="lp-nav-cta" style={{ width: '100%', background: 'var(--gold)', color: 'black', borderColor: 'var(--gold)' }}>Elegir Plan</button>
             </div>
-          </div>
-          <div className="lp-pricing-bundle">
-            <p><strong>Lucy Completa</strong> — Ambos productos desde <strong>€25/mes</strong> con 25% de descuento</p>
           </div>
         </section>
 
-        {/* ══ CTA FINAL ══ */}
-        <section className="lp-cta">
-          <p className="lp-section-label">Únete</p>
-          <h2>Tu día empieza<br />con <em>Lucy.</em></h2>
-          <p>Di "Lucy, buenos días" y descubre lo que es trabajar con claridad total desde el primer minuto.</p>
-          <button className="lp-btn-primary" onClick={() => navigate('/auth')}>Probar gratis 4 horas</button>
+        {/* FINAL CTA */}
+        <section className="section-padding centered" style={{ paddingBottom: '12rem' }}>
+          <h2 style={{ fontFamily: 'Cormorant Garamond', fontSize: '4.5rem', fontWeight: '300', marginBottom: '2rem' }}>Tu día empieza con <em>Lucy.</em></h2>
         </section>
 
         <footer className="lp-footer">
-          <div className="lp-footer-logo">Lucy<span>.</span></div>
-          <p>© 2026 Lucy · Secretaria Ejecutiva y Asistente Personal con IA · España</p>
+          <div className="lp-logo">LUCY<span>.</span></div>
+          <p style={{ fontSize: '0.7rem', color: 'var(--gray)' }}>© 2026 Lucy AI · Secretaría Ejecutiva · España</p>
         </footer>
-
       </div>
     </>
   );

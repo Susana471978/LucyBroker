@@ -11,6 +11,8 @@ import {
     Inbox, Clock, Paperclip, Sparkles, Link2, Calendar, Brain, FileText
 } from 'lucide-react';
 
+import ExecutiveOrb from "../components/ExecutiveOrb/ExecutiveOrb";
+
 import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/Layout';
 import ReminderToast from '../components/ReminderToast';
@@ -315,7 +317,7 @@ export default function OverviewPage() {
             setSending(false);
             briefingInFlightRef.current = false;
         }
-    }, [token, ttsEnabled]);
+    }, [ttsEnabled]);
 
     // ── runBriefing ──
     const runBriefing = useCallback(async (promptText = 'buenos días Lucy, dame mi briefing matutino') => {
@@ -436,7 +438,27 @@ export default function OverviewPage() {
                             </div>
 
                             <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.06)] to-transparent -mx-8" />
+                            {/* ───────── ORB LUCY ───────── */}
 
+                            <div className="flex justify-center items-center py-16 min-h-[320px]">
+
+                                <div className="w-[360px] h-[240px] flex items-center justify-center">
+
+                                    <ExecutiveOrb
+                                        state={
+                                            wakeWordActive
+                                                ? "listening"
+                                                : briefingIsSpeaking
+                                                    ? "speaking"
+                                                    : sending
+                                                        ? "processing"
+                                                        : "idle"
+                                        }
+                                    />
+
+                                </div>
+
+                            </div>
                             <div className="grid grid-cols-2 gap-3">
                                 <button onClick={handsFreeModeActive ? cancel : undefined}
                                     className={`rounded-xl p-5 text-left border transition-all duration-300 ${!handsFreeModeActive ? 'bg-[rgba(201,178,124,0.07)] border-[rgba(201,178,124,0.2)]' : 'bg-[rgba(255,255,255,0.03)] border-[rgba(255,255,255,0.07)] hover:bg-[rgba(255,255,255,0.05)]'}`}>
