@@ -948,11 +948,8 @@ export default function LandingPage() {
             right: 0;
             top: 0;
             width: 100%;
-            height: 78%;
+            height: 80%;
             z-index: 1;
-            display: flex;
-            justify-content: flex-end;
-            align-items: flex-start;
             overflow: hidden;
           }
           
@@ -961,11 +958,11 @@ export default function LandingPage() {
             height: 100%;
             object-fit: cover;
             object-position: 68% top;
-            mask-image: linear-gradient(to left, black 58%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to left, black 58%, transparent 100%);
-            opacity: 0.32;
+            mask-image: linear-gradient(to left, black 56%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to left, black 56%, transparent 100%);
+            opacity: 0.34;
           }
-
+            
           .hero-content {
             max-width: 100%;
           }
