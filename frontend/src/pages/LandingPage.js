@@ -948,18 +948,22 @@ export default function LandingPage() {
             right: 0;
             top: 0;
             width: 100%;
-            height: 88%;
+            height: 78%;
             z-index: 1;
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-start;
+            overflow: hidden;
           }
           
           .hero-img {
             width: 100%;
             height: 100%;
-            object-fit: contain;
-            object-position: center top;
-            mask-image: linear-gradient(to left, black 62%, transparent 100%);
-            -webkit-mask-image: linear-gradient(to left, black 62%, transparent 100%);
-            opacity: 0.24;
+            object-fit: cover;
+            object-position: 68% top;
+            mask-image: linear-gradient(to left, black 58%, transparent 100%);
+            -webkit-mask-image: linear-gradient(to left, black 58%, transparent 100%);
+            opacity: 0.32;
           }
 
           .hero-content {
@@ -1011,7 +1015,7 @@ export default function LandingPage() {
               <button
                 className="lp-nav-cta"
                 style={{ width: '100%', marginTop: 'auto' }}
-                onClick={() => navigate('/pricing')}
+                onClick={() => navigate('/auth')}
               >
                 Acceder
               </button>
@@ -1043,7 +1047,7 @@ export default function LandingPage() {
               <button
                 type="button"
                 className="btn-main"
-                onClick={() => navigate('/pricing')}
+                onClick={() => navigate('/auth')}
               >
                 Probar gratis 4 horas
               </button>
