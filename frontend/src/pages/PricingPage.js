@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Star, Check } from 'lucide-react';
+import { Star, Check } from 'lucide-react';
 import Layout from '../components/Layout';
 import apiClient from '../services/apiClient';
 
@@ -69,7 +69,7 @@ function PlanCard({ plan, onCheckout, loadingPlan }) {
       initial={{ opacity: 0, y: 18 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.45 }}
-      className={`relative rounded-[28px] p-8 md:p-10 min-h-[620px] flex flex-col justify-between ${plan.featured ? 'pricing-card-featured' : 'pricing-card-standard'
+      className={`relative rounded-[30px] p-8 md:p-10 min-h-[620px] flex flex-col justify-between ${plan.featured ? 'pricing-card-featured' : 'pricing-card-standard'
         }`}
     >
       <div>
@@ -90,7 +90,10 @@ function PlanCard({ plan, onCheckout, loadingPlan }) {
         <ul className="space-y-4">
           {plan.features.map((feature) => (
             <li key={feature} className="flex items-start gap-3 pricing-feature-item">
-              <Check className={`w-4 h-4 mt-[2px] flex-shrink-0 ${plan.featured ? 'text-[#C9B27C]' : 'text-[#00B4D8]'}`} />
+              <Check
+                className={`w-4 h-4 mt-[2px] flex-shrink-0 ${plan.featured ? 'text-[#C9B27C]' : 'text-[#5DB7FF]'
+                  }`}
+              />
               <span>{feature}</span>
             </li>
           ))}
@@ -101,7 +104,8 @@ function PlanCard({ plan, onCheckout, loadingPlan }) {
         type="button"
         onClick={() => onCheckout(plan)}
         disabled={isLoading}
-        className={`mt-10 w-full pricing-cta ${plan.featured ? 'pricing-cta-featured' : 'pricing-cta-standard'}`}
+        className={`mt-10 w-full pricing-cta ${plan.featured ? 'pricing-cta-featured' : 'pricing-cta-standard'
+          }`}
       >
         {isLoading ? (
           <span className="inline-flex items-center justify-center">
@@ -151,11 +155,12 @@ export default function PricingPage() {
       <style>{`
         .pricing-shell {
           min-height: 100%;
-          background:
-            radial-gradient(circle at 50% 18%, rgba(17, 61, 138, 0.08) 0%, rgba(3, 5, 10, 0) 32%),
-            linear-gradient(180deg, #030508 0%, #020306 100%);
           position: relative;
           overflow: hidden;
+          background:
+            radial-gradient(circle at 50% 12%, rgba(24, 84, 190, 0.10) 0%, rgba(5, 8, 16, 0) 30%),
+            radial-gradient(circle at 50% 100%, rgba(16, 76, 190, 0.10) 0%, rgba(0, 0, 0, 0) 35%),
+            linear-gradient(180deg, #030508 0%, #020306 100%);
         }
 
         .pricing-shell::before {
@@ -163,66 +168,132 @@ export default function PricingPage() {
           position: absolute;
           inset: 0;
           pointer-events: none;
-          background-image:
-            radial-gradient(circle at 12% 18%, rgba(201,178,124,0.35) 0 1px, transparent 2px),
-            radial-gradient(circle at 24% 10%, rgba(201,178,124,0.22) 0 1px, transparent 2px),
-            radial-gradient(circle at 41% 8%, rgba(201,178,124,0.18) 0 1px, transparent 2px),
-            radial-gradient(circle at 67% 22%, rgba(201,178,124,0.20) 0 1px, transparent 2px),
-            radial-gradient(circle at 82% 12%, rgba(201,178,124,0.18) 0 1px, transparent 2px),
-            radial-gradient(circle at 90% 30%, rgba(201,178,124,0.16) 0 1px, transparent 2px);
-          opacity: 0.45;
+          background:
+            radial-gradient(circle at 14% 14%, rgba(201,178,124,0.16) 0 1px, transparent 2px),
+            radial-gradient(circle at 26% 9%, rgba(201,178,124,0.12) 0 1px, transparent 2px),
+            radial-gradient(circle at 44% 8%, rgba(201,178,124,0.08) 0 1px, transparent 2px),
+            radial-gradient(circle at 69% 18%, rgba(201,178,124,0.10) 0 1px, transparent 2px),
+            radial-gradient(circle at 84% 10%, rgba(201,178,124,0.08) 0 1px, transparent 2px);
+          opacity: 0.35;
         }
 
         .pricing-shell::after {
           content: "";
           position: absolute;
           left: 50%;
-          bottom: -180px;
+          bottom: -200px;
           transform: translateX(-50%);
           width: 1100px;
           height: 420px;
           border-radius: 50%;
-          background: radial-gradient(ellipse at center, rgba(22, 93, 255, 0.20) 0%, rgba(22, 93, 255, 0.06) 38%, rgba(0, 0, 0, 0) 72%);
-          filter: blur(46px);
+          background: radial-gradient(
+            ellipse at center,
+            rgba(25, 94, 255, 0.18) 0%,
+            rgba(25, 94, 255, 0.06) 40%,
+            rgba(0, 0, 0, 0) 74%
+          );
+          filter: blur(52px);
           pointer-events: none;
+        }
+
+        .pricing-header {
+          max-width: 880px;
+          margin: 0 auto 4rem;
+          text-align: center;
         }
 
         .pricing-title {
           font-family: 'Cormorant Garamond', serif;
           font-weight: 300;
-          letter-spacing: -0.02em;
+          letter-spacing: -0.03em;
           color: #F4F7FF;
-          line-height: 1;
-          font-size: clamp(2.8rem, 6vw, 5rem);
+          line-height: 0.96;
+          font-size: clamp(3rem, 6vw, 5.2rem);
           text-align: center;
           margin: 0;
+        }
+
+        .pricing-subtitle {
+          margin: 1.2rem auto 0;
+          max-width: 760px;
+          color: rgba(228, 238, 255, 0.52);
+          font-size: 1rem;
+          line-height: 1.75;
+          text-align: center;
+        }
+
+        .pricing-bundle-note {
+          margin: 1.75rem auto 0;
+          padding: 1.2rem 1.6rem;
+          max-width: 760px;
+          border-radius: 22px;
+          border: 1px solid rgba(88,160,255,0.16);
+          background: linear-gradient(180deg, rgba(8,14,28,0.82) 0%, rgba(4,8,18,0.78) 100%);
+          box-shadow:
+            inset 0 0 0 1px rgba(90,170,255,0.05),
+            0 0 18px rgba(54,126,255,0.08);
+          text-align: center;
+        }
+
+        .pricing-bundle-note p {
+          margin: 0;
+          font-size: 1.02rem;
+          color: rgba(231, 241, 255, 0.70);
+          line-height: 1.65;
+        }
+
+        .pricing-bundle-note strong {
+          color: #C9B27C;
+          font-weight: 600;
         }
 
         .pricing-grid {
           display: grid;
           grid-template-columns: repeat(3, minmax(0, 1fr));
-          gap: 20px;
+          gap: 22px;
+          align-items: stretch;
         }
 
         .pricing-card-standard,
         .pricing-card-featured {
-          background: linear-gradient(180deg, rgba(5,10,20,0.94) 0%, rgba(3,6,12,0.96) 100%);
           backdrop-filter: blur(14px);
           -webkit-backdrop-filter: blur(14px);
+          transition: transform 0.28s ease, border-color 0.28s ease, box-shadow 0.28s ease;
+        }
+
+        .pricing-card-standard:hover,
+        .pricing-card-featured:hover {
+          transform: translateY(-3px);
         }
 
         .pricing-card-standard {
+          background: linear-gradient(180deg, rgba(5,10,20,0.94) 0%, rgba(3,6,12,0.97) 100%);
           border: 1px solid rgba(88,160,255,0.16);
           box-shadow:
             inset 0 0 0 1px rgba(90,170,255,0.04),
             0 0 18px rgba(20,72,180,0.08);
         }
 
+        .pricing-card-standard:hover {
+          border-color: rgba(110, 180, 255, 0.28);
+          box-shadow:
+            inset 0 0 0 1px rgba(90,170,255,0.06),
+            0 0 22px rgba(36, 92, 210, 0.12);
+        }
+
         .pricing-card-featured {
-          border: 1px solid rgba(201,178,124,0.35);
+          background: linear-gradient(180deg, rgba(10,12,18,0.96) 0%, rgba(8,9,14,0.98) 100%);
+          border: 1px solid rgba(201,178,124,0.34);
           box-shadow:
             inset 0 0 0 1px rgba(201,178,124,0.05),
-            0 0 22px rgba(201,178,124,0.08);
+            0 0 24px rgba(201,178,124,0.08);
+        }
+
+        .pricing-card-featured:hover {
+          border-color: rgba(201,178,124,0.50);
+          box-shadow:
+            inset 0 0 0 1px rgba(201,178,124,0.06),
+            0 0 30px rgba(201,178,124,0.12);
         }
 
         .pricing-badge {
@@ -244,7 +315,7 @@ export default function PricingPage() {
 
         .pricing-price {
           font-family: 'Cormorant Garamond', serif;
-          font-size: clamp(3.2rem, 5vw, 4.8rem);
+          font-size: clamp(3.3rem, 5vw, 4.9rem);
           line-height: 0.95;
           font-weight: 300;
           color: #F4F7FF;
@@ -252,15 +323,15 @@ export default function PricingPage() {
         }
 
         .pricing-period {
-          font-size: 1.35rem;
+          font-size: 1.2rem;
           color: rgba(244,247,255,0.34);
           padding-bottom: 8px;
         }
 
         .pricing-feature-item {
-          color: rgba(224,247,250,0.62);
+          color: rgba(226, 239, 255, 0.66);
           font-size: 0.98rem;
-          line-height: 1.55;
+          line-height: 1.58;
         }
 
         .pricing-cta {
@@ -270,7 +341,7 @@ export default function PricingPage() {
           font-weight: 500;
           letter-spacing: 0.16em;
           text-transform: uppercase;
-          transition: all .28s ease;
+          transition: all 0.28s ease;
           position: relative;
           overflow: hidden;
         }
@@ -280,7 +351,7 @@ export default function PricingPage() {
           color: #EAF4FF;
           background: linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%);
           box-shadow:
-            0 0 0 1px rgba(90,170,255,0.10) inset,
+            inset 0 0 0 1px rgba(90,170,255,0.10),
             0 0 10px rgba(54,126,255,0.22),
             0 0 22px rgba(54,126,255,0.18);
         }
@@ -290,7 +361,7 @@ export default function PricingPage() {
           color: #FFF7E8;
           background: linear-gradient(180deg, rgba(24,18,10,0.96) 0%, rgba(14,10,6,0.92) 100%);
           box-shadow:
-            0 0 0 1px rgba(201,178,124,0.14) inset,
+            inset 0 0 0 1px rgba(201,178,124,0.14),
             0 0 14px rgba(201,178,124,0.26),
             0 0 30px rgba(201,178,124,0.20),
             0 0 52px rgba(201,178,124,0.14);
@@ -302,7 +373,7 @@ export default function PricingPage() {
           color: #17120A;
           background: linear-gradient(180deg, rgba(214,193,137,1) 0%, rgba(201,178,124,1) 100%);
           box-shadow:
-            0 0 0 1px rgba(255,248,220,0.10) inset,
+            inset 0 0 0 1px rgba(255,248,220,0.10),
             0 0 12px rgba(201,178,124,0.18),
             0 0 30px rgba(201,178,124,0.10);
         }
@@ -311,7 +382,7 @@ export default function PricingPage() {
           filter: brightness(1.03);
           transform: translateY(-1px);
           box-shadow:
-            0 0 0 1px rgba(255,248,220,0.14) inset,
+            inset 0 0 0 1px rgba(255,248,220,0.14),
             0 0 16px rgba(201,178,124,0.24),
             0 0 36px rgba(201,178,124,0.14);
         }
@@ -330,33 +401,12 @@ export default function PricingPage() {
           to { transform: rotate(360deg); }
         }
 
-        .pricing-bundle-note {
-          margin-top: 2.25rem;
-          padding: 1.45rem 2rem;
-          border-radius: 24px;
-          border: 1px solid rgba(88,160,255,0.16);
-          background: linear-gradient(180deg, rgba(7,12,24,0.78) 0%, rgba(4,8,18,0.74) 100%);
-          box-shadow: 0 0 0 1px rgba(90,170,255,0.05) inset, 0 0 14px rgba(54,126,255,0.08);
-          text-align: center;
-        }
-
-        .pricing-bundle-note p {
-          margin: 0;
-          font-size: 1.02rem;
-          color: rgba(224,247,250,0.62);
-          line-height: 1.6;
-        }
-
-        .pricing-bundle-note strong {
-          color: #C9B27C;
-          font-weight: 600;
-        }
-
         .pricing-bottom-note {
-          color: rgba(224,247,250,0.16);
+          color: rgba(224,247,250,0.18);
           font-size: 0.82rem;
           text-align: center;
           margin-top: 2rem;
+          letter-spacing: 0.04em;
         }
 
         @media (max-width: 1180px) {
@@ -369,27 +419,41 @@ export default function PricingPage() {
             min-height: auto;
           }
         }
+
+        @media (max-width: 768px) {
+          .pricing-header {
+            margin-bottom: 2.8rem;
+          }
+
+          .pricing-bundle-note {
+            padding: 1.1rem 1.1rem;
+          }
+
+          .pricing-bundle-note p {
+            font-size: 0.95rem;
+          }
+        }
       `}</style>
 
-      <div className="pricing-shell px-6 md:px-10 py-10 md:py-14">
+      <div className="pricing-shell px-6 md:px-10 py-12 md:py-16">
         <div className="max-w-7xl mx-auto relative z-10">
           <motion.div
             initial={{ opacity: 0, y: 14 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45 }}
-            className="mb-14 md:mb-16"
+            className="pricing-header"
           >
-            <div className="flex items-center gap-4 mb-8">
-              <div className="w-10 h-10 rounded-none border border-[rgba(201,178,124,0.18)] bg-[rgba(201,178,124,0.04)] flex items-center justify-center">
-                <Shield className="w-4 h-4 text-[#C9B27C]" />
-              </div>
-              <div>
-                <h1 className="text-[2rem] md:text-[2.2rem] leading-none text-[#F3F7FF] font-medium">Lucy Secretaria Ejecutiva</h1>
-                <p className="text-[rgba(224,247,250,0.22)] text-base mt-2">Gestión profesional del día a día</p>
-              </div>
-            </div>
-
             <h2 className="pricing-title">Invierte en tu tiempo.</h2>
+
+            <p className="pricing-subtitle">
+              Elige el nivel de asistencia que necesitas para ganar claridad, foco y ejecución en tu día a día.
+            </p>
+
+            <div className="pricing-bundle-note">
+              <p>
+                <strong>Lucy Completa</strong> — Ambos productos desde <strong>€25/mes</strong> con 25% de descuento
+              </p>
+            </div>
           </motion.div>
 
           <div className="pricing-grid">
@@ -401,12 +465,6 @@ export default function PricingPage() {
                 loadingPlan={loadingPlan}
               />
             ))}
-          </div>
-
-          <div className="pricing-bundle-note">
-            <p>
-              <strong>Lucy Completa</strong> — Ambos productos desde <strong>€25/mes</strong> con 25% de descuento
-            </p>
           </div>
 
           <p className="pricing-bottom-note">

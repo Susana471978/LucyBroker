@@ -33,11 +33,7 @@ const ProtectedRoute = ({ children }) => {
     return <Navigate to="/auth" replace />;
   }
 
-  return (
-    <VoiceProvider>
-      {children}
-    </VoiceProvider>
-  );
+  return <VoiceProvider>{children}</VoiceProvider>;
 };
 
 // App Routes
@@ -73,6 +69,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/app/tasks"
         element={
@@ -81,6 +78,7 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
+
       <Route
         path="/app/settings"
         element={
@@ -90,20 +88,37 @@ const AppRoutes = () => {
         }
       />
 
-      <Route path="/app/pricing"
+      <Route
+        path="/app/pricing"
         element={
           <ProtectedRoute>
             <PricingPage />
           </ProtectedRoute>
         }
       />
+
+      <Route
+        path="/app/billing/success"
+        element={
+          <ProtectedRoute>
+            <BillingSuccessPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/app/billing/cancel"
+        element={
+          <ProtectedRoute>
+            <BillingCancelPage />
+          </ProtectedRoute>
+        }
+      />
+
       {/* Redirects */}
       <Route path="/landing" element={<Navigate to="/" replace />} />
       <Route path="/messages" element={<Navigate to="/app/messages" replace />} />
       <Route path="/pricing" element={<PricingPage />} />
-      <Route path="/app/pricing" element={<ProtectedRoute><PricingPage /></ProtectedRoute>} />
-      <Route path="/app/billing/success" element={<ProtectedRoute><BillingSuccessPage /></ProtectedRoute>} />
-      <Route path="/app/billing/cancel" element={<ProtectedRoute><BillingCancelPage /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
