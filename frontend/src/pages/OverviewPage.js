@@ -28,6 +28,7 @@ import { getCalendarStatus, connectCalendar, disconnectCalendar, getTodayEvents,
 ───────────────────────────────────────────────────────── */
 function WelcomeOverlay({ onStart, onSkip, greeting }) {
     const [pulse, setPulse] = useState(false);
+
     useEffect(() => {
         const t = setTimeout(() => setPulse(true), 400);
         return () => clearTimeout(t);
@@ -234,20 +235,35 @@ const StatCard = ({ icon, label, value, highlight, onClick, delay = 0 }) => (
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        whileHover={{ scale: 1.015, y: -1 }}
+        whileHover={{ scale: 1.012, y: -1 }}
         whileTap={{ scale: 0.985 }}
         onClick={onClick}
-        className={`group relative rounded-2xl p-6 text-left w-full cursor-pointer transition-all duration-300 bg-[rgba(255,255,255,0.025)] border backdrop-blur-sm overflow-hidden
-      ${highlight ? 'border-[rgba(201,178,124,0.2)] shadow-[0_0_40px_rgba(201,178,124,0.06),0_1px_0_rgba(255,255,255,0.05)_inset]' : 'border-[rgba(255,255,255,0.06)] shadow-[0_1px_0_rgba(255,255,255,0.04)_inset]'}
-      hover:border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.04)]`}
+        className={`group relative w-full overflow-hidden rounded-[24px] border p-5 text-left transition-all duration-300 backdrop-blur-xl ${highlight
+            ? 'border-[rgba(201,178,124,0.20)] bg-[linear-gradient(180deg,rgba(10,13,20,0.96)_0%,rgba(5,7,12,0.99)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.38),0_0_22px_rgba(201,178,124,0.05)]'
+            : 'border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(8,12,22,0.95)_0%,rgba(4,7,15,0.99)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.38),0_0_20px_rgba(36,99,235,0.04)] hover:border-[rgba(88,160,255,0.16)]'
+            }`}
     >
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <div className={`w-9 h-9 rounded-xl flex items-center justify-center mb-5 transition-all duration-300
-      ${highlight ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C]' : 'bg-[rgba(255,255,255,0.05)] text-[rgba(255,255,255,0.35)] group-hover:text-[rgba(255,255,255,0.6)]'}`}>
-            {icon}
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.05),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(201,178,124,0.04),transparent_28%)]" />
+        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-[rgba(255,255,255,0.03)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.08)] to-transparent" />
+
+        <div className="relative z-10">
+            <div
+                className={`mb-6 flex h-10 w-10 items-center justify-center rounded-[18px] border transition-all duration-300 ${highlight
+                    ? 'border-[rgba(201,178,124,0.20)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.95)] shadow-[0_0_14px_rgba(201,178,124,0.06)]'
+                    : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-[rgba(214,227,249,0.42)] group-hover:text-[rgba(230,240,255,0.78)]'
+                    }`}
+            >
+                {icon}
+            </div>
+
+            <p className="mb-2 text-[2.75rem] font-light leading-none tracking-[-0.04em] text-[rgba(248,250,255,0.98)]">
+                {value}
+            </p>
+            <p className="text-[0.92rem] uppercase tracking-[0.08em] font-medium text-[rgba(177,189,209,0.44)]">
+                {label}
+            </p>
         </div>
-        <p className="text-3xl font-light text-white mb-1.5 tracking-tight">{value}</p>
-        <p className="text-xs text-[rgba(255,255,255,0.3)] uppercase tracking-[0.07em] font-medium">{label}</p>
     </motion.button>
 );
 
@@ -259,43 +275,56 @@ const ActionCard = ({ icon, title, description, actionLabel, onAction, connected
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="group relative rounded-2xl p-5 bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.06)] backdrop-blur-sm overflow-hidden hover:border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.04)] transition-all duration-300"
+        className={`group relative overflow-hidden rounded-[24px] border p-5 backdrop-blur-xl transition-all duration-300 ${connected
+            ? 'border-[rgba(88,160,255,0.15)] bg-[linear-gradient(180deg,rgba(6,12,24,0.96)_0%,rgba(3,8,18,0.99)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.38),0_0_20px_rgba(36,99,235,0.05)]'
+            : 'border-[rgba(201,178,124,0.13)] bg-[linear-gradient(180deg,rgba(10,13,20,0.96)_0%,rgba(5,7,12,0.99)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.38),0_0_18px_rgba(201,178,124,0.04)] hover:border-[rgba(201,178,124,0.18)]'
+            }`}
     >
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-        <div className="flex items-start gap-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-300
-        ${connected ? 'bg-[rgba(0,180,216,0.08)] text-[#00B4D8] border border-[rgba(0,180,216,0.2)]' : 'bg-[rgba(201,178,124,0.08)] text-[rgba(201,178,124,0.6)] border border-[rgba(201,178,124,0.15)] group-hover:text-[#C9B27C]'}`}>
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.06),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(201,178,124,0.04),transparent_28%)]" />
+        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-[rgba(255,255,255,0.03)]" />
+        <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.08)] to-transparent" />
+
+        <div className="relative z-10 flex items-start gap-4">
+            <div
+                className={`flex h-12 w-12 items-center justify-center rounded-[18px] border flex-shrink-0 transition-all duration-300 ${connected
+                    ? 'border-[rgba(88,160,255,0.20)] bg-[rgba(88,160,255,0.08)] text-[#00B4D8] shadow-[0_0_16px_rgba(36,99,235,0.06)]'
+                    : 'border-[rgba(201,178,124,0.18)] bg-[rgba(201,178,124,0.08)] text-[rgba(201,178,124,0.72)] group-hover:text-[#C9B27C]'
+                    }`}
+            >
                 {icon}
             </div>
 
             <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                    <h4 className="text-sm font-medium text-[rgba(255,255,255,0.8)]">{title}</h4>
+                <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <h4 className="text-[1rem] font-semibold tracking-[-0.02em] text-[rgba(244,247,255,0.95)]">
+                        {title}
+                    </h4>
+
                     {connected && (
                         <div className="flex items-center gap-1.5">
-                            <div className="w-1.5 h-1.5 rounded-full bg-[#00B4D8] shadow-[0_0_6px_rgba(0,180,216,0.6)]" />
-                            <span className="text-xs text-[rgba(0,180,216,0.7)]">Conectado</span>
+                            <div className="h-2 w-2 rounded-full bg-[#00B4D8] shadow-[0_0_8px_rgba(0,180,216,0.65)]" />
+                            <span className="text-[0.92rem] text-[rgba(0,180,216,0.86)]">Conectado</span>
                         </div>
                     )}
                 </div>
 
-                <p className="text-xs text-[rgba(255,255,255,0.3)] leading-relaxed mb-3">
+                <p className="mb-4 text-[0.95rem] leading-[1.7] text-[rgba(196,208,228,0.42)]">
                     {connected ? connectedLabel : description}
                 </p>
 
                 {connected ? (
                     <button
                         onClick={onDisconnect}
-                        className="text-xs text-[rgba(255,255,255,0.2)] hover:text-[rgba(255,255,255,0.5)] transition-colors duration-200"
+                        className="text-[0.92rem] font-medium text-[rgba(170,186,210,0.52)] transition-colors duration-200 hover:text-[rgba(241,246,255,0.84)]"
                     >
                         Desconectar
                     </button>
                 ) : (
                     <button
                         onClick={onAction}
-                        className="flex items-center gap-1.5 text-xs text-[#C9B27C] hover:text-[#D4BC88] border border-[rgba(201,178,124,0.2)] hover:border-[rgba(201,178,124,0.4)] px-3 py-1.5 rounded-lg transition-all duration-200 bg-[rgba(201,178,124,0.04)] hover:bg-[rgba(201,178,124,0.1)]"
+                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,178,124,0.22)] bg-[linear-gradient(180deg,rgba(40,30,11,0.90)_0%,rgba(22,16,7,0.98)_100%)] px-4 py-2.5 text-[0.92rem] font-medium text-[rgba(232,205,138,0.96)] transition-all duration-200 hover:border-[rgba(201,178,124,0.34)] hover:text-[rgba(246,223,160,0.98)] hover:shadow-[0_0_14px_rgba(201,178,124,0.10)]"
                     >
-                        <Link2 className="w-3 h-3" />
+                        <Link2 className="w-4 h-4" />
                         {actionLabel}
                     </button>
                 )}
@@ -322,9 +351,7 @@ const EventRow = ({ event, delay = 0 }) => (
 
         <div className="flex-1 min-w-0">
             <p className="text-sm text-[rgba(255,255,255,0.75)] truncate">{event.title}</p>
-            {event.location && (
-                <p className="text-xs text-[rgba(255,255,255,0.25)] truncate mt-0.5">{event.location}</p>
-            )}
+            {event.location && <p className="text-xs text-[rgba(255,255,255,0.25)] truncate mt-0.5">{event.location}</p>}
             {event.attendees?.length > 0 && (
                 <p className="text-xs text-[rgba(255,255,255,0.2)] mt-0.5 truncate">
                     con {event.attendees.slice(0, 2).join(', ')}
@@ -639,7 +666,7 @@ export default function OverviewPage() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ActionCard
-                        icon={<Inbox className="w-4.5 h-4.5" />}
+                        icon={<Inbox className="w-5 h-5" />}
                         title="Correo"
                         description="Conecta tu Gmail y Lucy priorizará tu bandeja cada mañana."
                         actionLabel="Conectar correo"
@@ -651,7 +678,7 @@ export default function OverviewPage() {
                     />
 
                     <ActionCard
-                        icon={<Calendar className="w-4.5 h-4.5" />}
+                        icon={<Calendar className="w-5 h-5" />}
                         title="Agenda"
                         description="Conecta Google Calendar para incluir eventos en tu briefing."
                         actionLabel="Conectar agenda"
@@ -663,7 +690,7 @@ export default function OverviewPage() {
                     />
 
                     <ActionCard
-                        icon={<Brain className="w-4.5 h-4.5" />}
+                        icon={<Brain className="w-5 h-5" />}
                         title="Memoria de Lucy"
                         description="Enséñale tus preferencias: horarios, contactos clave, prioridades."
                         actionLabel="Configurar"
@@ -673,7 +700,7 @@ export default function OverviewPage() {
                     />
 
                     <ActionCard
-                        icon={<FileText className="w-4.5 h-4.5" />}
+                        icon={<FileText className="w-5 h-5" />}
                         title="Resumen de correos"
                         description="Lucy analiza tu bandeja y te prepara un briefing ejecutivo."
                         actionLabel="Generar briefing"
@@ -741,7 +768,7 @@ export default function OverviewPage() {
                     <>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <StatCard
-                                icon={<Inbox className="w-4 h-4" />}
+                                icon={<Inbox className="w-4.5 h-4.5" />}
                                 label="Emails"
                                 value={stats.total}
                                 highlight
@@ -749,21 +776,21 @@ export default function OverviewPage() {
                                 delay={0.15}
                             />
                             <StatCard
-                                icon={<Sparkles className="w-4 h-4" />}
+                                icon={<Sparkles className="w-4.5 h-4.5" />}
                                 label="Prioritarios"
                                 value={stats.prioritarios}
                                 onClick={() => navigate('/app/messages?filter=PRIORITARIO')}
                                 delay={0.2}
                             />
                             <StatCard
-                                icon={<Clock className="w-4 h-4" />}
+                                icon={<Clock className="w-4.5 h-4.5" />}
                                 label="Seguimiento"
                                 value={stats.seguimiento}
                                 onClick={() => navigate('/app/messages?filter=SEGUIMIENTO')}
                                 delay={0.25}
                             />
                             <StatCard
-                                icon={<Paperclip className="w-4 h-4" />}
+                                icon={<Paperclip className="w-4.5 h-4.5" />}
                                 label="Adjuntos"
                                 value={stats.with_attachments}
                                 onClick={() => navigate('/app/messages?filter=attachments')}
@@ -852,20 +879,20 @@ export default function OverviewPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <button
                                         onClick={handsFreeModeActive ? cancel : undefined}
-                                        className={`group relative overflow-hidden rounded-[28px] border p-6 text-left transition-all duration-300 ${!handsFreeModeActive
-                                                ? 'border-[rgba(201,178,124,0.34)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)] shadow-[0_0_0_1px_rgba(201,178,124,0.08),0_18px_60px_rgba(0,0,0,0.55),0_0_36px_rgba(201,178,124,0.08)]'
-                                                : 'border-[rgba(88,160,255,0.20)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] shadow-[0_0_0_1px_rgba(88,160,255,0.06),0_18px_60px_rgba(0,0,0,0.58),0_0_42px_rgba(36,99,235,0.10)] hover:border-[rgba(88,160,255,0.32)] hover:shadow-[0_0_0_1px_rgba(88,160,255,0.08),0_22px_70px_rgba(0,0,0,0.62),0_0_56px_rgba(36,99,235,0.14)]'
+                                        className={`group relative overflow-hidden rounded-[24px] border p-5 text-left transition-all duration-300 ${!handsFreeModeActive
+                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.40),0_0_20px_rgba(201,178,124,0.05)]'
+                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.40),0_0_22px_rgba(36,99,235,0.08)] hover:border-[rgba(88,160,255,0.28)] hover:shadow-[0_16px_44px_rgba(0,0,0,0.44),0_0_28px_rgba(36,99,235,0.10)]'
                                             }`}
                                     >
                                         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(201,178,124,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.06),transparent_36%)] opacity-90" />
-                                        <div className="pointer-events-none absolute inset-[1px] rounded-[27px] border border-[rgba(255,255,255,0.03)]" />
+                                        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-[rgba(255,255,255,0.03)]" />
 
                                         <div className="relative z-10">
-                                            <div className="mb-5 flex items-center gap-3">
+                                            <div className="mb-4 flex items-center gap-3">
                                                 <div
-                                                    className={`flex h-12 w-12 items-center justify-center rounded-2xl border text-xl transition-all duration-300 ${!handsFreeModeActive
-                                                            ? 'border-[rgba(201,178,124,0.26)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_24px_rgba(201,178,124,0.10)]'
-                                                            : 'border-[rgba(88,160,255,0.18)] bg-[rgba(88,160,255,0.06)] text-[rgba(184,214,255,0.92)]'
+                                                    className={`flex h-11 w-11 items-center justify-center rounded-[18px] border text-[1.05rem] transition-all duration-300 ${!handsFreeModeActive
+                                                        ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
+                                                        : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(184,214,255,0.92)]'
                                                         }`}
                                                 >
                                                     🖥️
@@ -873,9 +900,9 @@ export default function OverviewPage() {
 
                                                 <div className="min-w-0">
                                                     <h3
-                                                        className={`text-[1.45rem] font-semibold tracking-[-0.02em] ${!handsFreeModeActive
-                                                                ? 'text-[rgba(248,240,218,0.98)]'
-                                                                : 'text-[rgba(242,247,255,0.96)]'
+                                                        className={`text-[1.08rem] font-semibold tracking-[-0.02em] ${!handsFreeModeActive
+                                                            ? 'text-[rgba(248,240,218,0.98)]'
+                                                            : 'text-[rgba(242,247,255,0.96)]'
                                                             }`}
                                                     >
                                                         Modo Escritorio
@@ -884,25 +911,25 @@ export default function OverviewPage() {
                                             </div>
 
                                             <p
-                                                className={`max-w-[34rem] text-[1rem] leading-relaxed ${!handsFreeModeActive
-                                                        ? 'text-[rgba(232,220,182,0.72)]'
-                                                        : 'text-[rgba(214,227,249,0.68)]'
+                                                className={`max-w-[34rem] text-[0.95rem] leading-[1.7] ${!handsFreeModeActive
+                                                    ? 'text-[rgba(232,220,182,0.72)]'
+                                                    : 'text-[rgba(214,227,249,0.68)]'
                                                     }`}
                                             >
                                                 Botones, resúmenes y respuestas con un clic.
                                             </p>
 
-                                            <div className="mt-6 flex items-center gap-2">
+                                            <div className="mt-5 flex items-center gap-2">
                                                 <span
                                                     className={`inline-block h-2.5 w-2.5 rounded-full ${!handsFreeModeActive
-                                                            ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
-                                                            : 'bg-[rgba(148,163,184,0.55)]'
+                                                        ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
+                                                        : 'bg-[rgba(148,163,184,0.55)]'
                                                         }`}
                                                 />
                                                 <span
-                                                    className={`text-[0.98rem] font-medium ${!handsFreeModeActive
-                                                            ? 'text-[rgba(237,211,143,0.95)]'
-                                                            : 'text-[rgba(176,190,212,0.70)]'
+                                                    className={`text-[0.92rem] font-medium ${!handsFreeModeActive
+                                                        ? 'text-[rgba(237,211,143,0.95)]'
+                                                        : 'text-[rgba(176,190,212,0.70)]'
                                                         }`}
                                                 >
                                                     Activo
@@ -913,20 +940,20 @@ export default function OverviewPage() {
 
                                     <button
                                         onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
-                                        className={`group relative overflow-hidden rounded-[28px] border p-6 text-left transition-all duration-300 ${handsFreeModeActive
-                                                ? 'border-[rgba(201,178,124,0.32)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)] shadow-[0_0_0_1px_rgba(201,178,124,0.08),0_18px_60px_rgba(0,0,0,0.55),0_0_36px_rgba(201,178,124,0.08)]'
-                                                : 'border-[rgba(88,160,255,0.20)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] shadow-[0_0_0_1px_rgba(88,160,255,0.06),0_18px_60px_rgba(0,0,0,0.58),0_0_42px_rgba(36,99,235,0.10)] hover:border-[rgba(88,160,255,0.32)] hover:shadow-[0_0_0_1px_rgba(88,160,255,0.08),0_22px_70px_rgba(0,0,0,0.62),0_0_56px_rgba(36,99,235,0.14)]'
+                                        className={`group relative overflow-hidden rounded-[24px] border p-5 text-left transition-all duration-300 ${handsFreeModeActive
+                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.40),0_0_20px_rgba(201,178,124,0.05)]'
+                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.40),0_0_22px_rgba(36,99,235,0.08)] hover:border-[rgba(88,160,255,0.28)] hover:shadow-[0_16px_44px_rgba(0,0,0,0.44),0_0_28px_rgba(36,99,235,0.10)]'
                                             }`}
                                     >
                                         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(201,178,124,0.05),transparent_34%)] opacity-90" />
-                                        <div className="pointer-events-none absolute inset-[1px] rounded-[27px] border border-[rgba(255,255,255,0.03)]" />
+                                        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-[rgba(255,255,255,0.03)]" />
 
                                         <div className="relative z-10">
-                                            <div className="mb-5 flex items-center gap-3">
+                                            <div className="mb-4 flex items-center gap-3">
                                                 <div
-                                                    className={`flex h-12 w-12 items-center justify-center rounded-2xl border text-xl transition-all duration-300 ${handsFreeModeActive
-                                                            ? 'border-[rgba(201,178,124,0.26)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_24px_rgba(201,178,124,0.10)]'
-                                                            : 'border-[rgba(88,160,255,0.18)] bg-[rgba(88,160,255,0.06)] text-[rgba(214,228,255,0.90)]'
+                                                    className={`flex h-11 w-11 items-center justify-center rounded-[18px] border text-[1.05rem] transition-all duration-300 ${handsFreeModeActive
+                                                        ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
+                                                        : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(214,228,255,0.90)]'
                                                         }`}
                                                 >
                                                     🎧
@@ -934,9 +961,9 @@ export default function OverviewPage() {
 
                                                 <div className="min-w-0">
                                                     <h3
-                                                        className={`text-[1.45rem] font-semibold tracking-[-0.02em] ${handsFreeModeActive
-                                                                ? 'text-[rgba(248,240,218,0.98)]'
-                                                                : 'text-[rgba(242,247,255,0.96)]'
+                                                        className={`text-[1.08rem] font-semibold tracking-[-0.02em] ${handsFreeModeActive
+                                                            ? 'text-[rgba(248,240,218,0.98)]'
+                                                            : 'text-[rgba(242,247,255,0.96)]'
                                                             }`}
                                                     >
                                                         Manos Libres
@@ -945,25 +972,25 @@ export default function OverviewPage() {
                                             </div>
 
                                             <p
-                                                className={`max-w-[34rem] text-[1rem] leading-relaxed ${handsFreeModeActive
-                                                        ? 'text-[rgba(232,220,182,0.72)]'
-                                                        : 'text-[rgba(214,227,249,0.68)]'
+                                                className={`max-w-[34rem] text-[0.95rem] leading-[1.7] ${handsFreeModeActive
+                                                    ? 'text-[rgba(232,220,182,0.72)]'
+                                                    : 'text-[rgba(214,227,249,0.68)]'
                                                     }`}
                                             >
                                                 Lucy te lee la bandeja en voz alta.
                                             </p>
 
-                                            <div className="mt-6 flex items-center gap-2">
+                                            <div className="mt-5 flex items-center gap-2">
                                                 <span
                                                     className={`inline-block h-2.5 w-2.5 rounded-full ${handsFreeModeActive
-                                                            ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
-                                                            : 'bg-[rgba(148,163,184,0.55)]'
+                                                        ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
+                                                        : 'bg-[rgba(148,163,184,0.55)]'
                                                         }`}
                                                 />
                                                 <span
-                                                    className={`text-[0.98rem] font-medium ${handsFreeModeActive
-                                                            ? 'text-[rgba(237,211,143,0.95)]'
-                                                            : 'text-[rgba(176,190,212,0.70)]'
+                                                    className={`text-[0.92rem] font-medium ${handsFreeModeActive
+                                                        ? 'text-[rgba(237,211,143,0.95)]'
+                                                        : 'text-[rgba(176,190,212,0.70)]'
                                                         }`}
                                                 >
                                                     {handsFreeModeActive ? 'Activo' : 'Disponible'}
@@ -972,7 +999,6 @@ export default function OverviewPage() {
                                         </div>
                                     </button>
                                 </div>
-
                                 <form
                                     onSubmit={async (e) => {
                                         e.preventDefault();
@@ -999,8 +1025,8 @@ export default function OverviewPage() {
                                             type="submit"
                                             disabled={sending}
                                             className={`w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0 transition-all duration-200 border ${sending
-                                                    ? 'bg-[rgba(201,178,124,0.15)] border-[rgba(201,178,124,0.3)] text-[#C9B27C]'
-                                                    : 'bg-[linear-gradient(180deg,rgba(46,34,12,0.96)_0%,rgba(24,18,8,0.98)_100%)] border-[rgba(201,178,124,0.18)] text-[rgba(224,196,126,0.92)] hover:border-[rgba(201,178,124,0.34)] hover:text-[rgba(245,219,152,0.98)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.40),0_0_24px_rgba(201,178,124,0.16)]'
+                                                ? 'bg-[rgba(201,178,124,0.15)] border-[rgba(201,178,124,0.3)] text-[#C9B27C]'
+                                                : 'bg-[linear-gradient(180deg,rgba(46,34,12,0.96)_0%,rgba(24,18,8,0.98)_100%)] border-[rgba(201,178,124,0.18)] text-[rgba(224,196,126,0.92)] hover:border-[rgba(201,178,124,0.34)] hover:text-[rgba(245,219,152,0.98)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.40),0_0_24px_rgba(201,178,124,0.16)]'
                                                 }`}
                                             title="Enviar"
                                         >
