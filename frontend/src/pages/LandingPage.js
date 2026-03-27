@@ -912,43 +912,65 @@ export default function LandingPage() {
         }
       
         .lp-nav {
-          padding: calc(1rem + env(safe-area-inset-top)) 5% 1rem;
+          background: rgba(255, 0, 0, 0.35) !important;
         }
-      
-        .lp-nav-links {
-          gap: 0.75rem;
-        }
-      
+        
         .lp-nav-links a {
-          display: none;
+          display: inline-block !important;
+          color: #ffeb3b !important;
+          font-size: 0.7rem !important;
         }
-      
+        
+        .hero-img-container {
+          opacity: 0.08 !important;
+        }
+        
+        .lp-logo {
+          font-size: 1.6rem;
+          letter-spacing: 0.14em;
+        }
+        
         .lp-nav-cta {
-          padding: 0.77rem 1.15rem;
-          font-size: 0.62rem;
-          letter-spacing: 0.12em;
+          padding: 0.68rem 0.95rem;
+          font-size: 0.56rem;
+          letter-spacing: 0.1em;
         }
       
         .lp-hero {
           min-height: 100svh;
           height: auto;
-          padding: calc(7.5rem + env(safe-area-inset-top)) 6% 4rem;
+          padding: calc(8.4rem + env(safe-area-inset-top)) 6% 4rem;
           align-items: flex-start;
         }
-      
+        
         .hero-img-container {
+          position: absolute;
+          right: 0;
+          top: 0;
+          width: 100%;
+          height: 88%;
+          opacity: 0.24;
+          display: flex;
+          align-items: flex-start;
+          justify-content: flex-end;
+        }
+        
+        .hero-img {
           width: 100%;
           height: 100%;
-          opacity: 0.4;
-        }
-      
-        .hero-img {
-          object-fit: cover;
+          object-fit: contain;
           object-position: center top;
-          mask-image: linear-gradient(to left, black 52%, transparent 100%);
-          -webkit-mask-image: linear-gradient(to left, black 52%, transparent 100%);
+          mask-image: linear-gradient(to left, black 62%, transparent 100%);
+          -webkit-mask-image: linear-gradient(to left, black 62%, transparent 100%);
         }
-      
+        
+        .hero-subtext {
+          font-size: 0.98rem;
+          line-height: 1.65;
+          max-width: 92%;
+          margin-bottom: 2rem;
+        }
+
         .hero-content {
           max-width: 100%;
         }
@@ -1015,7 +1037,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="hero-subtext">
-              Secretaría ejecutiva e inteligencia personal diseñada para el máximo enfoque.
+              MOBILE TEST LUCY 2026
             </p>
 
             <div
