@@ -79,7 +79,7 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.3, duration: 0.6 }}
-                        className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.18em]"
+                        className="text-caption text-[rgba(255,255,255,0.25)] uppercase tracking-[0.18em]"
                     >
                         {greeting}
                     </motion.p>
@@ -98,7 +98,7 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.6, duration: 0.6 }}
-                        className="text-sm text-[rgba(255,255,255,0.3)] leading-relaxed"
+                        className="text-body-sm text-[rgba(255,255,255,0.3)] leading-relaxed"
                     >
                         Tengo tu briefing listo.
                         <br />
@@ -114,7 +114,7 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
                 >
                     <button
                         onClick={onStart}
-                        className="group relative w-full py-4 rounded-2xl bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.3)] text-[#C9B27C] text-sm uppercase tracking-[0.12em] font-medium hover:bg-[rgba(201,178,124,0.18)] hover:border-[rgba(201,178,124,0.5)] hover:shadow-[0_0_40px_rgba(201,178,124,0.15)] transition-all duration-300 overflow-hidden"
+                        className="group relative w-full py-4 rounded-2xl bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.3)] text-[#C9B27C] text-body-sm uppercase tracking-[0.12em] font-medium hover:bg-[rgba(201,178,124,0.18)] hover:border-[rgba(201,178,124,0.5)] hover:shadow-[0_0_40px_rgba(201,178,124,0.15)] transition-all duration-300 overflow-hidden"
                     >
                         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.4)] to-transparent" />
                         <span className="flex items-center justify-center gap-2">
@@ -127,7 +127,7 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
 
                     <button
                         onClick={onSkip}
-                        className="text-xs text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.4)] uppercase tracking-[0.1em] transition-colors duration-200"
+                        className="text-caption text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.4)] uppercase tracking-[0.1em] transition-colors duration-200"
                     >
                         Entrar sin audio →
                     </button>
@@ -155,7 +155,7 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -16, scale: 0.97 }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                className="max-w-xl w-full mx-6 text-center flex flex-col items-center gap-8 max-h-[85vh] overflow-y-auto"
+                className="max-w-xl w-full mx-6 text-center flex flex-col items-center gap-6 max-h-[85vh] overflow-y-auto"
             >
                 <div className="relative flex items-center justify-center">
                     {isSpeaking && (
@@ -172,8 +172,8 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
                 </div>
 
                 <div>
-                    <p className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.15em] mb-2">Lucy</p>
-                    <p className="text-xs text-[rgba(201,178,124,0.5)] uppercase tracking-[0.1em]">
+                    <p className="text-caption text-[rgba(255,255,255,0.25)] uppercase tracking-[0.15em] mb-2">Lucy</p>
+                    <p className="text-caption text-[rgba(201,178,124,0.5)] uppercase tracking-[0.1em]">
                         {isSpeaking ? 'Lucy está hablando…' : 'Respuesta lista'}
                     </p>
                 </div>
@@ -183,7 +183,7 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: 0.2, duration: 0.6 }}
-                        className="font-light text-[rgba(255,255,255,0.75)] leading-relaxed text-xl max-w-md"
+                        className="font-light text-[rgba(255,255,255,0.75)] leading-relaxed text-h3 max-w-md"
                         style={{ fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}
                     >
                         "{text}"
@@ -207,7 +207,7 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
                 {isSpeaking ? (
                     <button
                         onClick={onDismiss}
-                        className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] text-[rgba(255,255,255,0.4)] text-xs uppercase tracking-[0.12em] hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.6)] transition-all duration-200 mt-2"
+                        className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.1)] text-[rgba(255,255,255,0.4)] text-caption uppercase tracking-[0.12em] hover:bg-[rgba(255,255,255,0.08)] hover:text-[rgba(255,255,255,0.6)] transition-all duration-200 mt-2"
                     >
                         <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" opacity="0.5">
                             <rect x="6" y="6" width="12" height="12" rx="2" />
@@ -217,7 +217,7 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
                 ) : (
                     <button
                         onClick={onDismiss}
-                        className="text-xs text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.45)] uppercase tracking-[0.12em] transition-colors duration-200 mt-1"
+                        className="text-caption text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.45)] uppercase tracking-[0.12em] transition-colors duration-200 mt-1"
                     >
                         Cerrar →
                     </button>
@@ -238,18 +238,18 @@ const StatCard = ({ icon, label, value, highlight, onClick, delay = 0 }) => (
         whileHover={{ scale: 1.012, y: -1 }}
         whileTap={{ scale: 0.985 }}
         onClick={onClick}
-        className={`group relative w-full overflow-hidden rounded-[24px] border p-5 text-left transition-all duration-300 backdrop-blur-xl ${highlight
-            ? 'border-[rgba(201,178,124,0.20)] bg-[linear-gradient(180deg,rgba(10,13,20,0.96)_0%,rgba(5,7,12,0.99)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.38),0_0_22px_rgba(201,178,124,0.05)]'
-            : 'border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(8,12,22,0.95)_0%,rgba(4,7,15,0.99)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.38),0_0_20px_rgba(36,99,235,0.04)] hover:border-[rgba(88,160,255,0.16)]'
+        className={`group relative w-full overflow-hidden card-lucy-compact border text-left transition-all duration-300 backdrop-blur-xl ${highlight
+            ? 'border-[rgba(201,178,124,0.20)] bg-[linear-gradient(180deg,rgba(10,13,20,0.96)_0%,rgba(5,7,12,0.99)_100%)]'
+            : 'border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(8,12,22,0.95)_0%,rgba(4,7,15,0.99)_100%)] hover:border-[rgba(88,160,255,0.16)]'
             }`}
     >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.05),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(201,178,124,0.04),transparent_28%)]" />
-        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-[rgba(255,255,255,0.03)]" />
+        <div className="pointer-events-none absolute inset-[1px] rounded-[13px] border border-[rgba(255,255,255,0.03)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.08)] to-transparent" />
 
         <div className="relative z-10">
             <div
-                className={`mb-6 flex h-10 w-10 items-center justify-center rounded-[18px] border transition-all duration-300 ${highlight
+                className={`mb-4 flex h-9 w-9 items-center justify-center rounded-[18px] border transition-all duration-300 ${highlight
                     ? 'border-[rgba(201,178,124,0.20)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.95)] shadow-[0_0_14px_rgba(201,178,124,0.06)]'
                     : 'border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.04)] text-[rgba(214,227,249,0.42)] group-hover:text-[rgba(230,240,255,0.78)]'
                     }`}
@@ -257,10 +257,10 @@ const StatCard = ({ icon, label, value, highlight, onClick, delay = 0 }) => (
                 {icon}
             </div>
 
-            <p className="mb-2 text-[2.75rem] font-light leading-none tracking-[-0.04em] text-[rgba(248,250,255,0.98)]">
+            <p className="mb-2 text-h1 font-light leading-none tracking-[-0.04em] text-[rgba(248,250,255,0.98)]">
                 {value}
             </p>
-            <p className="text-[0.92rem] uppercase tracking-[0.08em] font-medium text-[rgba(177,189,209,0.44)]">
+            <p className="text-caption uppercase tracking-[0.08em] font-medium text-[rgba(177,189,209,0.44)]">
                 {label}
             </p>
         </div>
@@ -275,18 +275,18 @@ const ActionCard = ({ icon, title, description, actionLabel, onAction, connected
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className={`group relative overflow-hidden rounded-[24px] border p-5 backdrop-blur-xl transition-all duration-300 ${connected
-            ? 'border-[rgba(88,160,255,0.15)] bg-[linear-gradient(180deg,rgba(6,12,24,0.96)_0%,rgba(3,8,18,0.99)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.38),0_0_20px_rgba(36,99,235,0.05)]'
-            : 'border-[rgba(201,178,124,0.13)] bg-[linear-gradient(180deg,rgba(10,13,20,0.96)_0%,rgba(5,7,12,0.99)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.38),0_0_18px_rgba(201,178,124,0.04)] hover:border-[rgba(201,178,124,0.18)]'
+        className={`group relative overflow-hidden card-lucy-compact border backdrop-blur-xl transition-all duration-300 ${connected
+            ? 'border-[rgba(88,160,255,0.15)] bg-[linear-gradient(180deg,rgba(6,12,24,0.96)_0%,rgba(3,8,18,0.99)_100%)]'
+            : 'border-[rgba(201,178,124,0.13)] bg-[linear-gradient(180deg,rgba(10,13,20,0.96)_0%,rgba(5,7,12,0.99)_100%)] hover:border-[rgba(201,178,124,0.18)]'
             }`}
     >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(59,130,246,0.06),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(201,178,124,0.04),transparent_28%)]" />
-        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-[rgba(255,255,255,0.03)]" />
+        <div className="pointer-events-none absolute inset-[1px] rounded-[13px] border border-[rgba(255,255,255,0.03)]" />
         <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.08)] to-transparent" />
 
-        <div className="relative z-10 flex items-start gap-4">
+        <div className="relative z-10 flex items-start gap-3">
             <div
-                className={`flex h-12 w-12 items-center justify-center rounded-[18px] border flex-shrink-0 transition-all duration-300 ${connected
+                className={`flex h-8 w-8 items-center justify-center rounded-[14px] border flex-shrink-0 transition-all duration-300 ${connected
                     ? 'border-[rgba(88,160,255,0.20)] bg-[rgba(88,160,255,0.08)] text-[#00B4D8] shadow-[0_0_16px_rgba(36,99,235,0.06)]'
                     : 'border-[rgba(201,178,124,0.18)] bg-[rgba(201,178,124,0.08)] text-[rgba(201,178,124,0.72)] group-hover:text-[#C9B27C]'
                     }`}
@@ -295,36 +295,36 @@ const ActionCard = ({ icon, title, description, actionLabel, onAction, connected
             </div>
 
             <div className="flex-1 min-w-0">
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                    <h4 className="text-[1rem] font-semibold tracking-[-0.02em] text-[rgba(244,247,255,0.95)]">
+                <div className="mb-1.5 flex flex-wrap items-center gap-2">
+                    <h4 className="text-h3 font-medium tracking-[-0.02em] text-[rgba(244,247,255,0.95)]">
                         {title}
                     </h4>
 
                     {connected && (
                         <div className="flex items-center gap-1.5">
                             <div className="h-2 w-2 rounded-full bg-[#00B4D8] shadow-[0_0_8px_rgba(0,180,216,0.65)]" />
-                            <span className="text-[0.92rem] text-[rgba(0,180,216,0.86)]">Conectado</span>
+                            <span className="text-body-sm text-[rgba(0,180,216,0.86)]">Conectado</span>
                         </div>
                     )}
                 </div>
 
-                <p className="mb-4 text-[0.95rem] leading-[1.7] text-[rgba(196,208,228,0.42)]">
+                <p className="mb-3 text-body-sm leading-[1.6] text-[rgba(196,208,228,0.42)]">
                     {connected ? connectedLabel : description}
                 </p>
 
                 {connected ? (
                     <button
                         onClick={onDisconnect}
-                        className="text-[0.92rem] font-medium text-[rgba(170,186,210,0.52)] transition-colors duration-200 hover:text-[rgba(241,246,255,0.84)]"
+                        className="text-body-sm font-medium text-[rgba(170,186,210,0.52)] transition-colors duration-200 hover:text-[rgba(241,246,255,0.84)]"
                     >
                         Desconectar
                     </button>
                 ) : (
                     <button
                         onClick={onAction}
-                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,178,124,0.22)] bg-[linear-gradient(180deg,rgba(40,30,11,0.90)_0%,rgba(22,16,7,0.98)_100%)] px-4 py-2.5 text-[0.92rem] font-medium text-[rgba(232,205,138,0.96)] transition-all duration-200 hover:border-[rgba(201,178,124,0.34)] hover:text-[rgba(246,223,160,0.98)] hover:shadow-[0_0_14px_rgba(201,178,124,0.10)]"
+                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,178,124,0.22)] bg-[linear-gradient(180deg,rgba(40,30,11,0.90)_0%,rgba(22,16,7,0.98)_100%)] px-3.5 py-2 text-caption font-medium text-[rgba(232,205,138,0.96)] transition-all duration-200 hover:border-[rgba(201,178,124,0.34)] hover:text-[rgba(246,223,160,0.98)] hover:shadow-[0_0_14px_rgba(201,178,124,0.10)]"
                     >
-                        <Link2 className="w-4 h-4" />
+                        <Link2 className="w-3.5 h-3.5" />
                         {actionLabel}
                     </button>
                 )}
@@ -344,16 +344,16 @@ const EventRow = ({ event, delay = 0 }) => (
         className="flex items-start gap-3 py-3 border-b border-[rgba(255,255,255,0.04)] last:border-0"
     >
         <div className="mt-0.5 w-14 text-right flex-shrink-0">
-            <span className="text-xs text-[rgba(201,178,124,0.6)] font-medium tabular-nums">
+            <span className="text-caption text-[rgba(201,178,124,0.6)] font-medium tabular-nums">
                 {event.all_day ? 'Todo el día' : formatEventTime(event.start)}
             </span>
         </div>
 
         <div className="flex-1 min-w-0">
-            <p className="text-sm text-[rgba(255,255,255,0.75)] truncate">{event.title}</p>
-            {event.location && <p className="text-xs text-[rgba(255,255,255,0.25)] truncate mt-0.5">{event.location}</p>}
+            <p className="text-body-sm text-[rgba(255,255,255,0.75)] truncate">{event.title}</p>
+            {event.location && <p className="text-caption text-[rgba(255,255,255,0.25)] truncate mt-0.5">{event.location}</p>}
             {event.attendees?.length > 0 && (
-                <p className="text-xs text-[rgba(255,255,255,0.2)] mt-0.5 truncate">
+                <p className="text-caption text-[rgba(255,255,255,0.2)] mt-0.5 truncate">
                     con {event.attendees.slice(0, 2).join(', ')}
                     {event.attendees.length > 2 ? ` +${event.attendees.length - 2}` : ''}
                 </p>
@@ -629,7 +629,7 @@ export default function OverviewPage() {
             <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
                 <button
                     onClick={() => window.history.back()}
-                    className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] -mb-6 transition-colors duration-200"
+                    className="flex items-center gap-1.5 text-caption text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] -mb-6 transition-colors duration-200"
                 >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
                         <path d="M19 12H5M12 19l-7-7 7-7" />
@@ -642,13 +642,14 @@ export default function OverviewPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 >
-                    <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] font-medium mb-3">
+                    <p className="text-caption text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] font-medium mb-3">
                         {getGreeting()}
                     </p>
-                    <h1 className="text-4xl font-light tracking-tight text-white mb-3">
+                    <h1 className="font-light tracking-tight text-white mb-3"
+                        style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.2rem' }}>
                         {t(language, 'welcomeTitle')}
                     </h1>
-                    <p className="text-sm text-[rgba(255,255,255,0.35)] max-w-xl leading-relaxed">
+                    <p className="text-body-sm text-[rgba(255,255,255,0.35)] max-w-xl leading-relaxed">
                         {t(language, 'welcomeSubtitle')}
                     </p>
                 </motion.div>
@@ -726,7 +727,7 @@ export default function OverviewPage() {
                         >
                             <div className="flex items-center gap-3">
                                 <Calendar className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
-                                <span className="text-sm text-[rgba(255,255,255,0.5)]">
+                                <span className="text-body-sm text-[rgba(255,255,255,0.5)]">
                                     Agenda de hoy — <span className="text-[rgba(255,255,255,0.7)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</span>
                                 </span>
                             </div>
@@ -766,48 +767,89 @@ export default function OverviewPage() {
 
                 {!loading && stats && gmailConnected && (
                     <>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                            <StatCard
-                                icon={<Inbox className="w-4.5 h-4.5" />}
-                                label="Emails"
-                                value={stats.total}
-                                highlight
-                                onClick={() => navigate('/app/messages')}
-                                delay={0.15}
-                            />
-                            <StatCard
-                                icon={<Sparkles className="w-4.5 h-4.5" />}
-                                label="Prioritarios"
-                                value={stats.prioritarios}
-                                onClick={() => navigate('/app/messages?filter=PRIORITARIO')}
-                                delay={0.2}
-                            />
-                            <StatCard
-                                icon={<Clock className="w-4.5 h-4.5" />}
-                                label="Seguimiento"
-                                value={stats.seguimiento}
-                                onClick={() => navigate('/app/messages?filter=SEGUIMIENTO')}
-                                delay={0.25}
-                            />
-                            <StatCard
-                                icon={<Paperclip className="w-4.5 h-4.5" />}
-                                label="Adjuntos"
-                                value={stats.with_attachments}
-                                onClick={() => navigate('/app/messages?filter=attachments')}
-                                delay={0.3}
-                            />
-                        </div>
+                        <motion.div
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                            className="card-lucy border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(8,12,22,0.95)_0%,rgba(4,7,15,0.99)_100%)] backdrop-blur-xl"
+                        >
+                            <div className="flex flex-col gap-4">
+                                <h3 className="text-h3 font-medium text-[rgba(248,250,255,0.95)] tracking-[-0.02em]">
+                                    Hoy Lucy ha preparado esto para ti
+                                </h3>
+
+                                <div className="flex flex-col gap-3">
+                                    {stats.total > 0 && (
+                                        <div className="flex items-start gap-3">
+                                            <Inbox className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+                                            <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
+                                                Tu bandeja tiene <span className="text-[rgba(255,255,255,0.8)]">{stats.total}</span> correo{stats.total !== 1 ? 's' : ''}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {stats.prioritarios > 0 && (
+                                        <div className="flex items-start gap-3">
+                                            <Sparkles className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+                                            <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
+                                                Tienes <span className="text-[rgba(201,178,124,0.9)]">{stats.prioritarios}</span> email{stats.prioritarios !== 1 ? 's' : ''} prioritario{stats.prioritarios !== 1 ? 's' : ''} pendiente{stats.prioritarios !== 1 ? 's' : ''}
+                                            </p>
+                                        </div>
+                                    )}
+                                    {stats.seguimiento > 0 && (
+                                        <div className="flex items-start gap-3">
+                                            <Clock className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+                                            <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
+                                                Tienes <span className="text-[rgba(255,255,255,0.8)]">{stats.seguimiento}</span> conversacion{stats.seguimiento !== 1 ? 'es' : ''} en seguimiento
+                                            </p>
+                                        </div>
+                                    )}
+                                    {stats.with_attachments > 0 && (
+                                        <div className="flex items-start gap-3">
+                                            <Paperclip className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+                                            <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
+                                                <span className="text-[rgba(255,255,255,0.8)]">{stats.with_attachments}</span> correo{stats.with_attachments !== 1 ? 's' : ''} con adjuntos
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[rgba(255,255,255,0.05)]">
+                                    <button
+                                        onClick={() => navigate('/app/messages')}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,178,124,0.18)] bg-[linear-gradient(180deg,rgba(40,30,11,0.90)_0%,rgba(22,16,7,0.98)_100%)] px-4 py-2.5 text-caption font-medium text-[rgba(232,205,138,0.96)] transition-all duration-200 hover:border-[rgba(201,178,124,0.34)] hover:shadow-[0_0_14px_rgba(201,178,124,0.10)]"
+                                    >
+                                        <Inbox className="w-3.5 h-3.5" />
+                                        Ver mis correos
+                                    </button>
+                                    <button
+                                        onClick={() => { if (!briefingInFlightRef.current) runBriefing(); }}
+                                        disabled={briefingInFlightRef.current || sending}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5 text-caption font-medium text-[rgba(196,208,228,0.55)] transition-all duration-200 hover:border-[rgba(255,255,255,0.14)] hover:text-[rgba(255,255,255,0.75)] disabled:opacity-30"
+                                    >
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        Resumir mi bandeja
+                                    </button>
+                                    <button
+                                        onClick={() => navigate('/app/tasks')}
+                                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5 text-caption font-medium text-[rgba(196,208,228,0.55)] transition-all duration-200 hover:border-[rgba(255,255,255,0.14)] hover:text-[rgba(255,255,255,0.75)]"
+                                    >
+                                        <Calendar className="w-3.5 h-3.5" />
+                                        Organizar mi día
+                                    </button>
+                                </div>
+                            </div>
+                        </motion.div>
 
                         <motion.div
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: 0.35, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                            className="relative overflow-hidden rounded-[30px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,12,22,0.92)_0%,rgba(3,7,16,0.97)_100%)] backdrop-blur-xl shadow-[0_24px_80px_rgba(0,0,0,0.45),0_0_36px_rgba(36,99,235,0.05)]"
+                            className="relative overflow-hidden card-lucy-comfy border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,12,22,0.92)_0%,rgba(3,7,16,0.97)_100%)] backdrop-blur-xl"
                         >
                             <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(201,178,124,0.05),transparent_28%)]" />
                             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.3)] to-transparent" />
 
-                            <div className="relative z-10 p-8 flex flex-col gap-7">
+                            <div className="relative z-10 flex flex-col gap-4">
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-4">
                                         <div className="relative">
@@ -822,12 +864,12 @@ export default function OverviewPage() {
                                         </div>
 
                                         <div>
-                                            <h3 className="text-[1.02rem] font-medium text-white tracking-wide">Lucy</h3>
-                                            <p className="text-xs text-[rgba(214,227,249,0.46)] mt-0.5">
+                                            <h3 className="text-h3 text-white tracking-wide">Lucy</h3>
+                                            <p className="text-caption text-[rgba(214,227,249,0.46)] mt-0.5">
                                                 {wakeWordActive
                                                     ? 'Escuchando…'
                                                     : wakeWordEnabled
-                                                        ? 'Di "Hola Lucy" o escribe abajo'
+                                                        ? 'Estoy contigo. Escríbeme o háblame cuando quieras.'
                                                         : 'Asistente ejecutiva'}
                                             </p>
                                         </div>
@@ -879,18 +921,18 @@ export default function OverviewPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <button
                                         onClick={handsFreeModeActive ? cancel : undefined}
-                                        className={`group relative overflow-hidden rounded-[24px] border p-5 text-left transition-all duration-300 ${!handsFreeModeActive
-                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.40),0_0_20px_rgba(201,178,124,0.05)]'
-                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.40),0_0_22px_rgba(36,99,235,0.08)] hover:border-[rgba(88,160,255,0.28)] hover:shadow-[0_16px_44px_rgba(0,0,0,0.44),0_0_28px_rgba(36,99,235,0.10)]'
+                                        className={`group relative overflow-hidden card-lucy border text-left transition-all duration-300 ${!handsFreeModeActive
+                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)]'
+                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] hover:border-[rgba(88,160,255,0.28)]'
                                             }`}
                                     >
                                         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(201,178,124,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.06),transparent_36%)] opacity-90" />
-                                        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-[rgba(255,255,255,0.03)]" />
+                                        <div className="pointer-events-none absolute inset-[1px] rounded-[15px] border border-[rgba(255,255,255,0.03)]" />
 
                                         <div className="relative z-10">
-                                            <div className="mb-4 flex items-center gap-3">
+                                            <div className="mb-5 flex items-center gap-3">
                                                 <div
-                                                    className={`flex h-11 w-11 items-center justify-center rounded-[18px] border text-[1.05rem] transition-all duration-300 ${!handsFreeModeActive
+                                                    className={`flex h-9 w-9 items-center justify-center rounded-[18px] border text-h3 transition-all duration-300 ${!handsFreeModeActive
                                                         ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
                                                         : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(184,214,255,0.92)]'
                                                         }`}
@@ -900,7 +942,7 @@ export default function OverviewPage() {
 
                                                 <div className="min-w-0">
                                                     <h3
-                                                        className={`text-[1.08rem] font-semibold tracking-[-0.02em] ${!handsFreeModeActive
+                                                        className={`text-h3 font-medium tracking-[-0.02em] ${!handsFreeModeActive
                                                             ? 'text-[rgba(248,240,218,0.98)]'
                                                             : 'text-[rgba(242,247,255,0.96)]'
                                                             }`}
@@ -911,7 +953,7 @@ export default function OverviewPage() {
                                             </div>
 
                                             <p
-                                                className={`max-w-[34rem] text-[0.95rem] leading-[1.7] ${!handsFreeModeActive
+                                                className={`max-w-[34rem] text-body leading-[1.7] ${!handsFreeModeActive
                                                     ? 'text-[rgba(232,220,182,0.72)]'
                                                     : 'text-[rgba(214,227,249,0.68)]'
                                                     }`}
@@ -927,7 +969,7 @@ export default function OverviewPage() {
                                                         }`}
                                                 />
                                                 <span
-                                                    className={`text-[0.92rem] font-medium ${!handsFreeModeActive
+                                                    className={`text-caption font-medium ${!handsFreeModeActive
                                                         ? 'text-[rgba(237,211,143,0.95)]'
                                                         : 'text-[rgba(176,190,212,0.70)]'
                                                         }`}
@@ -940,18 +982,18 @@ export default function OverviewPage() {
 
                                     <button
                                         onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
-                                        className={`group relative overflow-hidden rounded-[24px] border p-5 text-left transition-all duration-300 ${handsFreeModeActive
-                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.40),0_0_20px_rgba(201,178,124,0.05)]'
-                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] shadow-[0_14px_38px_rgba(0,0,0,0.40),0_0_22px_rgba(36,99,235,0.08)] hover:border-[rgba(88,160,255,0.28)] hover:shadow-[0_16px_44px_rgba(0,0,0,0.44),0_0_28px_rgba(36,99,235,0.10)]'
+                                        className={`group relative overflow-hidden card-lucy border text-left transition-all duration-300 ${handsFreeModeActive
+                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)]'
+                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] hover:border-[rgba(88,160,255,0.28)]'
                                             }`}
                                     >
                                         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(201,178,124,0.05),transparent_34%)] opacity-90" />
-                                        <div className="pointer-events-none absolute inset-[1px] rounded-[23px] border border-[rgba(255,255,255,0.03)]" />
+                                        <div className="pointer-events-none absolute inset-[1px] rounded-[15px] border border-[rgba(255,255,255,0.03)]" />
 
                                         <div className="relative z-10">
-                                            <div className="mb-4 flex items-center gap-3">
+                                            <div className="mb-5 flex items-center gap-3">
                                                 <div
-                                                    className={`flex h-11 w-11 items-center justify-center rounded-[18px] border text-[1.05rem] transition-all duration-300 ${handsFreeModeActive
+                                                    className={`flex h-9 w-9 items-center justify-center rounded-[18px] border text-h3 transition-all duration-300 ${handsFreeModeActive
                                                         ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
                                                         : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(214,228,255,0.90)]'
                                                         }`}
@@ -961,7 +1003,7 @@ export default function OverviewPage() {
 
                                                 <div className="min-w-0">
                                                     <h3
-                                                        className={`text-[1.08rem] font-semibold tracking-[-0.02em] ${handsFreeModeActive
+                                                        className={`text-h3 font-medium tracking-[-0.02em] ${handsFreeModeActive
                                                             ? 'text-[rgba(248,240,218,0.98)]'
                                                             : 'text-[rgba(242,247,255,0.96)]'
                                                             }`}
@@ -972,7 +1014,7 @@ export default function OverviewPage() {
                                             </div>
 
                                             <p
-                                                className={`max-w-[34rem] text-[0.95rem] leading-[1.7] ${handsFreeModeActive
+                                                className={`max-w-[34rem] text-body leading-[1.7] ${handsFreeModeActive
                                                     ? 'text-[rgba(232,220,182,0.72)]'
                                                     : 'text-[rgba(214,227,249,0.68)]'
                                                     }`}
@@ -988,7 +1030,7 @@ export default function OverviewPage() {
                                                         }`}
                                                 />
                                                 <span
-                                                    className={`text-[0.92rem] font-medium ${handsFreeModeActive
+                                                    className={`text-caption font-medium ${handsFreeModeActive
                                                         ? 'text-[rgba(237,211,143,0.95)]'
                                                         : 'text-[rgba(176,190,212,0.70)]'
                                                         }`}
@@ -1016,9 +1058,9 @@ export default function OverviewPage() {
                                         <input
                                             name="lucyInput"
                                             type="text"
-                                            placeholder={sending ? 'Lucy está pensando...' : 'Escríbele a Lucy... (recordatorios, preguntas, notas)'}
+                                            placeholder={sending ? 'Lucy está pensando...' : 'Escríbeme lo que necesites… (tareas, ideas, recordatorios)'}
                                             disabled={sending}
-                                            className="flex-1 bg-transparent px-1 py-1 text-sm text-[rgba(242,247,255,0.92)] placeholder:text-[rgba(160,174,198,0.34)] focus:outline-none disabled:opacity-50"
+                                            className="flex-1 bg-transparent px-1 py-1 text-body-sm text-[rgba(242,247,255,0.92)] placeholder:text-[rgba(160,174,198,0.34)] focus:outline-none disabled:opacity-50"
                                         />
 
                                         <button
@@ -1048,10 +1090,10 @@ export default function OverviewPage() {
                                             initial={{ opacity: 0, y: 6 }}
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0 }}
-                                            className="rounded-2xl px-5 py-4 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] max-h-60 overflow-y-auto"
+                                            className="card-lucy bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] max-h-60 overflow-y-auto"
                                         >
-                                            <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.07em] mb-2">Lucy</p>
-                                            <p className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed">
+                                            <p className="text-caption text-[rgba(255,255,255,0.2)] uppercase tracking-[0.07em] mb-3">Lucy</p>
+                                            <p className="text-body text-[rgba(255,255,255,0.6)] leading-relaxed">
                                                 {lastInteraction || briefingText}
                                             </p>
                                         </motion.div>

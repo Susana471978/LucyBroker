@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=DM+Sans:wght@300;400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -11,7 +11,7 @@
 
 :root {
   /* ── Core Blacks ── */
-  --background-base: #000000;
+  --background-base: #030305;
   --background-deep: #041220;
   --surface-primary: #081828;
   --surface-secondary: #0C2030;
@@ -55,26 +55,71 @@
   --glow-champagne-md: rgba(201, 178, 124, 0.15);
   --glow-ocean: rgba(0, 180, 216, 0.08);
   --glow-ocean-md: rgba(0, 180, 216, 0.15);
+
+  /* ── Unified Typography ── */
+  --font-family-base: "Plus Jakarta Sans", "Inter", "SF Pro Display", "Segoe UI", sans-serif;
+
+  --font-size-display: clamp(2rem, 3.2vw, 3rem);
+  --font-size-h1: 1.6rem;
+  --font-size-h2: 1.25rem;
+  --font-size-h3: 1.05rem;
+  --font-size-body-lg: 1rem;
+  --font-size-body: 0.92rem;
+  --font-size-body-sm: 0.84rem;
+  --font-size-caption: 0.76rem;
+
+  --line-height-tight: 1.12;
+  --line-height-heading: 1.22;
+  --line-height-body: 1.58;
+
+  --letter-spacing-tight: -0.03em;
+  --letter-spacing-heading: -0.02em;
+  --letter-spacing-body: -0.01em;
+  --letter-spacing-wide: 0.04em;
+
+  /* ── Unified Cards ── */
+  --card-radius-sm: 14px;
+  --card-radius-md: 16px;
+  --card-radius-lg: 20px;
+
+  --card-padding-compact: 14px;
+  --card-padding-default: 18px;
+  --card-padding-comfy: 22px;
+
+  --card-shadow-soft: 0 10px 24px rgba(0, 0, 0, 0.22);
+  --card-shadow-deep: 0 24px 48px rgba(0, 0, 0, 0.42);
 }
 
 /* ============================= */
 /* Reset & Base                  */
 /* ============================= */
 
-* {
-  margin: 0;
-  padding: 0;
+*,
+*::before,
+*::after {
   box-sizing: border-box;
 }
 
-body {
-  font-family: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
-  background-color: var(--background-base);
-  color: var(--text-primary);
-  min-height: 100vh;
+html {
+  font-size: 15px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-family-base);
+  background-color: var(--background-base);
+  color: var(--text-primary);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+  letter-spacing: var(--letter-spacing-body);
+}
+
+/* ============================= */
+/* Unified Typography            */
+/* ============================= */
 
 h1,
 h2,
@@ -82,14 +127,106 @@ h3,
 h4,
 h5,
 h6 {
-  font-family: 'DM Sans', sans-serif;
-  font-weight: 300;
-  letter-spacing: -0.02em;
+  margin: 0;
+  font-family: var(--font-family-base);
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: var(--letter-spacing-heading);
+}
+
+h1 {
+  font-size: var(--font-size-h1);
+  line-height: var(--line-height-tight);
+}
+
+h2 {
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-heading);
+}
+
+h3 {
+  font-size: var(--font-size-h3);
+  line-height: 1.3;
+}
+
+p {
+  margin: 0;
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+small {
+  font-size: var(--font-size-caption);
+}
+
+button,
+input,
+select,
+textarea,
+label,
+span,
+a {
+  font-family: var(--font-family-base);
 }
 
 .editorial {
-  font-family: 'Cormorant Garamond', serif;
+  font-family: var(--font-family-base);
   font-style: italic;
+  font-weight: 300;
+}
+
+/* ============================= */
+/* Semantic Text Helpers         */
+/* ============================= */
+
+.text-display {
+  font-size: var(--font-size-display);
+  line-height: var(--line-height-tight);
+  font-weight: 500;
+  letter-spacing: var(--letter-spacing-tight);
+}
+
+.text-h1 {
+  font-size: var(--font-size-h1);
+  line-height: var(--line-height-tight);
+  font-weight: 500;
+  letter-spacing: var(--letter-spacing-heading);
+}
+
+.text-h2 {
+  font-size: var(--font-size-h2);
+  line-height: var(--line-height-heading);
+  font-weight: 500;
+  letter-spacing: var(--letter-spacing-heading);
+}
+
+.text-h3 {
+  font-size: var(--font-size-h3);
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+.text-body {
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.text-body-sm {
+  font-size: var(--font-size-body-sm);
+  line-height: 1.5;
+}
+
+.text-caption {
+  font-size: var(--font-size-caption);
+  line-height: 1.4;
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
+
+.text-tertiary {
+  color: var(--text-tertiary);
 }
 
 /* ============================= */
@@ -169,16 +306,16 @@ h6 {
 }
 
 .auth-brand h1 {
-  font-family: 'DM Sans', sans-serif;
-  font-size: 2.4rem;
-  font-weight: 300;
-  letter-spacing: 0.08em;
+  font-family: var(--font-family-base);
+  font-size: clamp(2rem, 4vw, 2.4rem);
+  font-weight: 500;
+  letter-spacing: -0.03em;
   color: var(--champagne);
 }
 
 .auth-brand p {
-  font-size: 0.88rem;
   max-width: 30ch;
+  font-size: var(--font-size-body-sm);
   color: var(--text-secondary);
   line-height: 1.6;
   letter-spacing: 0.01em;
@@ -190,8 +327,8 @@ h6 {
 
 .auth-card {
   width: 100%;
-  padding: 2.2rem 2rem;
-  border-radius: 20px;
+  padding: 2rem 1.75rem;
+  border-radius: var(--card-radius-lg);
   background: rgba(4, 18, 32, 0.5);
   border: 1px solid rgba(0, 180, 216, 0.1);
   box-shadow:
@@ -203,11 +340,11 @@ h6 {
 }
 
 .auth-card h2 {
-  font-size: 1.1rem;
-  font-weight: 400;
-  margin-bottom: 1.6rem;
+  font-size: 1rem;
+  font-weight: 500;
+  margin-bottom: 1.35rem;
   color: var(--text-secondary);
-  letter-spacing: 0.02em;
+  letter-spacing: 0.01em;
 }
 
 /* ============================= */
@@ -217,7 +354,7 @@ h6 {
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: 1.1rem;
+  gap: 1rem;
 }
 
 .auth-field {
@@ -227,7 +364,7 @@ h6 {
 }
 
 .auth-field-label {
-  font-size: 0.78rem;
+  font-size: var(--font-size-caption);
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -262,7 +399,7 @@ h6 {
 .auth-form input[type="text"] {
   display: block !important;
   width: 100% !important;
-  height: 3.2rem !important;
+  height: 3.05rem !important;
   padding-left: 2.75rem !important;
   padding-right: 1rem !important;
   background: var(--input-bg) !important;
@@ -270,8 +407,8 @@ h6 {
   border: 1px solid var(--border-input) !important;
   border-radius: 12px !important;
   color: var(--text-primary) !important;
-  font-family: 'DM Sans', sans-serif !important;
-  font-size: 0.9rem !important;
+  font-family: var(--font-family-base) !important;
+  font-size: var(--font-size-body) !important;
   font-weight: 400 !important;
   outline: none !important;
   box-shadow:
@@ -288,7 +425,7 @@ h6 {
 .auth-input::placeholder,
 .auth-form input::placeholder {
   color: var(--text-tertiary) !important;
-  font-size: 0.88rem !important;
+  font-size: var(--font-size-body-sm) !important;
 }
 
 .auth-input:focus,
@@ -331,7 +468,7 @@ h6 {
   border: 1px solid rgba(255, 80, 80, 0.25);
   background: rgba(60, 0, 0, 0.25);
   color: rgba(255, 160, 160, 0.9);
-  font-size: 0.82rem;
+  font-size: var(--font-size-body-sm);
   line-height: 1.5;
 }
 
@@ -341,15 +478,16 @@ h6 {
 
 .auth-submit {
   width: 100% !important;
-  height: 3.2rem !important;
-  margin-top: 0.4rem !important;
+  height: 3.05rem !important;
+  margin-top: 0.35rem !important;
   background: linear-gradient(135deg,
       rgba(201, 178, 124, 0.18),
       rgba(201, 178, 124, 0.08)) !important;
   color: var(--champagne) !important;
+  font-family: var(--font-family-base) !important;
   font-weight: 500 !important;
-  font-size: 0.88rem !important;
-  letter-spacing: 0.05em !important;
+  font-size: var(--font-size-body-sm) !important;
+  letter-spacing: 0.04em !important;
   border: 1px solid rgba(201, 178, 124, 0.25) !important;
   border-radius: 12px !important;
   box-shadow: 0 0 24px rgba(201, 178, 124, 0.06) !important;
@@ -375,11 +513,11 @@ h6 {
 /* ============================= */
 
 .auth-secondary-link {
-  margin-top: 1.4rem;
+  margin-top: 1.2rem;
   display: flex;
   justify-content: center;
   gap: 0.4rem;
-  font-size: 0.83rem;
+  font-size: var(--font-size-body-sm);
   color: var(--text-tertiary);
 }
 
@@ -405,7 +543,7 @@ h6 {
       rgba(0, 180, 216, 0.1) 30%,
       rgba(0, 180, 216, 0.1) 70%,
       transparent);
-  margin: 0.4rem 0;
+  margin: 0.35rem 0;
 }
 
 /* ============================= */
@@ -451,6 +589,28 @@ h6 {
   border: 1px solid rgba(0, 180, 216, 0.12);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
+}
+
+/* ============================= */
+/* Unified Card Utilities        */
+/* ============================= */
+
+.card-lucy {
+  border-radius: var(--card-radius-md);
+  padding: var(--card-padding-default);
+  box-shadow: var(--card-shadow-soft);
+}
+
+.card-lucy-compact {
+  border-radius: var(--card-radius-sm);
+  padding: var(--card-padding-compact);
+  box-shadow: var(--card-shadow-soft);
+}
+
+.card-lucy-comfy {
+  border-radius: var(--card-radius-lg);
+  padding: var(--card-padding-comfy);
+  box-shadow: var(--card-shadow-deep);
 }
 
 /* ============================= */
@@ -521,7 +681,11 @@ a,
 input,
 select,
 textarea {
-  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease,
+    box-shadow 0.2s ease,
+    opacity 0.2s ease;
 }
 
 button:focus-visible,
@@ -539,6 +703,7 @@ textarea:focus-visible {
 
 .email-card {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border-radius: var(--card-radius-md);
 }
 
 .email-card:hover {
@@ -552,6 +717,7 @@ textarea:focus-visible {
 .ai-card {
   position: relative;
   overflow: visible;
+  border-radius: var(--card-radius-md);
 }
 
 /* ============================= */
@@ -685,13 +851,17 @@ textarea:focus-visible {
 /* ============================= */
 
 @media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+
   .auth-card {
-    padding: 1.6rem 1.4rem;
+    padding: 1.5rem 1.25rem;
     border-radius: 16px;
   }
 
   .auth-brand h1 {
-    font-size: 2rem;
+    font-size: 1.9rem;
   }
 }
 
@@ -703,14 +873,8 @@ textarea:focus-visible {
   position: absolute;
   inset: 0;
   z-index: 0;
-  /* 🔥 IMPORTANTE: detrás del contenido, delante del fondo */
   pointer-events: none;
-
   opacity: 0.45;
-  /* más elegante que 0.6 */
   filter: blur(0.5px);
-  /* suaviza partículas */
-
   mix-blend-mode: screen;
-  /* 🔥 esto es el toque premium */
 }

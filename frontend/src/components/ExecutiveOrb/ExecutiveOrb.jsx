@@ -25,7 +25,7 @@ export default function ExecutiveOrb({ state }) {
                     {state === "listening" && "Escuchando..."}
                     {state === "processing" && "Pensando..."}
                     {state === "speaking" && "Respondiendo..."}
-                    {state === "idle" && "¿Qué necesitas organizar hoy?"}
+                    {state === "idle" && "Dime cómo quieres que organice tu día."}
                 </p>
             </div>
 

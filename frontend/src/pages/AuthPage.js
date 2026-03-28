@@ -24,7 +24,7 @@ function ParticleCanvas() {
     window.addEventListener('resize', resize);
 
     const GOLD = ['rgba(201,178,124,', 'rgba(230,210,160,', 'rgba(180,155,100,'];
-    const BLUE = ['rgba(0,180,216,', 'rgba(100,220,240,'];
+    const BLUE = ['rgba(88,160,255,', 'rgba(120,180,255,'];
     const particles = Array.from({ length: 70 }, (_, i) => {
       const isBlue = i > 52;
       const palette = isBlue ? BLUE : GOLD;
@@ -131,15 +131,15 @@ export default function AuthPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=DM+Sans:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Plus+Jakarta+Sans:wght@200;300;400;500&display=swap');
 
         .auth-root {
           min-height: 100vh;
-          background: #000000;
+          background: #030305;
           display: flex;
           align-items: stretch;
           overflow: hidden;
-          font-family: 'DM Sans', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
         .auth-root::before {
@@ -147,8 +147,8 @@ export default function AuthPage() {
           position: fixed;
           inset: 0;
           background-image:
-            linear-gradient(rgba(0,180,216,0.015) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(0,180,216,0.015) 1px, transparent 1px);
+            linear-gradient(rgba(88,160,255,0.015) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(88,160,255,0.015) 1px, transparent 1px);
           background-size: 64px 64px;
           pointer-events: none;
           z-index: 0;
@@ -158,7 +158,7 @@ export default function AuthPage() {
           position: fixed;
           top: 0; left: 0; right: 0;
           height: 1px;
-          background: linear-gradient(to right, transparent, rgba(0,180,216,0.3) 30%, rgba(201,178,124,0.3) 70%, transparent);
+          background: linear-gradient(to right, transparent, rgba(88,160,255,0.3) 30%, rgba(201,178,124,0.3) 70%, transparent);
           z-index: 20;
         }
 
@@ -194,8 +194,8 @@ export default function AuthPage() {
           position: absolute;
           inset: 0;
           background:
-            linear-gradient(to right,  #000000 0%, transparent 20%, transparent 80%, #000000 100%),
-            linear-gradient(to bottom, #000000 0%, transparent 15%, transparent 60%, #000000 95%);
+            linear-gradient(to right,  #030305 0%, transparent 20%, transparent 80%, #030305 100%),
+            linear-gradient(to bottom, #030305 0%, transparent 15%, transparent 60%, #030305 95%);
           z-index: 2;
           pointer-events: none;
         }
@@ -223,7 +223,7 @@ export default function AuthPage() {
 
         .lucy-tagline {
           font-size: 0.62rem;
-          color: rgba(224,247,250,0.5);
+          color: rgba(255,255,255,0.5);
           text-transform: uppercase;
           letter-spacing: 0.2em;
           line-height: 1.9;
@@ -238,10 +238,10 @@ export default function AuthPage() {
           background: linear-gradient(
             to bottom,
             transparent,
-            rgba(0,180,216,0.08) 20%,
-            rgba(0,180,216,0.15) 40%,
+            rgba(88,160,255,0.08) 20%,
+            rgba(88,160,255,0.15) 40%,
             rgba(201,178,124,0.12) 60%,
-            rgba(0,180,216,0.08) 80%,
+            rgba(88,160,255,0.08) 80%,
             transparent
           );
           flex-shrink: 0;
@@ -263,7 +263,7 @@ export default function AuthPage() {
 
         .auth-form-title {
           font-size: 0.6rem;
-          color: rgba(0,180,216,0.45);
+          color: rgba(201,178,124,0.5);
           text-transform: uppercase;
           letter-spacing: 0.22em;
           margin-bottom: 2rem;
@@ -276,7 +276,7 @@ export default function AuthPage() {
           font-size: 0.6rem;
           text-transform: uppercase;
           letter-spacing: 0.18em;
-          color: rgba(224,247,250,0.2);
+          color: rgba(255,255,255,0.2);
           margin-bottom: 0.5rem;
         }
 
@@ -284,49 +284,55 @@ export default function AuthPage() {
 
         .auth-input-icon {
           position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
-          width: 13px; height: 13px; color: rgba(0,180,216,0.25);
+          width: 13px; height: 13px; color: rgba(88,160,255,0.25);
           pointer-events: none; z-index: 1;
         }
 
         .auth-input {
-          background: rgba(4,18,32,0.6) !important;
-          border: 1px solid rgba(0,180,216,0.12) !important;
-          color: rgba(224,247,250,0.8) !important;
+          background: linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%) !important;
+          border: 1px solid rgba(88,160,255,0.24) !important;
+          color: rgba(255,255,255,0.8) !important;
           padding-left: 2.75rem !important;
-          transition: all 0.2s !important;
+          transition: border-color .28s, box-shadow .28s, background .28s !important;
           font-size: 0.85rem !important;
-          font-family: 'DM Sans', sans-serif !important;
+          font-family: 'Plus Jakarta Sans', sans-serif !important;
           border-radius: 0.875rem !important;
+          box-shadow: 0 0 0 1px rgba(90,170,255,0.08) inset, 0 0 10px rgba(54,126,255,0.06) !important;
         }
-        .auth-input::placeholder { color: rgba(224,247,250,0.12) !important; }
+        .auth-input::placeholder { color: rgba(255,255,255,0.15) !important; }
         .auth-input:focus {
-          border-color: rgba(201,178,124,0.35) !important;
-          background: rgba(0,180,216,0.05) !important;
-          box-shadow: 0 0 0 3px rgba(0,180,216,0.06), 0 0 20px rgba(0,180,216,0.04) !important;
+          background: linear-gradient(180deg, rgba(24,18,10,0.96) 0%, rgba(14,10,6,0.92) 100%) !important;
+          border-color: rgba(201,178,124,0.72) !important;
+          box-shadow: 0 0 0 1px rgba(201,178,124,0.12) inset, 0 0 14px rgba(201,178,124,0.18), 0 0 30px rgba(201,178,124,0.10) !important;
           outline: none !important;
         }
 
         .auth-submit {
           width: 100%;
-          background: linear-gradient(135deg, rgba(201,178,124,0.15), rgba(0,180,216,0.08)) !important;
-          border: 1px solid rgba(201,178,124,0.25) !important;
+          background: linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%) !important;
+          border: 1px solid rgba(201,178,124,0.34) !important;
           color: #C9B27C !important;
           font-size: 0.65rem !important;
-          font-family: 'DM Sans', sans-serif !important;
+          font-family: 'Plus Jakarta Sans', sans-serif !important;
           text-transform: uppercase !important;
           letter-spacing: 0.15em !important;
-          transition: all 0.25s !important;
+          transition: border-color .28s, box-shadow .28s, background .28s, transform .28s !important;
           position: relative; overflow: hidden;
-          border-radius: 0.875rem !important;
+          border-radius: 999px !important;
+          box-shadow: inset 0 0 0 1px rgba(201,178,124,0.05), 0 0 18px rgba(201,178,124,0.06) !important;
         }
         .auth-submit::before {
           content: ''; position: absolute; inset-x: 0; top: 0; height: 1px;
-          background: linear-gradient(to right, transparent, rgba(201,178,124,0.4), rgba(0,180,216,0.3), transparent);
+          background: linear-gradient(to right, transparent, rgba(201,178,124,0.4), rgba(88,160,255,0.3), transparent);
         }
         .auth-submit:hover:not(:disabled) {
-          background: linear-gradient(135deg, rgba(201,178,124,0.22), rgba(0,180,216,0.12)) !important;
-          border-color: rgba(201,178,124,0.4) !important;
-          box-shadow: 0 0 28px rgba(201,178,124,0.1), 0 0 40px rgba(0,180,216,0.06) !important;
+          background: linear-gradient(180deg, rgba(24,18,10,0.96) 0%, rgba(14,10,6,0.92) 100%) !important;
+          border-color: rgba(201,178,124,0.72) !important;
+          box-shadow: 0 0 0 1px rgba(201,178,124,0.12) inset, 0 0 14px rgba(201,178,124,0.18), 0 0 30px rgba(201,178,124,0.14), 0 0 52px rgba(201,178,124,0.10) !important;
+          transform: translateY(-1px) !important;
+        }
+        .auth-submit:active:not(:disabled) {
+          transform: translateY(0) !important;
         }
         .auth-submit:disabled { opacity: 0.35 !important; }
 
@@ -338,10 +344,10 @@ export default function AuthPage() {
 
         .auth-toggle {
           margin-top: 1.25rem; font-size: 0.68rem;
-          color: rgba(224,247,250,0.15); text-align: center;
+          color: rgba(255,255,255,0.15); text-align: center;
         }
-        .auth-toggle span { color: rgba(0,180,216,0.5); cursor: pointer; transition: color 0.15s; }
-        .auth-toggle span:hover { color: #00B4D8; }
+        .auth-toggle span { color: rgba(88,160,255,0.5); cursor: pointer; transition: color 0.15s; }
+        .auth-toggle span:hover { color: rgba(88,160,255,0.9); }
 
         @media (max-width: 768px) {
           .auth-root { flex-direction: column; }
@@ -410,7 +416,7 @@ export default function AuthPage() {
                     <button type="button" onClick={() => setShowPassword(p => !p)}
                       style={{
                         position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)',
-                        color: 'rgba(0,180,216,0.25)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer'
+                        color: 'rgba(88,160,255,0.25)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer'
                       }}>
                       {showPassword ? <EyeOff className="w-4 h-4" strokeWidth={1.3} /> : <Eye className="w-4 h-4" strokeWidth={1.3} />}
                     </button>

@@ -163,7 +163,8 @@ const AttachmentRow = ({ attachment, emailId, onSummary }) => {
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl
-      bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.06)]">
+      border border-[rgba(88,160,255,0.10)]"
+      style={{ background: 'linear-gradient(180deg, rgba(7,12,24,0.80) 0%, rgba(4,8,18,0.75) 100%)' }}>
       <FileText className="w-4 h-4 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
       <div className="flex-1 min-w-0">
         <p className="text-xs text-[rgba(255,255,255,0.65)] truncate">{attachment.name}</p>
@@ -390,13 +391,17 @@ export default function MessagesPage() {
       <div className="flex h-[calc(100vh-64px)] overflow-hidden">
         {/* ══ LEFT — Lista ══════════════════════════════════ */}
         <div className="w-full md:w-[38%] flex flex-col border-r border-[rgba(255,255,255,0.05)]"
-          style={{ background: 'rgba(6,6,10,0.6)' }}>
-          <div className="px-3 sm:px-5 py-2 border-b border-[rgba(255,255,255,0.03)]">
+          style={{ background: 'linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%)' }}>
+          <div className="px-3 sm:px-5 pt-4 pb-2">
             <button onClick={() => window.history.back()}
-              className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] transition-colors duration-200">
+              className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] transition-colors duration-200 mb-3">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
               Volver
             </button>
+            <h1 className="font-light tracking-tight text-white"
+              style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '1.6rem' }}>
+              Correo
+            </h1>
           </div>
           <div className="px-3 sm:px-5 py-3 sm:py-4 border-b border-[rgba(255,255,255,0.05)] flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <FilterPill active={filter === 'all'} onClick={() => handleFilterChange('all')} label="Todos" />
@@ -480,7 +485,7 @@ export default function MessagesPage() {
 
         {/* ══ RIGHT — Detalle ═══════════════════════════════ */}
         <div className="hidden md:flex md:flex-1 flex-col overflow-hidden"
-          style={{ background: 'rgba(8,8,12,0.7)' }}>
+          style={{ background: 'linear-gradient(180deg, rgba(5,10,20,0.94) 0%, rgba(3,6,12,0.97) 100%)' }}>
 
           <AnimatePresence mode="wait">
             {selectedEmail?.email ? (
@@ -496,7 +501,8 @@ export default function MessagesPage() {
                 <div className="px-8 py-5 border-b border-[rgba(255,255,255,0.05)] flex-shrink-0">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <h2 className="text-lg font-light text-white leading-snug mb-2 tracking-tight">
+                      <h2 className="text-lg font-light text-white leading-snug mb-2 tracking-tight"
+                        style={{ fontFamily: "'Cormorant Garamond', serif" }}>
                         {selectedEmail.email.subject || '(Sin asunto)'}
                       </h2>
                       <div className="flex items-center gap-3">
@@ -632,7 +638,9 @@ export default function MessagesPage() {
                     </AnimatePresence>
 
                     {/* Cuerpo email */}
-                    <div className="rounded-2xl p-6 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)]">
+                    <div className="rounded-2xl p-6 border border-[rgba(88,160,255,0.12)]"
+                      style={{ background: 'linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%)',
+                               boxShadow: '0 0 0 1px rgba(90,170,255,0.06) inset, 0 0 10px rgba(54,126,255,0.06)' }}>
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-[10px] text-[rgba(201,178,124,0.4)] uppercase tracking-[0.1em]">
                           {fullBody ? 'Mensaje completo' : 'Vista previa'}
@@ -649,7 +657,7 @@ export default function MessagesPage() {
                       </div>
                       <div
                         className="text-sm text-[rgba(255,255,255,0.6)] leading-relaxed whitespace-pre-wrap"
-                        style={{ fontFamily: 'DM Sans, sans-serif' }}
+                        style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}
                         dangerouslySetInnerHTML={{ __html: renderEmailBody() }}
                       />
                       {!fullBody && !bodyLoading && (
@@ -674,7 +682,9 @@ export default function MessagesPage() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 8 }}
                           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                          className="rounded-2xl p-5 bg-[rgba(255,255,255,0.025)] border border-[rgba(255,255,255,0.07)]"
+                          className="rounded-2xl p-5 border border-[rgba(88,160,255,0.10)]
+                            transition-all duration-300 hover:border-[rgba(201,178,124,0.25)]"
+                          style={{ background: 'linear-gradient(180deg, rgba(7,12,24,0.88) 0%, rgba(4,8,18,0.85) 100%)' }}
                         >
                           <p className="text-xs text-[rgba(255,255,255,0.25)] uppercase tracking-[0.1em] mb-3">
                             Instrucciones para Lucy
@@ -685,10 +695,10 @@ export default function MessagesPage() {
                               onChange={(e) => setDraftInstructions(e.target.value)}
                               placeholder="Ej: Confirmar la reunión para el jueves por la tarde…"
                               rows={3}
-                              className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]
+                              className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(88,160,255,0.12)]
                                 rounded-xl px-4 py-3 pr-12 text-sm text-[rgba(255,255,255,0.7)]
                                 placeholder:text-[rgba(255,255,255,0.2)] resize-none outline-none
-                                focus:border-[rgba(201,178,124,0.3)] focus:bg-[rgba(255,255,255,0.04)]
+                                focus:border-[rgba(201,178,124,0.35)] focus:bg-[rgba(255,255,255,0.04)]
                                 transition-all duration-200"
                             />
                             <button
@@ -742,8 +752,9 @@ export default function MessagesPage() {
             ) : (
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="flex-1 flex flex-col items-center justify-center gap-5">
-                <div className="w-14 h-14 rounded-2xl flex items-center justify-center
-                  bg-[rgba(201,178,124,0.06)] border border-[rgba(201,178,124,0.12)]">
+                <div className="w-14 h-14 rounded-[24px] flex items-center justify-center
+                  bg-[rgba(201,178,124,0.06)] border border-[rgba(201,178,124,0.12)]
+                  shadow-[0_0_18px_rgba(201,178,124,0.06)]">
                   <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
                     <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
                       fill="rgba(201,178,124,0.3)" />

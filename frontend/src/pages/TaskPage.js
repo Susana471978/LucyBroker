@@ -49,10 +49,10 @@ const TaskRow = ({ task, onToggle, onDelete }) => {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className={`group flex items-start gap-4 px-5 py-4 rounded-2xl border transition-all duration-200
+            className={`group flex items-start gap-4 px-5 py-4 rounded-[20px] border transition-all duration-300
         ${task.done
-                    ? 'bg-[rgba(255,255,255,0.01)] border-[rgba(255,255,255,0.04)]'
-                    : 'bg-[rgba(255,255,255,0.025)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.12)]'
+                    ? 'bg-[linear-gradient(180deg,rgba(8,12,22,0.6)_0%,rgba(4,7,15,0.6)_100%)] border-[rgba(255,255,255,0.04)]'
+                    : 'bg-[linear-gradient(180deg,rgba(8,12,22,0.95)_0%,rgba(4,7,15,0.99)_100%)] border-[rgba(88,160,255,0.12)] shadow-[0_0_0_1px_rgba(90,170,255,0.04)_inset,0_0_10px_rgba(54,126,255,0.04)] hover:border-[rgba(88,160,255,0.24)]'
                 }`}
         >
             {/* Checkbox */}
@@ -135,8 +135,9 @@ const NewTaskForm = ({ onAdd, onClose }) => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -10, scale: 0.98 }}
             transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-            className="relative rounded-2xl p-5 border border-[rgba(201,178,124,0.2)]
-        bg-[rgba(201,178,124,0.04)] overflow-hidden"
+            className="relative rounded-[24px] p-5 border border-[rgba(201,178,124,0.34)]
+        bg-[linear-gradient(180deg,rgba(10,13,20,0.96)_0%,rgba(5,7,12,0.99)_100%)] overflow-hidden
+        shadow-[inset_0_0_0_1px_rgba(201,178,124,0.05),0_0_18px_rgba(201,178,124,0.06)]"
         >
             <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.4)] to-transparent" />
 
@@ -153,10 +154,11 @@ const NewTaskForm = ({ onAdd, onClose }) => {
                 onChange={e => setTitle(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSubmit()}
                 placeholder="¿Qué hay que hacer?"
-                className="w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(255,255,255,0.08)]
-          rounded-xl px-4 py-3 text-sm text-[rgba(255,255,255,0.8)]
+                className="w-full bg-[linear-gradient(180deg,rgba(7,12,24,0.92)_0%,rgba(4,8,18,0.88)_100%)] border border-[rgba(88,160,255,0.24)]
+          rounded-[16px] px-4 py-3 text-sm text-[rgba(255,255,255,0.8)]
           placeholder:text-[rgba(255,255,255,0.2)] outline-none mb-3
-          focus:border-[rgba(201,178,124,0.3)] transition-all duration-200"
+          shadow-[0_0_0_1px_rgba(90,170,255,0.08)_inset,0_0_10px_rgba(54,126,255,0.06)]
+          focus:bg-[linear-gradient(180deg,rgba(24,18,10,0.96)_0%,rgba(14,10,6,0.92)_100%)] focus:border-[rgba(201,178,124,0.72)] focus:shadow-[0_0_0_1px_rgba(201,178,124,0.12)_inset,0_0_14px_rgba(201,178,124,0.18)] transition-all duration-300"
             />
 
             <textarea
@@ -164,10 +166,11 @@ const NewTaskForm = ({ onAdd, onClose }) => {
                 onChange={e => setNotes(e.target.value)}
                 placeholder="Notas (opcional)"
                 rows={2}
-                className="w-full bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]
-          rounded-xl px-4 py-3 text-sm text-[rgba(255,255,255,0.6)]
+                className="w-full bg-[linear-gradient(180deg,rgba(7,12,24,0.92)_0%,rgba(4,8,18,0.88)_100%)] border border-[rgba(88,160,255,0.16)]
+          rounded-[16px] px-4 py-3 text-sm text-[rgba(255,255,255,0.6)]
           placeholder:text-[rgba(255,255,255,0.15)] outline-none resize-none mb-3
-          focus:border-[rgba(201,178,124,0.2)] transition-all duration-200"
+          shadow-[0_0_0_1px_rgba(90,170,255,0.04)_inset]
+          focus:border-[rgba(201,178,124,0.5)] focus:shadow-[0_0_0_1px_rgba(201,178,124,0.08)_inset,0_0_10px_rgba(201,178,124,0.10)] transition-all duration-300"
             />
 
             <div className="flex items-center gap-3 mb-4 flex-wrap">
@@ -176,10 +179,10 @@ const NewTaskForm = ({ onAdd, onClose }) => {
                     {['low', 'normal', 'high'].map(p => (
                         <button key={p}
                             onClick={() => setPriority(p)}
-                            className={`px-3 py-1 rounded-full text-[10px] uppercase tracking-[0.08em] transition-all duration-200
+                            className={`px-3 py-1 rounded-full text-[10px] uppercase tracking-[0.08em] transition-all duration-300
                 ${priority === p
-                                    ? 'bg-[rgba(201,178,124,0.12)] text-[#C9B27C] border border-[rgba(201,178,124,0.3)]'
-                                    : 'text-[rgba(255,255,255,0.25)] border border-[rgba(255,255,255,0.06)] hover:border-[rgba(255,255,255,0.15)]'
+                                    ? 'bg-[rgba(201,178,124,0.12)] text-[#C9B27C] border border-[rgba(201,178,124,0.3)] shadow-[0_0_10px_rgba(201,178,124,0.06)]'
+                                    : 'text-[rgba(255,255,255,0.25)] border border-[rgba(88,160,255,0.12)] hover:border-[rgba(88,160,255,0.28)]'
                                 }`}>
                             {PRIORITY_STYLES[p].label}
                         </button>
@@ -191,9 +194,10 @@ const NewTaskForm = ({ onAdd, onClose }) => {
                     type="date"
                     value={dueDate}
                     onChange={e => setDueDate(e.target.value)}
-                    className="bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)]
-            rounded-xl px-3 py-1 text-xs text-[rgba(255,255,255,0.4)] outline-none
-            focus:border-[rgba(201,178,124,0.2)] transition-all duration-200
+                    className="bg-[linear-gradient(180deg,rgba(7,12,24,0.92)_0%,rgba(4,8,18,0.88)_100%)] border border-[rgba(88,160,255,0.16)]
+            rounded-[16px] px-3 py-1 text-xs text-[rgba(255,255,255,0.4)] outline-none
+            shadow-[0_0_0_1px_rgba(90,170,255,0.04)_inset]
+            focus:border-[rgba(201,178,124,0.4)] transition-all duration-300
             [color-scheme:dark]"
                 />
             </div>
@@ -201,10 +205,10 @@ const NewTaskForm = ({ onAdd, onClose }) => {
             <button
                 onClick={handleSubmit}
                 disabled={loading || !title.trim()}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs
+                className="flex items-center gap-2 px-5 py-2.5 rounded-full text-xs uppercase tracking-[0.08em]
           bg-[rgba(201,178,124,0.1)] text-[#C9B27C]
           border border-[rgba(201,178,124,0.25)]
-          hover:bg-[rgba(201,178,124,0.16)] transition-all duration-200
+          hover:bg-[rgba(201,178,124,0.16)] hover:border-[rgba(201,178,124,0.4)] transition-all duration-300
           disabled:opacity-30 disabled:cursor-not-allowed"
             >
                 {loading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
@@ -270,32 +274,36 @@ export default function TasksPage() {
 
     return (
         <Layout>
-            <div className="max-w-2xl mx-auto px-5 py-8">
+            <div className="max-w-3xl mx-auto px-6 py-14 space-y-10">
                 {/* Volver */}
                 <button onClick={() => window.history.back()}
                     className="flex items-center gap-1.5 text-xs text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)]
-                        mb-4 transition-colors duration-200">
+                        -mb-6 transition-colors duration-200">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="M19 12H5M12 19l-7-7 7-7" /></svg>
                     Volver
                 </button>
 
                 {/* Header */}
-                <div className="flex items-center justify-between mb-8">
-                    <div>
-                        <h1 className="text-2xl font-light text-white tracking-tight"
-                            style={{ fontFamily: "'Cormorant Garamond', serif" }}>
-                            Tareas y recordatorios
-                        </h1>
-                        <p className="text-xs text-[rgba(255,255,255,0.2)] mt-1 uppercase tracking-[0.1em]">
+                <div className="flex items-center justify-between">
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                        <p className="text-xs text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] font-medium mb-3">
                             {pending.length} pendiente{pending.length !== 1 ? 's' : ''}
                         </p>
-                    </div>
+                        <h1 className="font-light tracking-tight text-white"
+                            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.2rem', fontStyle: 'italic' }}>
+                            Tareas y recordatorios
+                        </h1>
+                    </motion.div>
                     <button
                         onClick={() => setShowForm(prev => !prev)}
-                        className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs border transition-all duration-200
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-full text-xs uppercase tracking-[0.08em] border transition-all duration-300
               ${showForm
-                                ? 'bg-[rgba(201,178,124,0.12)] text-[#C9B27C] border-[rgba(201,178,124,0.3)]'
-                                : 'bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.5)] border-[rgba(255,255,255,0.08)] hover:border-[rgba(255,255,255,0.2)] hover:text-[rgba(255,255,255,0.7)]'
+                                ? 'bg-[rgba(201,178,124,0.12)] text-[#C9B27C] border-[rgba(201,178,124,0.3)] shadow-[0_0_18px_rgba(201,178,124,0.06)]'
+                                : 'bg-[linear-gradient(180deg,rgba(7,12,24,0.92)_0%,rgba(4,8,18,0.88)_100%)] text-[rgba(255,255,255,0.5)] border-[rgba(88,160,255,0.24)] shadow-[0_0_0_1px_rgba(90,170,255,0.08)_inset,0_0_10px_rgba(54,126,255,0.06)] hover:border-[rgba(201,178,124,0.72)] hover:bg-[linear-gradient(180deg,rgba(24,18,10,0.96)_0%,rgba(14,10,6,0.92)_100%)] hover:text-[#C9B27C] hover:shadow-[0_0_0_1px_rgba(201,178,124,0.12)_inset,0_0_14px_rgba(201,178,124,0.18)]'
                             }`}
                     >
                         <Plus className="w-3.5 h-3.5" />

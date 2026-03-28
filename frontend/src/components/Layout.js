@@ -115,13 +115,13 @@ const Layout = ({ children }) => {
               <div className="flex flex-col leading-none">
                 <span
                   className="text-[0.72rem] uppercase tracking-[0.24em] text-[rgba(201,178,124,0.78)]"
-                  style={{ fontFamily: 'DM Sans, sans-serif' }}
+                  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
                 >
                   Executive AI
                 </span>
                 <span
                   className="font-light tracking-[0.05em] text-[1rem] text-[#C9B27C] group-hover:text-[rgba(237,223,184,0.98)] transition-colors duration-200"
-                  style={{ fontFamily: 'DM Sans, sans-serif' }}
+                  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
                 >
                   Lucy
                   <span className="text-[rgba(88,160,255,0.55)]">.</span>
