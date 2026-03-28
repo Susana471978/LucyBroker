@@ -11,7 +11,7 @@ import {
     Inbox, Clock, Paperclip, Sparkles, Link2, Calendar, Brain, FileText
 } from 'lucide-react';
 
-import ExecutiveOrb from "../components/ExecutiveOrb/ExecutiveOrb";
+import LucyPulseCanvas from "../components/LucyPulseCanvas";
 
 import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/Layout';
@@ -902,19 +902,9 @@ export default function OverviewPage() {
 
                                 <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.06)] to-transparent -mx-8" />
 
-                                <div className="flex justify-center items-center py-16 min-h-[320px]">
-                                    <div className="w-[360px] h-[240px] flex items-center justify-center">
-                                        <ExecutiveOrb
-                                            state={
-                                                wakeWordActive
-                                                    ? "listening"
-                                                    : briefingIsSpeaking
-                                                        ? "speaking"
-                                                        : sending
-                                                            ? "processing"
-                                                            : "idle"
-                                            }
-                                        />
+                                <div className="flex justify-center items-center py-8 min-h-[160px]">
+                                    <div className="w-full h-[120px]">
+                                        <LucyPulseCanvas />
                                     </div>
                                 </div>
 
