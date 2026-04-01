@@ -2,6 +2,22 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { executeVoiceActions } from "./voiceCommandRouter";
 import apiClient from "../services/apiClient";
 
+/**
+ * useVoiceEngine v4 — Conversational mode
+ * 
+ * Flow after wake word:
+ *   1. "Hola Lucy" → beep → command listener
+ *   2. Command captured → process → Lucy speaks response
+ *   3. Lucy says "¿Algo más?" → listens 10 seconds
+ *   4. User says something → process → Lucy responds → "¿Algo más?" → loop
+ *   5. 10 seconds silence OR user says "gracias/no/hasta luego" → back to wake listener
+ * 
+ * Briefing flow:
+ *   1. "Hola Lucy, buenos días" → instant "Dame un momento..."
+ *   2. Full briefing loads in background
+ *   3. Lucy speaks full briefing → "¿Algo más?"
+ */
+
 export const STATES = {
     IDLE: "IDLE",
     LISTENING: "LISTENING",
@@ -10,28 +26,50 @@ export const STATES = {
     ERROR: "ERROR",
 };
 
-const WAKE_WORD_VARIANTS = [
-    "hola lucy", "ola lucy", "hola luci",
-    "oye lucy", "hey lucy", "lucy",
+const WAKE_WORDS = ["hola lucy", "ola lucy", "hola luci", "oye lucy", "hey lucy"];
+const STOP_WORDS = ["lucy para", "lucy stop", "detente lucy", "detente", "stop", "para lucy", "cállate", "silencio"];
+const GOODBYE_WORDS = [
+    "no gracias", "no nada", "nada más", "nada mas", "eso es todo",
+    "hasta luego", "adiós", "adios", "gracias lucy", "no lucy",
+    "no nada más", "no nada mas", "ya está", "ya esta",
+];
+const BRIEFING_TRIGGERS = [
+    "buenos días", "buenos dias", "buen día", "buen dia",
+    "briefing", "qué tengo hoy", "que tengo hoy",
+    "resumen del día", "resumen matutino",
 ];
 
-const STOP_COMMANDS = [
-    "para", "stop", "detente", "salir", "exit",
-    "terminar", "fin", "adiós", "adios", "hasta luego",
+const BRIEFING_THINKING_PHRASES = [
+    "Dame un momento, estoy revisando tu día...",
+    "Un segundo, estoy preparando tu briefing...",
+    "Déjame revisar todo, un momento...",
 ];
 
-// ─── Global audio ref — para que cancel() pueda detener CUALQUIER audio ───
-let _globalAudioElement = null;
+// ─── Global audio with change notification ───
+let _globalAudio = null;
+let _audioChangeListeners = [];
 
 export function setGlobalAudio(audio) {
-    _globalAudioElement = audio;
+    _globalAudio = audio;
+    _audioChangeListeners.forEach(fn => fn(audio));
+}
+
+export function getGlobalAudio() {
+    return _globalAudio;
+}
+
+export function onGlobalAudioChange(fn) {
+    _audioChangeListeners.push(fn);
+    return () => {
+        _audioChangeListeners = _audioChangeListeners.filter(f => f !== fn);
+    };
 }
 
 export function stopGlobalAudio() {
-    if (_globalAudioElement) {
-        try { _globalAudioElement.pause(); _globalAudioElement.currentTime = 0; } catch (_) { }
-        _globalAudioElement = null;
+    if (_globalAudio) {
+        try { _globalAudio.pause(); _globalAudio.currentTime = 0; } catch (_) { }
     }
+    setGlobalAudio(null);
     try { window.speechSynthesis.cancel(); } catch (_) { }
 }
 
@@ -44,471 +82,596 @@ export function useVoiceEngine() {
     const [wakeWordActive, setWakeWordActive] = useState(false);
     const [handsFreeModeActive, setHandsFreeModeActive] = useState(false);
 
-    const recognitionRef = useRef(null);
-    const wakeRecognitionRef = useRef(null);
-    const silenceTimerRef = useRef(null);
-    const isRequestInFlight = useRef(false);
-    const uiContextRef = useRef(null);
-    const voiceStateRef = useRef(STATES.IDLE);
-    const handsFreeModeRef = useRef(false);
-    const ttsEnabledRef = useRef(true);
-    const postSpeakGuardRef = useRef(false);
-    const wakeWordCooldownRef = useRef(false);
+    const stateRef = useRef(STATES.IDLE);
+    const ttsRef = useRef(true);
+    const handsFreeRef = useRef(false);
+    const wakeEnabledRef = useRef(true);
+    const busyRef = useRef(false);
     const audioCtxRef = useRef(null);
+    const activeRecRef = useRef(null);
+    const uiContextRef = useRef(null);
+    const conversationActiveRef = useRef(false);
 
-    useEffect(() => { voiceStateRef.current = voiceState; }, [voiceState]);
-    useEffect(() => { handsFreeModeRef.current = handsFreeModeActive; }, [handsFreeModeActive]);
-    useEffect(() => { ttsEnabledRef.current = ttsEnabled; }, [ttsEnabled]);
+    useEffect(() => { stateRef.current = voiceState; }, [voiceState]);
+    useEffect(() => { ttsRef.current = ttsEnabled; }, [ttsEnabled]);
+    useEffect(() => { handsFreeRef.current = handsFreeModeActive; }, [handsFreeModeActive]);
+    useEffect(() => { wakeEnabledRef.current = wakeWordEnabled; }, [wakeWordEnabled]);
 
-    const setUIContext = useCallback((context) => {
-        uiContextRef.current = context;
-    }, []);
+    const setUIContext = useCallback((ctx) => { uiContextRef.current = ctx; }, []);
 
-    const clearSilenceTimer = useCallback(() => {
-        if (silenceTimerRef.current) {
-            clearTimeout(silenceTimerRef.current);
-            silenceTimerRef.current = null;
-        }
-    }, []);
-
-    const startSilenceTimer = useCallback((callback, ms = 2500) => {
-        clearSilenceTimer();
-        silenceTimerRef.current = setTimeout(callback, ms);
-    }, [clearSilenceTimer]);
-
+    // ─── Audio context ─────────────────────────────────────────────
     const getAudioCtx = useCallback(() => {
         if (!audioCtxRef.current) {
             audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
         }
-        if (audioCtxRef.current.state === "suspended") {
-            audioCtxRef.current.resume();
-        }
+        if (audioCtxRef.current.state === "suspended") audioCtxRef.current.resume();
         return audioCtxRef.current;
     }, []);
 
-    const playBeep = useCallback((freq = 880, duration = 0.15) => {
+    const playBeep = useCallback((freq = 880, dur = 0.12) => {
         try {
             const ctx = getAudioCtx();
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-            osc.connect(gain);
-            gain.connect(ctx.destination);
+            osc.connect(gain); gain.connect(ctx.destination);
             osc.frequency.value = freq;
-            gain.gain.setValueAtTime(0.13, ctx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
-            osc.start(ctx.currentTime);
-            osc.stop(ctx.currentTime + duration);
+            gain.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + dur);
+            osc.start(ctx.currentTime); osc.stop(ctx.currentTime + dur);
         } catch (_) { }
     }, [getAudioCtx]);
 
-    // ─── speak ────────────────────────────────────────────────────────
+    // ─── Kill recognition ──────────────────────────────────────────
+    const killRecognition = useCallback(() => {
+        if (activeRecRef.current) {
+            const rec = activeRecRef.current;
+            activeRecRef.current = null;
+            rec._killed = true;
+            rec.onresult = null;
+            rec.onerror = null;
+            rec.onend = null;
+            try { rec.stop(); } catch (_) { }
+        }
+    }, []);
+
+    // ─── Speak ─────────────────────────────────────────────────────
     const speak = useCallback(async (text, onEnd) => {
-        if (!ttsEnabledRef.current || !text) {
-            setVoiceState(STATES.IDLE);
+        if (!ttsRef.current || !text) {
             onEnd?.();
             return;
         }
         try {
             stopGlobalAudio();
             setVoiceState(STATES.SPEAKING);
-            postSpeakGuardRef.current = true;
 
             const res = await apiClient.post("/tts", { text }, { responseType: "blob" });
-            const audioBlob = res.data;
-            const audioUrl = URL.createObjectURL(audioBlob);
-            const audio = new Audio(audioUrl);
+            const url = URL.createObjectURL(res.data);
+            const audio = new Audio(url);
 
+            // Set global audio BEFORE play — so analyser can connect first
             setGlobalAudio(audio);
 
             audio.onended = () => {
                 setGlobalAudio(null);
-                URL.revokeObjectURL(audioUrl);
-                setVoiceState(STATES.IDLE);
+                URL.revokeObjectURL(url);
                 setTimeout(() => {
-                    postSpeakGuardRef.current = false;
                     onEnd?.();
-                }, 2000);
+                    if (stateRef.current === STATES.SPEAKING) {
+                        setVoiceState(STATES.IDLE);
+                    }
+                }, 600);
             };
             audio.onerror = () => {
                 setGlobalAudio(null);
-                URL.revokeObjectURL(audioUrl);
-                postSpeakGuardRef.current = false;
-                setVoiceState(STATES.ERROR);
+                URL.revokeObjectURL(url);
+                setVoiceState(STATES.IDLE);
                 onEnd?.();
             };
             await audio.play();
-        } catch (error) {
-            console.error("TTS failed:", error);
-            postSpeakGuardRef.current = false;
+        } catch (err) {
+            console.error("[Voice] TTS error:", err);
             setVoiceState(STATES.IDLE);
             onEnd?.();
         }
     }, []);
 
-    // ─── cancel ────────────────────────────────────────────────────────
-    const cancel = useCallback(() => {
-        clearSilenceTimer();
-        handsFreeModeRef.current = false;
-        postSpeakGuardRef.current = false;
-        wakeWordCooldownRef.current = false;
-        setHandsFreeModeActive(false);
-
-        stopGlobalAudio();
-
-        if (recognitionRef.current) { try { recognitionRef.current.stop(); } catch (_) { } }
-        setTranscript("");
-        setVoiceState(STATES.IDLE);
-    }, [clearSilenceTimer]);
-
-    const setTtsEnabledWithStop = useCallback((value) => {
-        const newValue = typeof value === 'function' ? value(ttsEnabledRef.current) : value;
-        setTtsEnabled(newValue);
-        if (!newValue) {
-            stopGlobalAudio();
-            setVoiceState(STATES.IDLE);
-            postSpeakGuardRef.current = false;
-        }
-    }, []);
-
-    // ─── sendToAssistant ──────────────────────────────────────────────
+    // ─── Send to assistant ─────────────────────────────────────────
     const sendToAssistant = useCallback(async (text) => {
-        if (!text?.trim() || isRequestInFlight.current) return null;
-        isRequestInFlight.current = true;
+        if (!text?.trim() || busyRef.current) return null;
+        busyRef.current = true;
         setVoiceState(STATES.PROCESSING);
         try {
             const res = await apiClient.post("/assistant", { text });
             const data = res.data;
-            const assistantText = data?.assistant_text || "";
-            setLastInteraction(assistantText);
+            const reply = data?.assistant_text || "";
+            setLastInteraction(reply);
             setTranscript("");
             if (Array.isArray(data.actions) && data.actions.length > 0 && uiContextRef.current) {
                 executeVoiceActions(data.actions, uiContextRef.current);
             }
-            return assistantText;
+            return reply;
         } catch (err) {
-            console.error("Assistant error:", err);
+            console.error("[Voice] Assistant error:", err);
             setVoiceState(STATES.ERROR);
             return null;
         } finally {
-            isRequestInFlight.current = false;
+            busyRef.current = false;
         }
     }, []);
 
-    // ─── listenForCommand ─────────────────────────────────────────────
-    const listenForCommand = useCallback(() => {
-        if (postSpeakGuardRef.current) return;
+    // ─── End conversation gracefully ───────────────────────────────
+    const endConversation = useCallback(() => {
+        console.log("[Voice] Conversación terminada");
+        conversationActiveRef.current = false;
+        handsFreeRef.current = false;
+        setHandsFreeModeActive(false);
+        setVoiceState(STATES.IDLE);
+        stateRef.current = STATES.IDLE;
+    }, []);
 
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return;
+    // ─── Listen for follow-up (10s timeout) ────────────────────────
+    const listenForFollowUp = useCallback(() => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
 
-        if (recognitionRef.current) {
-            try { recognitionRef.current.stop(); } catch (_) { }
-        }
+        killRecognition();
 
-        const recognition = new SpeechRecognition();
-        recognition.continuous = true;
-        recognition.interimResults = true;
-        recognition.lang = "es-ES";
-        recognitionRef.current = recognition;
+        const rec = new SR();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = "es-ES";
+        activeRecRef.current = rec;
 
-        let finalTranscript = "";
-        let hasReceivedSpeech = false;
+        let finalText = "";
+        let silenceTimer = null;
+        let abandonTimer = null;
 
-        console.log("[Voice] Escuchando comando...");
         setVoiceState(STATES.LISTENING);
+        console.log("[Voice] Esperando seguimiento (10s)...");
 
-        recognition.onresult = (event) => {
-            if (postSpeakGuardRef.current) return;
+        const clearTimers = () => {
+            if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+            if (abandonTimer) { clearTimeout(abandonTimer); abandonTimer = null; }
+        };
+
+        // 10s abandon timer
+        abandonTimer = setTimeout(() => {
+            console.log("[Voice] 10s sin respuesta, cerrando conversación");
+            killRecognition();
+            endConversation();
+            // Restart wake listener
+            setTimeout(() => {
+                // eslint-disable-next-line no-use-before-define
+                startWakeListener();
+            }, 500);
+        }, 10000);
+
+        rec.onresult = (event) => {
+            if (abandonTimer) { clearTimeout(abandonTimer); abandonTimer = null; }
+            if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
 
             let interim = "";
+            let hasFinal = false;
             for (let i = event.resultIndex; i < event.results.length; i++) {
-                const r = event.results[i];
-                if (r.isFinal) {
-                    finalTranscript += r[0].transcript;
-                    hasReceivedSpeech = true;
+                if (event.results[i].isFinal) {
+                    finalText += event.results[i][0].transcript;
+                    hasFinal = true;
                 } else {
-                    interim += r[0].transcript;
-                    hasReceivedSpeech = true;
+                    interim += event.results[i][0].transcript;
                 }
             }
-            setTranscript(finalTranscript + interim);
+            setTranscript(finalText + interim);
 
-            startSilenceTimer(async () => {
-                const text = finalTranscript.trim();
-                if (!text) {
-                    if (handsFreeModeRef.current) {
-                        listenForCommand();
-                    } else {
-                        setVoiceState(STATES.IDLE);
-                    }
-                    return;
+            const timeout = hasFinal && interim.length === 0 ? 1200 : 1800;
+
+            silenceTimer = setTimeout(() => {
+                const cmd = finalText.trim();
+                killRecognition();
+                if (cmd.length > 0) {
+                    // eslint-disable-next-line no-use-before-define
+                    processCommand(cmd);
+                } else {
+                    endConversation();
+                    setTimeout(() => {
+                        // eslint-disable-next-line no-use-before-define
+                        startWakeListener();
+                    }, 500);
                 }
+            }, timeout);
+        };
 
-                console.log("[Voice] Comando capturado:", text);
-                recognition.stop();
+        rec.onerror = (e) => {
+            clearTimers();
+            if (e.error === "no-speech" || e.error === "aborted") {
+                endConversation();
+                setTimeout(() => {
+                    // eslint-disable-next-line no-use-before-define
+                    startWakeListener();
+                }, 500);
+            } else {
+                console.warn("[Voice] Follow-up error:", e.error);
+                endConversation();
+                setTimeout(() => {
+                    // eslint-disable-next-line no-use-before-define
+                    startWakeListener();
+                }, 500);
+            }
+        };
 
-                const isStop = STOP_COMMANDS.some(c => text.toLowerCase().includes(c));
-                if (isStop) {
-                    handsFreeModeRef.current = false;
-                    setHandsFreeModeActive(false);
-                    speak("Hasta luego.");
-                    return;
-                }
+        rec.onend = () => {
+            if (rec._killed) return;
+            clearTimers();
+            if (activeRecRef.current === rec && stateRef.current === STATES.LISTENING) {
+                endConversation();
+                setTimeout(() => {
+                    // eslint-disable-next-line no-use-before-define
+                    startWakeListener();
+                }, 500);
+            }
+        };
 
-                const assistantText = await sendToAssistant(text);
+        try { rec.start(); } catch (e) {
+            console.warn("[Voice] Failed to start follow-up listener:", e);
+            endConversation();
+        }
+    }, [killRecognition, endConversation]);
 
-                if (assistantText) {
-                    speak(assistantText, () => {
-                        if (handsFreeModeRef.current) {
-                            playBeep(660, 0.1);
-                            listenForCommand();
-                        }
+    // ─── Process command (conversational) ──────────────────────────
+    const processCommand = useCallback(async (text) => {
+        console.log("[Voice] Procesando comando:", text);
+        const textLower = text.toLowerCase();
+
+        // Check goodbye
+        if (STOP_WORDS.some(w => textLower.includes(w)) || GOODBYE_WORDS.some(w => textLower.includes(w))) {
+            conversationActiveRef.current = false;
+            handsFreeRef.current = false;
+            setHandsFreeModeActive(false);
+            speak("Perfecto, aquí estaré cuando me necesites.", () => {
+                setVoiceState(STATES.IDLE);
+                stateRef.current = STATES.IDLE;
+                // eslint-disable-next-line no-use-before-define
+                startWakeListener();
+            });
+            return;
+        }
+
+        // Check if briefing — ONLY if not already in a conversation
+        const isBriefing = !conversationActiveRef.current && BRIEFING_TRIGGERS.some(t => textLower.includes(t));
+
+        if (isBriefing) {
+            const thinkingPhrase = BRIEFING_THINKING_PHRASES[Math.floor(Math.random() * BRIEFING_THINKING_PHRASES.length)];
+            console.log("[Voice] Briefing detectado, respuesta intermedia...");
+
+            speak(thinkingPhrase, async () => {
+                const reply = await sendToAssistant(text);
+                if (reply) {
+                    speak(reply + " ¿Algo más?", () => {
+                        conversationActiveRef.current = true;
+                        playBeep(660, 0.1);
+                        listenForFollowUp();
                     });
                 } else {
-                    if (handsFreeModeRef.current) {
-                        setTimeout(() => listenForCommand(), 500);
-                    } else {
-                        setVoiceState(STATES.IDLE);
-                    }
-                }
-            }, 2500);
-        };
-
-        recognition.onerror = (e) => {
-            console.log("[Voice] Recognition error:", e.error);
-            if (e.error !== "no-speech" && e.error !== "aborted") {
-                setVoiceState(STATES.ERROR);
-            } else if (handsFreeModeRef.current) {
-                setTimeout(() => listenForCommand(), 500);
-            } else {
-                setVoiceState(STATES.IDLE);
-            }
-        };
-
-        recognition.onend = () => {
-            if (!isRequestInFlight.current && voiceStateRef.current === STATES.LISTENING) {
-                if (handsFreeModeRef.current && !hasReceivedSpeech) {
-                    setTimeout(() => listenForCommand(), 300);
-                } else if (!handsFreeModeRef.current) {
-                    setVoiceState(STATES.IDLE);
-                }
-            }
-        };
-
-        try {
-            recognition.start();
-        } catch (e) {
-            console.warn("[Voice] Failed to start command recognition:", e);
-            setVoiceState(STATES.IDLE);
-        }
-    }, [startSilenceTimer, sendToAssistant, speak, playBeep]);
-
-    const startListening = useCallback(() => {
-        listenForCommand();
-    }, [listenForCommand]);
-
-    // ─── activateHandsFreeMode ────────────────────────────────────────
-    const activateHandsFreeMode = useCallback(async (wakeText) => {
-        if (handsFreeModeRef.current) return;
-
-        handsFreeModeRef.current = true;
-        setHandsFreeModeActive(true);
-
-        getAudioCtx();
-        playBeep(880, 0.15);
-
-        const queryText = (typeof wakeText === "string" && wakeText.trim().length > 0)
-            ? wakeText.trim()
-            : "buenos días";
-
-        console.log("[Voice] Manos libres activado. Query:", queryText);
-
-        const responseText = await sendToAssistant(queryText);
-
-        if (responseText) {
-            speak(responseText, () => {
-                if (handsFreeModeRef.current) {
-                    playBeep(660, 0.1);
-                    listenForCommand();
+                    speak("No he podido preparar tu briefing. ¿Puedes repetirlo?", () => {
+                        listenForFollowUp();
+                    });
                 }
             });
-        } else {
-            if (handsFreeModeRef.current) {
-                listenForCommand();
-            }
+            return;
         }
-    }, [sendToAssistant, speak, playBeep, listenForCommand, getAudioCtx]);
 
-    // ─── startWakeWordListener ────────────────────────────────────────
-    const startWakeWordListener = useCallback(() => {
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognition) return;
+        // Normal command
+        const reply = await sendToAssistant(text);
+        if (reply) {
+            conversationActiveRef.current = true;
+            speak(reply + " ¿Algo más?", () => {
+                playBeep(660, 0.1);
+                listenForFollowUp();
+            });
+        } else {
+            speak("No he podido procesar eso. ¿Puedes repetirlo?", () => {
+                listenForFollowUp();
+            });
+        }
+    }, [sendToAssistant, speak, playBeep, listenForFollowUp]);
 
-        const wake = new SpeechRecognition();
-        wake.continuous = true;
-        wake.interimResults = true;
-        wake.lang = "es-ES";
-        wakeRecognitionRef.current = wake;
+    // ─── Command listener (first command after wake word) ──────────
+    const startCommandListener = useCallback(() => {
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
 
-        wake.onresult = (event) => {
-            if (wakeWordCooldownRef.current) return;
+        killRecognition();
 
+        const rec = new SR();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = "es-ES";
+        activeRecRef.current = rec;
+
+        let finalText = "";
+        let silenceTimer = null;
+
+        setVoiceState(STATES.LISTENING);
+        console.log("[Voice] Escuchando comando...");
+
+        const clearSilence = () => { if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; } };
+
+        rec.onresult = (event) => {
+            clearSilence();
+            let interim = "";
+            let hasFinal = false;
+            for (let i = event.resultIndex; i < event.results.length; i++) {
+                if (event.results[i].isFinal) {
+                    finalText += event.results[i][0].transcript;
+                    hasFinal = true;
+                } else {
+                    interim += event.results[i][0].transcript;
+                }
+            }
+            setTranscript(finalText + interim);
+
+            const timeout = hasFinal && interim.length === 0 ? 1200 : 1800;
+
+            silenceTimer = setTimeout(() => {
+                const cmd = finalText.trim();
+                killRecognition();
+                if (cmd.length > 0) {
+                    processCommand(cmd);
+                } else if (handsFreeRef.current) {
+                    startCommandListener();
+                } else {
+                    setVoiceState(STATES.IDLE);
+                    stateRef.current = STATES.IDLE;
+                    // eslint-disable-next-line no-use-before-define
+                    startWakeListener();
+                }
+            }, timeout);
+        };
+
+        rec.onerror = (e) => {
+            clearSilence();
+            console.log("[Voice] Command recognition error:", e.error);
+            if (e.error === "no-speech" || e.error === "aborted") {
+                if (handsFreeRef.current) {
+                    setTimeout(() => startCommandListener(), 500);
+                } else {
+                    setVoiceState(STATES.IDLE);
+                    stateRef.current = STATES.IDLE;
+                    // eslint-disable-next-line no-use-before-define
+                    startWakeListener();
+                }
+            } else {
+                setVoiceState(STATES.ERROR);
+                setTimeout(() => {
+                    setVoiceState(STATES.IDLE);
+                    stateRef.current = STATES.IDLE;
+                    // eslint-disable-next-line no-use-before-define
+                    startWakeListener();
+                }, 2000);
+            }
+        };
+
+        rec.onend = () => {
+            if (rec._killed) return;
+            clearSilence();
+            if (activeRecRef.current === rec && stateRef.current === STATES.LISTENING) {
+                if (handsFreeRef.current) {
+                    setTimeout(() => startCommandListener(), 300);
+                }
+            }
+        };
+
+        try { rec.start(); } catch (e) {
+            console.warn("[Voice] Failed to start command listener:", e);
+            setVoiceState(STATES.IDLE);
+        }
+    }, [killRecognition, processCommand]);
+
+    // ─── Wake word listener ────────────────────────────────────────
+    const startWakeListener = useCallback(() => {
+        if (!wakeEnabledRef.current) return;
+        if (stateRef.current !== STATES.IDLE) return;
+        if (handsFreeRef.current) return;
+        if (conversationActiveRef.current) return;
+
+        const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SR) return;
+
+        killRecognition();
+
+        const rec = new SR();
+        rec.continuous = true;
+        rec.interimResults = true;
+        rec.lang = "es-ES";
+        activeRecRef.current = rec;
+
+        rec.onresult = (event) => {
             for (let i = event.resultIndex; i < event.results.length; i++) {
                 const text = event.results[i][0].transcript.toLowerCase().trim();
 
-                if (voiceStateRef.current === STATES.SPEAKING) {
-                    const isStop = STOP_COMMANDS.some(c => text.includes(c));
-                    if (isStop) {
-                        console.log("[Wake Word] STOP detectado durante habla:", text);
+                if (stateRef.current === STATES.SPEAKING) {
+                    if (STOP_WORDS.some(w => text.includes(w))) {
+                        console.log("[Wake] STOP durante habla");
                         stopGlobalAudio();
-                        setVoiceState(STATES.IDLE);
-                        postSpeakGuardRef.current = false;
-                        handsFreeModeRef.current = false;
+                        handsFreeRef.current = false;
                         setHandsFreeModeActive(false);
+                        conversationActiveRef.current = false;
+                        setVoiceState(STATES.IDLE);
                         return;
                     }
                     continue;
                 }
 
-                if (voiceStateRef.current !== STATES.IDLE) continue;
-                if (postSpeakGuardRef.current) continue;
-                if (handsFreeModeRef.current) continue;
+                if (stateRef.current !== STATES.IDLE) continue;
 
-                if (WAKE_WORD_VARIANTS.some(v => text.includes(v))) {
-                    console.log("[Wake Word] Detectado:", text);
+                const isWake = WAKE_WORDS.some(w => text.includes(w));
+                if (!isWake) continue;
 
-                    wakeWordCooldownRef.current = true;
-                    setTimeout(() => { wakeWordCooldownRef.current = false; }, 8000);
+                console.log("[Wake] Detectado:", text);
+                killRecognition();
 
-                    setWakeWordActive(true);
-                    setTimeout(() => setWakeWordActive(false), 3000);
+                setWakeWordActive(true);
+                setTimeout(() => setWakeWordActive(false), 2000);
+                playBeep(880, 0.12);
 
-                    wake.onend = null;
-                    try { wake.stop(); } catch (_) { }
-                    wakeRecognitionRef.current = null;
+                let cleanText = text;
+                WAKE_WORDS.forEach(w => { cleanText = cleanText.replace(w, ""); });
+                cleanText = cleanText.trim();
 
-                    const cleanText = text
-                        .replace(/hola lucy/gi, "")
-                        .replace(/ola lucy/gi, "")
-                        .replace(/oye lucy/gi, "")
-                        .replace(/hey lucy/gi, "")
-                        .replace(/^lucy/gi, "")
-                        .trim();
-
-                    if (event.results[i].isFinal && cleanText.length > 5) {
-                        console.log("[Wake Word] Comando completo:", cleanText);
-                        playBeep(880, 0.15);
-                        setTimeout(() => activateHandsFreeMode(cleanText), 300);
-                    } else {
-                        console.log("[Wake Word] Esperando comando...");
-                        playBeep(880, 0.15);
-
-                        setTimeout(() => {
-                            if (handsFreeModeRef.current) return;
-                            handsFreeModeRef.current = true;
-                            setHandsFreeModeActive(true);
-                            getAudioCtx();
-                            console.log("[Voice] Esperando orden del usuario...");
-                            listenForCommand();
-                        }, 500);
-                    }
-                    break;
+                if (event.results[i].isFinal && cleanText.length > 3) {
+                    console.log("[Wake] Comando completo:", cleanText);
+                    getAudioCtx();
+                    setTimeout(() => processCommand(cleanText), 200);
+                } else {
+                    console.log("[Wake] Esperando comando...");
+                    getAudioCtx();
+                    setTimeout(() => startCommandListener(), 400);
                 }
+                return;
             }
         };
 
-        wake.onend = () => {
-            if (wakeWordEnabled && !handsFreeModeRef.current && document.visibilityState === "visible") {
-                setTimeout(() => {
-                    try {
-                        if (wakeRecognitionRef.current === wake) {
-                            wake.start();
-                        }
-                    } catch (_) { }
-                }, 300);
-            }
-        };
-
-        wake.onerror = (e) => {
+        rec.onerror = (e) => {
             if (e.error !== "no-speech" && e.error !== "aborted") {
-                console.warn("[Wake Word] Error:", e.error);
+                console.warn("[Wake] Error:", e.error);
             }
         };
 
-        try { wake.start(); } catch (_) { }
-    }, [wakeWordEnabled, activateHandsFreeMode, playBeep, listenForCommand, getAudioCtx]);
+        rec.onend = () => {
+            if (rec._killed) return;
+            if (activeRecRef.current !== rec) return;
+            activeRecRef.current = null;
+            if (!wakeEnabledRef.current) return;
+            if (handsFreeRef.current) return;
+            if (stateRef.current !== STATES.IDLE) return;
+            if (document.visibilityState !== "visible") return;
 
-    const stopWakeWordListener = useCallback(() => {
-        if (wakeRecognitionRef.current) {
-            try {
-                wakeRecognitionRef.current.onend = null;
-                wakeRecognitionRef.current.stop();
-            } catch (_) { }
-            wakeRecognitionRef.current = null;
+            setTimeout(() => {
+                if (!wakeEnabledRef.current || handsFreeRef.current) return;
+                if (stateRef.current !== STATES.IDLE) return;
+                if (activeRecRef.current !== null) return;
+                startWakeListener();
+            }, 500);
+        };
+
+        try { rec.start(); } catch (_) { }
+    }, [killRecognition, playBeep, processCommand, startCommandListener, getAudioCtx]);
+
+    // ─── Activate hands-free (from UI button) ──────────────────────
+    const activateHandsFreeMode = useCallback(async (wakeText) => {
+        if (handsFreeRef.current) return;
+
+        killRecognition();
+        handsFreeRef.current = true;
+        setHandsFreeModeActive(true);
+        conversationActiveRef.current = true;
+        getAudioCtx();
+        playBeep(880, 0.12);
+
+        const query = (typeof wakeText === "string" && wakeText.trim().length > 0)
+            ? wakeText.trim()
+            : "buenos días";
+
+        console.log("[Voice] Manos libres activado. Query:", query);
+
+        const isBriefing = BRIEFING_TRIGGERS.some(t => query.toLowerCase().includes(t));
+
+        if (isBriefing) {
+            const thinkingPhrase = BRIEFING_THINKING_PHRASES[Math.floor(Math.random() * BRIEFING_THINKING_PHRASES.length)];
+            speak(thinkingPhrase, async () => {
+                const reply = await sendToAssistant(query);
+                if (reply) {
+                    speak(reply + " ¿Algo más?", () => {
+                        playBeep(660, 0.1);
+                        listenForFollowUp();
+                    });
+                } else {
+                    speak("No he podido preparar tu briefing.", () => {
+                        listenForFollowUp();
+                    });
+                }
+            });
+        } else {
+            const reply = await sendToAssistant(query);
+            if (reply) {
+                speak(reply + " ¿Algo más?", () => {
+                    playBeep(660, 0.1);
+                    listenForFollowUp();
+                });
+            } else {
+                listenForFollowUp();
+            }
+        }
+    }, [killRecognition, getAudioCtx, playBeep, sendToAssistant, speak, listenForFollowUp]);
+
+    // ─── Cancel ────────────────────────────────────────────────────
+    const cancel = useCallback(() => {
+        killRecognition();
+        stopGlobalAudio();
+        handsFreeRef.current = false;
+        setHandsFreeModeActive(false);
+        conversationActiveRef.current = false;
+        setTranscript("");
+        setVoiceState(STATES.IDLE);
+        setTimeout(() => startWakeListener(), 1000);
+    }, [killRecognition, startWakeListener]);
+
+    const startListening = useCallback(() => {
+        killRecognition();
+        startCommandListener();
+    }, [killRecognition, startCommandListener]);
+
+    const setTtsEnabledWithStop = useCallback((value) => {
+        const newVal = typeof value === "function" ? value(ttsRef.current) : value;
+        setTtsEnabled(newVal);
+        if (!newVal) {
+            stopGlobalAudio();
+            setVoiceState(STATES.IDLE);
         }
     }, []);
 
+    // ─── Lifecycle ─────────────────────────────────────────────────
     useEffect(() => {
         if (wakeWordEnabled && !handsFreeModeActive) {
-            const timer = setTimeout(() => startWakeWordListener(), 1000);
-            return () => { clearTimeout(timer); stopWakeWordListener(); };
-        } else if (!wakeWordEnabled) {
-            stopWakeWordListener();
+            if (!activeRecRef.current && stateRef.current === STATES.IDLE) {
+                const timer = setTimeout(() => startWakeListener(), 1000);
+                return () => clearTimeout(timer);
+            }
         }
-    }, [wakeWordEnabled, handsFreeModeActive, startWakeWordListener, stopWakeWordListener]);
+        if (!wakeWordEnabled) {
+            killRecognition();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [wakeWordEnabled, handsFreeModeActive]);
 
     useEffect(() => {
-        if (!handsFreeModeActive && wakeWordEnabled) {
-            const timer = setTimeout(() => {
-                if (!wakeRecognitionRef.current) {
-                    startWakeWordListener();
-                }
-            }, 2000);
-            return () => clearTimeout(timer);
-        }
-    }, [handsFreeModeActive, wakeWordEnabled, startWakeWordListener]);
-
-    useEffect(() => {
-        const handleVisibility = () => {
-            if (document.visibilityState === "visible" && wakeWordEnabled && !handsFreeModeRef.current) {
-                startWakeWordListener();
-            } else {
-                stopWakeWordListener();
+        const handler = () => {
+            if (document.visibilityState === "visible" && wakeEnabledRef.current && !handsFreeRef.current && stateRef.current === STATES.IDLE) {
+                startWakeListener();
+            } else if (document.visibilityState === "hidden") {
+                killRecognition();
             }
         };
-        document.addEventListener("visibilitychange", handleVisibility);
-        return () => document.removeEventListener("visibilitychange", handleVisibility);
-    }, [wakeWordEnabled, startWakeWordListener, stopWakeWordListener]);
+        document.addEventListener("visibilitychange", handler);
+        return () => document.removeEventListener("visibilitychange", handler);
+    }, [startWakeListener, killRecognition]);
 
     useEffect(() => {
-        const initAudio = () => {
+        const init = () => {
             getAudioCtx();
-            document.removeEventListener("click", initAudio);
-            document.removeEventListener("touchstart", initAudio);
+            document.removeEventListener("click", init);
+            document.removeEventListener("touchstart", init);
         };
-        document.addEventListener("click", initAudio);
-        document.addEventListener("touchstart", initAudio);
-        return () => {
-            document.removeEventListener("click", initAudio);
-            document.removeEventListener("touchstart", initAudio);
-        };
+        document.addEventListener("click", init);
+        document.addEventListener("touchstart", init);
+        return () => { document.removeEventListener("click", init); document.removeEventListener("touchstart", init); };
     }, [getAudioCtx]);
 
     return {
-        voiceState,
-        transcript,
-        lastInteraction,
-        ttsEnabled,
-        setTtsEnabled: setTtsEnabledWithStop,
-        wakeWordEnabled,
-        setWakeWordEnabled,
-        wakeWordActive,
-        handsFreeModeActive,
-        activateHandsFreeMode,
-        startListening,
-        cancel,
-        setUIContext,
-        speak,
-        STATES,
+        voiceState, transcript, lastInteraction,
+        ttsEnabled, setTtsEnabled: setTtsEnabledWithStop,
+        wakeWordEnabled, setWakeWordEnabled,
+        wakeWordActive, handsFreeModeActive,
+        activateHandsFreeMode, startListening, cancel,
+        setUIContext, speak, STATES,
     };
 }

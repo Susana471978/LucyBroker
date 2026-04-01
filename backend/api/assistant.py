@@ -55,7 +55,7 @@ class AssistantMessageAction(BaseModel):
 
 
 # =====================================================
-# HELPERS — CONTEXTO MEJORADO
+# HELPERS — CONTEXTO
 # =====================================================
 
 def _build_inbox_context(items: list, counts: dict) -> str:
@@ -203,10 +203,6 @@ def _get_service_status(user: Dict[str, Any], gmail_ok: bool, calendar_ok: bool)
     return ""
 
 
-# =====================================================
-# DETERMINAR ROL DE LUCY SEGÚN PLAN
-# =====================================================
-
 def _get_lucy_role(user: Dict[str, Any]) -> str:
     from backend.core.plans import get_user_plan
     user_plan = get_user_plan(user)
@@ -214,9 +210,7 @@ def _get_lucy_role(user: Dict[str, Any]) -> str:
     _has_personal = user_plan.get("personal_tier") is not None
     _is_admin = user_plan.get("is_admin", False)
 
-    if _is_admin:
-        return "secretaria ejecutiva y asistente personal"
-    elif _has_executive and _has_personal:
+    if _is_admin or (_has_executive and _has_personal):
         return "secretaria ejecutiva y asistente personal"
     elif _has_executive:
         return "secretaria ejecutiva"
@@ -226,8 +220,30 @@ def _get_lucy_role(user: Dict[str, Any]) -> str:
         return "asistente"
 
 
+def _get_now_madrid():
+    now_madrid = datetime.now(timezone.utc)
+    try:
+        from zoneinfo import ZoneInfo
+        now_madrid = datetime.now(ZoneInfo("Europe/Madrid"))
+    except Exception:
+        pass
+    return now_madrid
+
+
+def _get_date_context():
+    now = _get_now_madrid()
+    _months = ["enero","febrero","marzo","abril","mayo","junio",
+               "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+    _days = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
+    today_label = f"{_days[now.weekday()]} {now.day} de {_months[now.month-1]} de {now.year}"
+    today_iso = now.strftime("%Y-%m-%d")
+    hour = now.hour
+    time_of_day = "por la mañana" if hour < 12 else ("por la tarde" if hour < 20 else "por la noche")
+    return now, today_label, today_iso, time_of_day
+
+
 # =====================================================
-# DETECCIÓN DE INTENCIÓN — CREAR EVENTO
+# DETECCIÓN DE INTENCIONES RÁPIDAS
 # =====================================================
 
 _EVENT_ACTION_KEYWORDS = [
@@ -235,12 +251,10 @@ _EVENT_ACTION_KEYWORDS = [
     "programa", "reserva", "bloquea", "mete", "agéndame",
     "apúntame", "ponme",
 ]
-
 _EVENT_TYPE_KEYWORDS = [
     "reunión", "reunion", "meeting", "cita", "evento",
     "llamada", "call", "almuerzo", "comida", "visita",
 ]
-
 _TIME_PATTERN = re.compile(
     r'\b('
     r'\d{1,2}[h:]\d{0,2}'
@@ -254,18 +268,64 @@ _TIME_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
-
 def _is_create_event_intent(text: str) -> bool:
     t = text.lower()
     has_action = any(k in t for k in _EVENT_ACTION_KEYWORDS)
-    has_type   = any(k in t for k in _EVENT_TYPE_KEYWORDS)
-    has_time   = bool(_TIME_PATTERN.search(t))
+    has_type = any(k in t for k in _EVENT_TYPE_KEYWORDS)
+    has_time = bool(_TIME_PATTERN.search(t))
     return (has_action or has_type) and has_time
 
+_TASK_KEYWORDS = [
+    "tarea", "pendiente", "to-do", "todo", "añade como tarea",
+    "nueva tarea", "apunta como tarea", "tengo que", "hay que",
+    "no olvidar hacer", "agregar tarea",
+]
+
+def _is_task_intent(text: str) -> bool:
+    t = text.lower().strip()
+    return any(kw in t for kw in _TASK_KEYWORDS)
+
+_BRIEFING_KEYWORDS = [
+    "briefing", "buenos días", "buenos dias", "buen día", "buen dia",
+    "dame mi briefing", "qué tengo hoy", "que tengo hoy",
+    "cómo está mi día", "como esta mi dia", "resumen del día",
+    "resumen matutino", "qué hay hoy", "que hay hoy",
+    "hola lucy", "repite mi briefing",
+]
+
+def _is_briefing_request(text: str) -> bool:
+    t = text.lower().strip()
+    return any(k in t for k in _BRIEFING_KEYWORDS)
+
+# Navigation intents — no LLM needed, instant response
+_NAV_INTENTS = {
+    "messages": (["mensajes", "correos", "bandeja", "ir a mensajes", "mis correos", "ver correos"],
+                 "Te llevo a tus mensajes.", "messages"),
+    "tasks": (["tareas", "pendientes", "ir a tareas", "mis tareas", "ver tareas"],
+              "Aquí tienes tus tareas.", "tasks"),
+    "habits": (["hábitos", "habitos", "mis hábitos", "ver hábitos"],
+               "Aquí están tus hábitos.", "habits"),
+    "settings": (["ajustes", "configuración", "configuracion", "settings"],
+                 "Te llevo a la configuración.", "settings"),
+    "overview": (["resumen", "overview", "inicio", "panel", "dashboard"],
+                 "Volvemos al panel principal.", "overview"),
+}
+
+def _detect_nav_intent(text: str):
+    t = text.lower().strip()
+    for key, (keywords, response, screen) in _NAV_INTENTS.items():
+        if any(k in t for k in keywords):
+            return response, screen
+    return None, None
+
+
+# =====================================================
+# EVENT EXTRACTION + CREATION (unchanged)
+# =====================================================
 
 async def _extract_event_data(user_text: str) -> Optional[Dict[str, Any]]:
     now = datetime.now(timezone.utc)
-    today_str     = now.strftime("%Y-%m-%d")
+    today_str = now.strftime("%Y-%m-%d")
     today_weekday = now.strftime("%A")
 
     prompt = f"""Eres un extractor de datos de eventos de calendario.
@@ -312,7 +372,6 @@ Reglas:
                 return data
         except Exception:
             pass
-
     return None
 
 
@@ -331,15 +390,14 @@ async def _create_calendar_event_direct(
 
     try:
         service = build_service("calendar", "v3", credentials=creds)
-
-        date       = event_data.get("date", "")
+        date = event_data.get("date", "")
         start_time = event_data.get("start_time", "09:00")
-        end_time   = event_data.get("end_time", "10:00")
+        end_time = event_data.get("end_time", "10:00")
 
         body: Dict[str, Any] = {
             "summary": event_data.get("title", "Evento"),
             "start": {"dateTime": f"{date}T{start_time}:00", "timeZone": "Europe/Madrid"},
-            "end":   {"dateTime": f"{date}T{end_time}:00",   "timeZone": "Europe/Madrid"},
+            "end": {"dateTime": f"{date}T{end_time}:00", "timeZone": "Europe/Madrid"},
         }
         if event_data.get("description"):
             body["description"] = event_data["description"]
@@ -348,29 +406,23 @@ async def _create_calendar_event_direct(
 
         created = service.events().insert(calendarId="primary", body=body).execute()
         return _parse_event(created)
-
     except Exception as exc:
-        print(f"[assistant] Error creating calendar event: {exc}")
+        logger.error("Error creating calendar event: %s", exc)
         return None
 
 
-def _format_event_confirmation(
-    event_data: Dict[str, Any],
-    created: Optional[Dict[str, Any]],
-) -> str:
-    title      = event_data.get("title", "el evento")
-    date       = event_data.get("date", "")
+def _format_event_confirmation(event_data: Dict[str, Any], created: Optional[Dict[str, Any]]) -> str:
+    title = event_data.get("title", "el evento")
+    date = event_data.get("date", "")
     start_time = event_data.get("start_time", "")
-    location   = event_data.get("location", "")
+    location = event_data.get("location", "")
 
     try:
         dt = datetime.strptime(date, "%Y-%m-%d")
-        months = [
-            "enero","febrero","marzo","abril","mayo","junio",
-            "julio","agosto","septiembre","octubre","noviembre","diciembre",
-        ]
-        days = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
-        date_str = f"el {days[dt.weekday()]} {dt.day} de {months[dt.month - 1]}"
+        _months = ["enero","febrero","marzo","abril","mayo","junio",
+                    "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+        _days = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
+        date_str = f"el {_days[dt.weekday()]} {dt.day} de {_months[dt.month - 1]}"
     except Exception:
         date_str = f"el {date}"
 
@@ -382,31 +434,11 @@ def _format_event_confirmation(
             parts.append(f"en {location}")
         return ", ".join(parts) + ". Ya está en tu calendario."
     else:
-        return (
-            "No he podido crear el evento. "
-            "Comprueba que tu calendario está conectado en ajustes."
-        )
+        return "No he podido crear el evento. Comprueba que tu calendario está conectado en ajustes."
 
 
 # =====================================================
-# BRIEFING DETECTION
-# =====================================================
-
-_BRIEFING_KEYWORDS = [
-    "briefing", "buenos días", "buenos dias", "buen día", "buen dia",
-    "dame mi briefing", "qué tengo hoy", "que tengo hoy",
-    "cómo está mi día", "como esta mi dia", "resumen del día",
-    "resumen matutino", "qué hay hoy", "que hay hoy",
-    "hola lucy", "repite mi briefing",
-]
-
-def _is_briefing_request(text: str) -> bool:
-    t = text.lower().strip()
-    return any(k in t for k in _BRIEFING_KEYWORDS)
-
-
-# =====================================================
-# ENDPOINT PRINCIPAL
+# ENDPOINT PRINCIPAL — OPTIMIZED
 # =====================================================
 
 @router.post("", response_model=AssistantResponse)
@@ -419,69 +451,75 @@ async def assistant_endpoint(
         if not user_text:
             raise HTTPException(status_code=400, detail="Mensaje vacío")
 
-        # ── INTENCIÓN: crear evento en calendario ──────────────────────────
+        now_ts = datetime.now(timezone.utc).isoformat()
+
+        # ══════════════════════════════════════════════════════
+        # FAST PATH — Instant intents (no LLM, no data fetch)
+        # ══════════════════════════════════════════════════════
+
+        # 1. Navigation intent
+        nav_text, nav_screen = _detect_nav_intent(user_text)
+        if nav_text and nav_screen:
+            return AssistantResponse(
+                assistant_text=nav_text,
+                actions=[AssistantAction(type="go_to", payload={"screen": nav_screen})],
+                status="ok",
+                timestamp=now_ts,
+            )
+
+        # 2. Filter intents
+        text_lower = user_text.lower()
+        if any(k in text_lower for k in ["prioritario", "urgente", "importante"]):
+            return AssistantResponse(
+                assistant_text="Filtrando por correos prioritarios.",
+                actions=[AssistantAction(type="set_filter", payload={"priority": "PRIORITARIO"})],
+                status="ok", timestamp=now_ts,
+            )
+        if any(k in text_lower for k in ["adjunto", "archivo", "documento"]):
+            return AssistantResponse(
+                assistant_text="Filtrando correos con adjuntos.",
+                actions=[AssistantAction(type="set_filter", payload={"has_attachment": True})],
+                status="ok", timestamp=now_ts,
+            )
+        if any(k in text_lower for k in ["todo", "todos", "limpiar filtro", "ver todo"]):
+            return AssistantResponse(
+                assistant_text="Mostrando todos los correos.",
+                actions=[AssistantAction(type="clear_filters", payload={})],
+                status="ok", timestamp=now_ts,
+            )
+
+        # ══════════════════════════════════════════════════════
+        # MEDIUM PATH — LLM-powered but no heavy data fetch
+        # ══════════════════════════════════════════════════════
+
+        # 3. Create calendar event
         if _is_create_event_intent(user_text):
             if not user.get("calendar_connected"):
                 return AssistantResponse(
-                    assistant_text=(
-                        "Me encantaría anotar eso, pero tu calendario no está conectado todavía. "
-                        "Puedes conectarlo desde la sección de ajustes."
-                    ),
-                    actions=None,
-                    status="ok",
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    assistant_text="Me encantaría anotar eso, pero tu calendario no está conectado. Puedes conectarlo desde ajustes.",
+                    actions=None, status="ok", timestamp=now_ts,
                 )
-
             event_data = await _extract_event_data(user_text)
             if event_data:
                 created = await _create_calendar_event_direct(user, event_data)
-                text    = _format_event_confirmation(event_data, created)
-                actions = None
-                if created:
-                    actions = [AssistantAction(
-                        type="calendar_event_created",
-                        payload={"event": created},
-                    )]
-                return AssistantResponse(
-                    assistant_text=text,
-                    actions=actions,
-                    status="ok",
-                    timestamp=datetime.now(timezone.utc).isoformat(),
-                )
+                text = _format_event_confirmation(event_data, created)
+                actions = [AssistantAction(type="calendar_event_created", payload={"event": created})] if created else None
+                return AssistantResponse(assistant_text=text, actions=actions, status="ok", timestamp=now_ts)
 
-        # ── INTENCIÓN: crear tarea ─────────────────────────────────────────
-        _TASK_KEYWORDS = [
-            "tarea", "pendiente", "to-do", "todo", "añade como tarea",
-            "nueva tarea", "apunta como tarea", "tengo que", "hay que",
-            "no olvidar hacer", "agregar tarea",
-        ]
-        _task_lower = user_text.lower().strip()
-        if any(kw in _task_lower for kw in _TASK_KEYWORDS):
-            import json as _json
-
-            _task_prompt = f"""Extrae la tarea del texto del usuario.
+        # 4. Create task
+        if _is_task_intent(user_text):
+            try:
+                _task_prompt = f"""Extrae la tarea del texto del usuario.
 Devuelve ÚNICAMENTE un JSON válido sin backticks:
-{{
-  "title": "descripción corta de la tarea",
-  "priority": "high" o "normal" o "low",
-  "due_date": "YYYY-MM-DD" o null
-}}
-
+{{"title": "descripción corta", "priority": "high" o "normal" o "low", "due_date": "YYYY-MM-DD" o null}}
 Hoy es {datetime.now(timezone.utc).strftime("%Y-%m-%d")}.
 El usuario dice: "{user_text}"
-
-Reglas:
-- "title" debe ser la acción concreta, sin "tarea:" ni prefijos.
-- Si menciona urgente/importante → "high". Si no → "normal".
-- Si menciona una fecha, calcúlala. Si no, null.
 """
-            try:
                 _raw = await generate_llm_response(_task_prompt)
                 _clean = _raw.strip().replace("```json", "").replace("```", "").strip()
-                _task_data = _json.loads(_clean)
+                _task_data = json.loads(_clean)
 
                 if _task_data.get("title"):
-                    _now = datetime.now(timezone.utc).isoformat()
                     _doc = {
                         "user_id": user["id"],
                         "title": _task_data["title"],
@@ -490,92 +528,78 @@ Reglas:
                         "priority": _task_data.get("priority", "normal"),
                         "done": False,
                         "done_at": None,
-                        "created_at": _now,
+                        "created_at": now_ts,
                         "source": "voice",
                     }
                     _result = await db.tasks.insert_one(_doc)
-
-                    _due_text = f" para el {_task_data['due_date']}" if _task_data.get("due_date") else ""
-                    _priority_text = " (prioritaria)" if _task_data.get("priority") == "high" else ""
-
+                    _due = f" para el {_task_data['due_date']}" if _task_data.get("due_date") else ""
+                    _pri = " (prioritaria)" if _task_data.get("priority") == "high" else ""
                     return AssistantResponse(
-                        assistant_text=f"Tarea añadida: {_task_data['title']}{_priority_text}{_due_text}. La tienes en tu panel de tareas.",
-                        actions=[AssistantAction(
-                            type="task_created",
-                            payload={"id": str(_result.inserted_id), "title": _task_data["title"]},
-                        )],
-                        status="ok",
-                        timestamp=datetime.now(timezone.utc).isoformat(),
+                        assistant_text=f"Tarea añadida: {_task_data['title']}{_pri}{_due}.",
+                        actions=[AssistantAction(type="task_created", payload={"id": str(_result.inserted_id), "title": _task_data["title"]})],
+                        status="ok", timestamp=now_ts,
                     )
             except Exception as e:
-                print(f"[assistant] Task extraction error: {e}")
+                logger.warning("Task extraction error: %s", e)
 
-        # ── INTENCIÓN: crear recordatorio ──────────────────────────────────
+        # 5. Create reminder
         from backend.api.reminders import is_reminder_intent, extract_reminder_data
         if is_reminder_intent(user_text):
             reminder_data = await extract_reminder_data(user_text)
             if reminder_data:
-                now_r = datetime.now(timezone.utc).isoformat()
                 doc = {
                     "user_id": user["id"],
                     "text": reminder_data["text"],
                     "remind_at": reminder_data["remind_at"],
                     "done": False,
                     "notified": False,
-                    "created_at": now_r,
+                    "created_at": now_ts,
                 }
                 result = await db.reminders.insert_one(doc)
                 friendly = reminder_data.get("friendly_time", reminder_data["remind_at"])
                 return AssistantResponse(
                     assistant_text=f"Listo. Te recordaré {reminder_data['text']} {friendly}.",
-                    actions=[AssistantAction(
-                        type="reminder_created",
-                        payload={"id": str(result.inserted_id), "text": reminder_data["text"], "remind_at": reminder_data["remind_at"]},
-                    )],
-                    status="ok",
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    actions=[AssistantAction(type="reminder_created", payload={"id": str(result.inserted_id), "text": reminder_data["text"]})],
+                    status="ok", timestamp=now_ts,
                 )
             else:
                 return AssistantResponse(
                     assistant_text="¿A qué hora quieres que te lo recuerde?",
-                    actions=None,
-                    status="ok",
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    actions=None, status="ok", timestamp=now_ts,
                 )
 
-        # ── INTENCIÓN: guardar nota / idea / memoria ───────────────────────
+        # 6. Save note/memory
         from backend.services.user_memory import is_note_intent, extract_note_text, add_memory_note
         if is_note_intent(user_text):
             note_text, category = extract_note_text(user_text)
-
             if not note_text or len(note_text) < 3:
                 return AssistantResponse(
                     assistant_text="¿Qué quieres que anote exactamente?",
-                    actions=None,
-                    status="ok",
-                    timestamp=datetime.now(timezone.utc).isoformat(),
+                    actions=None, status="ok", timestamp=now_ts,
                 )
-
             await add_memory_note(db, user["id"], note_text, category)
-
             responses = {
-                "idea": f"Idea guardada: {note_text}. La tendré presente.",
-                "cliente": f"Anotado sobre el cliente. Lo tendré en cuenta.",
-                "proyecto": f"Anotado para el proyecto. Lo tendré presente.",
-                "preferencia": f"Preferencia guardada. Lo recordaré.",
-                "recado": f"Apuntado: {note_text}. Te lo recordaré.",
-                "salud": f"Anotado. Lo tendré en cuenta.",
-                "general": f"Anotado. Lo tendré en cuenta a partir de ahora.",
+                "idea": f"Idea guardada: {note_text}.",
+                "cliente": "Anotado sobre el cliente. Lo tendré en cuenta.",
+                "proyecto": "Anotado para el proyecto.",
+                "preferencia": "Preferencia guardada. Lo recordaré.",
+                "recado": f"Apuntado: {note_text}.",
+                "salud": "Anotado. Lo tendré en cuenta.",
+                "general": "Anotado. Lo tendré en cuenta.",
             }
-
             return AssistantResponse(
                 assistant_text=responses.get(category, responses["general"]),
                 actions=[AssistantAction(type="memory_saved", payload={"note": note_text, "category": category})],
-                status="ok",
-                timestamp=datetime.now(timezone.utc).isoformat(),
+                status="ok", timestamp=now_ts,
             )
 
-        # ── RECOPILAR CONTEXTO (PARALELO) ──────────────────────────────────
+        # ══════════════════════════════════════════════════════
+        # SLOW PATH — Briefing or general query (full context)
+        # ══════════════════════════════════════════════════════
+
+        is_briefing = _is_briefing_request(user_text)
+
+        # Only fetch heavy context for briefing or general queries that need it
         gmail_ok = True
         calendar_ok = True
 
@@ -587,7 +611,7 @@ Reglas:
                 return await fetch_enriched_messages_light(user, db, max_results=50)
             except Exception as e:
                 gmail_ok = False
-                print(f"[assistant] Gmail fetch error: {e}")
+                logger.warning("Gmail fetch error: %s", e)
                 return []
 
         async def _fetch_calendar():
@@ -598,7 +622,7 @@ Reglas:
                 return await fetch_today_events(user, db)
             except Exception as e:
                 calendar_ok = False
-                print(f"[assistant] Calendar fetch error: {e}")
+                logger.warning("Calendar fetch error: %s", e)
                 return []
 
         async def _fetch_tasks():
@@ -614,181 +638,122 @@ Reglas:
             except Exception:
                 return {"habits": [], "completed": 0, "total": 0}
 
-        _results = await asyncio.gather(
-            _fetch_gmail(),
-            _fetch_calendar(),
-            get_memory(db, user["id"]),
-            get_all_contacts(db, user["id"], limit=5),
-            get_user_memory(db, user["id"]),
-            _fetch_tasks(),
-            _fetch_habits(),
-            return_exceptions=True,
-        )
+        if is_briefing:
+            # Full parallel fetch for briefing
+            _results = await asyncio.gather(
+                _fetch_gmail(),
+                _fetch_calendar(),
+                get_memory(db, user["id"]),
+                get_all_contacts(db, user["id"], limit=5),
+                get_user_memory(db, user["id"]),
+                _fetch_tasks(),
+                _fetch_habits(),
+                return_exceptions=True,
+            )
+        else:
+            # Light fetch for general queries — only fast local DB queries
+            _results = await asyncio.gather(
+                asyncio.coroutine(lambda: [])() if not user.get("gmail_connected") else _fetch_gmail(),
+                _fetch_calendar(),
+                get_memory(db, user["id"]),
+                asyncio.coroutine(lambda: [])(),  # skip contacts
+                get_user_memory(db, user["id"]),
+                _fetch_tasks(),
+                _fetch_habits(),
+                return_exceptions=True,
+            )
 
-        # Safely unpack — replace any exception with a sensible default
         def _safe(val, default):
             return default if isinstance(val, BaseException) else val
 
-        items            = _safe(_results[0], [])
-        calendar_events  = _safe(_results[1], [])
-        exec_memory      = _safe(_results[2], {})
-        contacts         = _safe(_results[3], [])
-        user_mem_doc     = _safe(_results[4], None)
-        pending_tasks    = _safe(_results[5], [])
-        habits_summary   = _safe(_results[6], {"habits": [], "completed": 0, "total": 0})
+        items = _safe(_results[0], [])
+        calendar_events = _safe(_results[1], [])
+        exec_memory = _safe(_results[2], {})
+        contacts = _safe(_results[3], [])
+        user_mem_doc = _safe(_results[4], None)
+        pending_tasks = _safe(_results[5], [])
+        habits_summary = _safe(_results[6], {"habits": [], "completed": 0, "total": 0})
 
-        # Log any failures (non-fatal)
         for i, r in enumerate(_results):
             if isinstance(r, BaseException):
-                logger.warning("Briefing gather task %d failed: %s", i, r)
+                logger.warning("Context gather task %d failed: %s", i, r)
 
         total = len(items)
         prioritarios = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"]
-        seguimiento  = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"]
-        adjuntos     = [i for i in items if i["email"].get("has_attachments", False)]
-        counts = {
-            "total": total,
-            "prioritarios": len(prioritarios),
-            "seguimiento": len(seguimiento),
-            "adjuntos": len(adjuntos),
-        }
+        seguimiento = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"]
+        adjuntos = [i for i in items if i["email"].get("has_attachments", False)]
+        counts = {"total": total, "prioritarios": len(prioritarios), "seguimiento": len(seguimiento), "adjuntos": len(adjuntos)}
 
         user_memory_context = build_user_memory_context(user_mem_doc)
-
-        inbox_context    = _build_inbox_context(items, counts) if items else "Bandeja: sin correos disponibles."
+        inbox_context = _build_inbox_context(items, counts) if items else "Bandeja: sin correos disponibles."
         calendar_context = _build_calendar_context(calendar_events)
-        tasks_context    = _build_tasks_context(pending_tasks)
-        habits_context   = _build_habits_context(habits_summary)
+        tasks_context = _build_tasks_context(pending_tasks)
+        habits_context = _build_habits_context(habits_summary)
         contacts_context = _build_contacts_context(contacts)
-        service_status   = _get_service_status(user, gmail_ok, calendar_ok)
+        service_status = _get_service_status(user, gmail_ok, calendar_ok)
 
         last_action = exec_memory.get("last_action", "")
-        last_focus  = exec_memory.get("last_focus", "")
+        last_focus = exec_memory.get("last_focus", "")
         memory_context = ""
         if last_action:
             memory_context = f"Última acción: {last_action}."
             if last_focus:
                 memory_context += f" Estaba en: {last_focus}."
 
-        actions: Optional[List[AssistantAction]] = None
-        text_lower = user_text.lower()
-
-        if any(k in text_lower for k in ["mensajes", "correos", "bandeja", "ir a mensajes"]):
-            actions = [AssistantAction(type="go_to", payload={"screen": "messages"})]
-        elif any(k in text_lower for k in ["tareas", "pendientes", "ir a tareas"]):
-            actions = [AssistantAction(type="go_to", payload={"screen": "tasks"})]
-        elif any(k in text_lower for k in ["resumen", "overview", "inicio", "panel"]):
-            actions = [AssistantAction(type="go_to", payload={"screen": "overview"})]
-        elif any(k in text_lower for k in ["prioritario", "urgente", "importante"]):
-            actions = [AssistantAction(type="set_filter", payload={"priority": "PRIORITARIO"})]
-        elif any(k in text_lower for k in ["seguimiento", "pendiente"]):
-            actions = [AssistantAction(type="set_filter", payload={"priority": "SEGUIMIENTO"})]
-        elif any(k in text_lower for k in ["adjunto", "archivo", "documento"]):
-            actions = [AssistantAction(type="set_filter", payload={"has_attachment": True})]
-        elif any(k in text_lower for k in ["todo", "todos", "limpiar", "ver todo"]):
-            actions = [AssistantAction(type="clear_filters", payload={})]
-
-        # ── FECHA ACTUAL ───────────────────────────────────────────────────
-        now_madrid = datetime.now(timezone.utc)
-        try:
-            from zoneinfo import ZoneInfo
-            now_madrid = datetime.now(ZoneInfo("Europe/Madrid"))
-        except Exception:
-            pass
-        _months = ["enero","febrero","marzo","abril","mayo","junio",
-                   "julio","agosto","septiembre","octubre","noviembre","diciembre"]
-        _days   = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
-        today_label = f"{_days[now_madrid.weekday()]} {now_madrid.day} de {_months[now_madrid.month-1]} de {now_madrid.year}"
-        today_iso   = now_madrid.strftime("%Y-%m-%d")
-
-        hour = now_madrid.hour
-        if hour < 12:
-            time_of_day = "por la mañana"
-        elif hour < 20:
-            time_of_day = "por la tarde"
-        else:
-            time_of_day = "por la noche"
-
-        # ── ROL DE LUCY SEGÚN PLAN ─────────────────────────────────────────
+        now_madrid, today_label, today_iso, time_of_day = _get_date_context()
         lucy_role = _get_lucy_role(user)
-
-        # ── ELEGIR PROMPT SEGÚN INTENCIÓN ──────────────────────────────────
-        is_briefing = _is_briefing_request(user_text)
 
         if is_briefing:
             prompt = f"""Eres Lucy, {lucy_role} de {user.get('name', 'el usuario')}.
 
 HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
 
-Tu trabajo es dar un briefing completo, como haría una {lucy_role} de confianza al empezar el día. Hablas con naturalidad, elegancia y cercanía profesional. Siempre en español.
+Tu trabajo es dar un briefing completo. Hablas con naturalidad, elegancia y cercanía profesional. En español.
 
-ESTRUCTURA DEL BRIEFING (sigue este orden, integra todo en prosa fluida):
-1. Saludo breve y cálido adaptado a la hora del día.
-2. AGENDA: empieza siempre por las reuniones/eventos del día. Si hay videollamadas, menciónalo. Si el día está libre, dilo con tono positivo.
-3. CORREOS: resumen de la bandeja. Destaca los prioritarios por nombre y asunto. Si hay muchos de un mismo remitente, agrúpalos. Menciona el total.
-4. TAREAS: si hay tareas pendientes, menciónalas brevemente. Destaca las urgentes.
-5. HÁBITOS: si hay hábitos registrados, menciona cuántos ha completado y cuáles faltan. Si hay rachas, celébralas. Si todos están hechos, felicita.
-6. Cierre: una frase motivadora o práctica para arrancar el día.
+ESTRUCTURA DEL BRIEFING (prosa fluida, no listas):
+1. Saludo breve adaptado a la hora.
+2. AGENDA: reuniones/eventos. Si hay videollamadas, menciónalo.
+3. CORREOS: resumen de bandeja. Destaca prioritarios por nombre y asunto.
+4. TAREAS: pendientes, destaca urgentes.
+5. HÁBITOS: completados y pendientes.
+6. Cierre motivador.
 
 DATOS REALES:
 {calendar_context}
-
 {inbox_context}
-
-{tasks_context if tasks_context else "Sin tareas pendientes registradas."}
-
+{tasks_context if tasks_context else "Sin tareas pendientes."}
 {habits_context if habits_context else "Sin hábitos registrados."}
-
 {contacts_context}
-
 {service_status}
-
 {memory_context}
-
 {user_memory_context}
 
-REGLAS DE ESTILO:
-- Prosa fluida y conversacional, NO listas ni viñetas.
-- Máximo 8-10 frases. Sé concisa pero completa.
-- Nombra personas y asuntos reales, no seas genérica.
-- Si un servicio está desconectado, menciónalo con naturalidad.
-- Si hay hábitos pendientes, anima a completarlos con tono motivador pero no presionante.
-- Suena como alguien que conoce bien al usuario y su trabajo.
-- NO inventes datos que no estén arriba.
+REGLAS: Prosa fluida, máximo 8-10 frases. Nombra personas y asuntos reales. NO inventes datos.
 
 El usuario dice: "{user_text}"
 """
+            max_tokens = 500
         else:
             prompt = f"""Eres Lucy, {lucy_role} de {user.get('name', 'el usuario')}.
+HOY: {today_label}. Hora: {now_madrid.strftime("%H:%M")}.
+Personalidad: elegante, directa, concisa. Máximo 3-4 frases. En español.
 
-HOY: {today_label} ({today_iso}). Hora: {now_madrid.strftime("%H:%M")}.
-
-Personalidad: elegante, directa, concisa. {lucy_role.capitalize()} de confianza de alto nivel.
-Siempre en español. Máximo 3-4 frases. Sin listas ni encabezados. Lenguaje natural.
-
-DATOS DISPONIBLES:
+DATOS:
 {calendar_context}
-{inbox_context}
+{inbox_context if items else ""}
 {tasks_context}
 {habits_context}
-{contacts_context}
 {service_status}
 {memory_context}
 {user_memory_context}
 
 El usuario dice: "{user_text}"
 
-Responde con los datos reales de arriba. No inventes información.
-Si pide navegar o filtrar, confirma brevemente.
-Si pide resumir un correo concreto, dile que lo seleccione en la bandeja.
-Si menciona tareas, resume las pendientes o indícale la sección de tareas.
-Si pregunta por hábitos, dile cuántos ha completado hoy y cuáles faltan.
-Si pide crear un evento pero faltan datos, pídele que concrete.
+Responde con datos reales. No inventes. Si pide algo específico, responde directamente.
 """
+            max_tokens = 250
 
-        # ── GENERAR RESPUESTA ──────────────────────────────────────────────
-        max_tokens = 500 if is_briefing else 300
-
+        # Generate response
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
             assistant_text = "No puedo procesar tu solicitud porque la configuración de IA no está disponible."
@@ -803,31 +768,27 @@ Si pide crear un evento pero faltan datos, pídele que concrete.
             )
             assistant_text = response.choices[0].message.content.strip()
 
-        # ── GUARDAR EN MEMORIA EJECUTIVA ───────────────────────────────────
+        # Save executive memory (fire-and-forget)
         try:
-            await set_memory(
-                db=db,
-                user_id=user["id"],
-                fields={
-                    "last_action": "briefing" if is_briefing else "assistant_query",
-                    "last_focus": text_lower[:50],
-                    "last_intent": "BRIEFING" if is_briefing else "ASSISTANT_QUERY",
-                },
-            )
-        except Exception as mem_error:
-            print("Executive memory save error:", mem_error)
+            await set_memory(db=db, user_id=user["id"], fields={
+                "last_action": "briefing" if is_briefing else "assistant_query",
+                "last_focus": text_lower[:50],
+                "last_intent": "BRIEFING" if is_briefing else "ASSISTANT_QUERY",
+            })
+        except Exception:
+            pass
 
         return AssistantResponse(
             assistant_text=assistant_text,
-            actions=actions,
+            actions=None,
             status="ok",
-            timestamp=datetime.now(timezone.utc).isoformat(),
+            timestamp=now_ts,
         )
 
     except Exception as e:
-        print("Assistant error:", e)
+        logger.exception("Assistant error: %s", e)
         return AssistantResponse(
-            assistant_text="Disculpa, no he podido procesar tu solicitud en este momento. Inténtalo de nuevo.",
+            assistant_text="Disculpa, no he podido procesar tu solicitud. Inténtalo de nuevo.",
             actions=None,
             status="error",
             timestamp=datetime.now(timezone.utc).isoformat(),
@@ -882,5 +843,5 @@ Correo:
             raise HTTPException(status_code=400, detail="Modo no válido")
 
     except Exception as e:
-        print("Assistant message error:", e)
+        logger.exception("Assistant message error: %s", e)
         raise HTTPException(status_code=500, detail="Error procesando el mensaje")

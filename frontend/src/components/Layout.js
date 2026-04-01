@@ -4,6 +4,7 @@ import { t } from '../i18n';
 import { LayoutDashboard, Mail, CheckSquare, Settings, LogOut, Globe, ChevronDown, Flame, Crown } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { TrialBanner, TrialExpiredOverlay } from './TrialBanner';
+import logoLucy from '../assets/Logo-Lucy.png';
 
 /* ─── Dropdown propio — sin dependencia de Radix/slate ───── */
 
@@ -47,8 +48,8 @@ function DropdownItem({ onClick, children, active, ...props }) {
       onClick={onClick}
       {...props}
       className={`w-full flex items-center gap-2 px-4 py-3 text-sm text-left transition-all duration-150 ${active
-          ? 'text-[rgba(241,216,150,0.96)] bg-[rgba(201,178,124,0.08)]'
-          : 'text-[rgba(214,227,249,0.72)] hover:text-[rgba(242,247,255,0.96)] hover:bg-[rgba(59,130,246,0.06)]'
+        ? 'text-[rgba(241,216,150,0.96)] bg-[rgba(201,178,124,0.08)]'
+        : 'text-[rgba(214,227,249,0.72)] hover:text-[rgba(242,247,255,0.96)] hover:bg-[rgba(59,130,246,0.06)]'
         }`}
     >
       {children}
@@ -93,38 +94,29 @@ const Layout = ({ children }) => {
             {/* Logo Lucy */}
             <Link
               to="/app"
-              className="flex items-center gap-3 group shrink-0"
+              className="flex items-center gap-4 group shrink-0 px-1"
               data-testid="logo-link"
             >
-              <div
-                className="w-10 h-10 rounded-2xl flex items-center justify-center border transition-all duration-300
-                bg-[linear-gradient(180deg,rgba(16,22,38,0.95)_0%,rgba(7,11,21,0.98)_100%)]
-                border-[rgba(201,178,124,0.16)]
-                shadow-[0_0_20px_rgba(36,99,235,0.08)]
-                group-hover:border-[rgba(201,178,124,0.30)]
-                group-hover:shadow-[0_0_28px_rgba(201,178,124,0.10),0_0_24px_rgba(36,99,235,0.10)]"
-              >
-                <svg width="14" height="14" viewBox="0 0 22 22" fill="none">
-                  <path
-                    d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
-                    fill="#C9B27C"
-                  />
-                </svg>
-              </div>
+              {/* ICONO */}
+              <img
+                src={logoLucy}
+                alt="Lucy Logo"
+                className="h-20 w-auto object-contain
+                          brightness-110 contrast-110
+                          opacity-95 group-hover:opacity-100
+                          transition-all duration-300"
+                style={{
+                  filter: 'drop-shadow(0 0 6px rgba(201,178,124,0.15))'
+                }}
+              />
 
+              {/* TEXTO */}
               <div className="flex flex-col leading-none">
                 <span
-                  className="text-[0.72rem] uppercase tracking-[0.24em] text-[rgba(201,178,124,0.78)]"
+                  className="text-[0.65rem] uppercase tracking-[0.28em] text-[rgba(201,178,124,0.6)]"
                   style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
                 >
-                  Executive AI
-                </span>
-                <span
-                  className="font-light tracking-[0.05em] text-[1rem] text-[#C9B27C] group-hover:text-[rgba(237,223,184,0.98)] transition-colors duration-200"
-                  style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}
-                >
-                  Lucy
-                  <span className="text-[rgba(88,160,255,0.55)]">.</span>
+
                 </span>
               </div>
             </Link>
@@ -141,8 +133,8 @@ const Layout = ({ children }) => {
                     to={item.path}
                     data-testid={'nav-' + (item.path.replace('/app', '') || 'overview')}
                     className={`flex items-center gap-2 rounded-full px-4 py-2.5 text-[0.78rem] font-medium uppercase tracking-[0.08em] transition-all duration-200 ${active
-                        ? 'border border-[rgba(201,178,124,0.24)] bg-[linear-gradient(180deg,rgba(42,31,10,0.92)_0%,rgba(21,16,7,0.98)_100%)] text-[rgba(241,216,150,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.10)]'
-                        : 'border border-transparent text-[rgba(180,194,216,0.76)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(241,246,255,0.96)]'
+                      ? 'border border-[rgba(201,178,124,0.24)] bg-[linear-gradient(180deg,rgba(42,31,10,0.92)_0%,rgba(21,16,7,0.98)_100%)] text-[rgba(241,216,150,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.10)]'
+                      : 'border border-transparent text-[rgba(180,194,216,0.76)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(241,246,255,0.96)]'
                       }`}
                   >
                     <Icon className="w-3.5 h-3.5" strokeWidth={1.5} />
@@ -164,8 +156,8 @@ const Layout = ({ children }) => {
                     to={item.path}
                     data-testid={'nav-' + (item.path.replace('/app', '') || 'overview')}
                     className={`flex items-center justify-center rounded-full p-2.5 transition-all duration-200 ${active
-                        ? 'border border-[rgba(201,178,124,0.24)] bg-[linear-gradient(180deg,rgba(42,31,10,0.92)_0%,rgba(21,16,7,0.98)_100%)] text-[rgba(241,216,150,0.96)] shadow-[0_0_16px_rgba(201,178,124,0.08)]'
-                        : 'border border-transparent text-[rgba(180,194,216,0.76)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(241,246,255,0.96)]'
+                      ? 'border border-[rgba(201,178,124,0.24)] bg-[linear-gradient(180deg,rgba(42,31,10,0.92)_0%,rgba(21,16,7,0.98)_100%)] text-[rgba(241,216,150,0.96)] shadow-[0_0_16px_rgba(201,178,124,0.08)]'
+                      : 'border border-transparent text-[rgba(180,194,216,0.76)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[rgba(241,246,255,0.96)]'
                       }`}
                     title={item.label}
                   >

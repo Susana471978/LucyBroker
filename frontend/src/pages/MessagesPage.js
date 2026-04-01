@@ -639,8 +639,10 @@ export default function MessagesPage() {
 
                     {/* Cuerpo email */}
                     <div className="rounded-2xl p-6 border border-[rgba(88,160,255,0.12)]"
-                      style={{ background: 'linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%)',
-                               boxShadow: '0 0 0 1px rgba(90,170,255,0.06) inset, 0 0 10px rgba(54,126,255,0.06)' }}>
+                      style={{
+                        background: 'linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%)',
+                        boxShadow: '0 0 0 1px rgba(90,170,255,0.06) inset, 0 0 10px rgba(54,126,255,0.06)'
+                      }}>
                       <div className="flex items-center justify-between mb-3">
                         <p className="text-[10px] text-[rgba(201,178,124,0.4)] uppercase tracking-[0.1em]">
                           {fullBody ? 'Mensaje completo' : 'Vista previa'}
