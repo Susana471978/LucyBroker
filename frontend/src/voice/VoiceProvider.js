@@ -1,26 +1,22 @@
-// src/voice/VoiceProvider.js
-
-import React, { createContext, useContext, useEffect } from "react";
+import { createContext, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useVoiceEngine } from "./useVoiceEngine";
 
-/**
- * Context para exponer el motor si algún día queremos usarlo externamente
- */
 const VoiceContext = createContext(null);
 
-export const useVoice = () => {
+export function useVoice() {
     return useContext(VoiceContext);
-};
+}
 
 export default function VoiceProvider({ children }) {
     const navigate = useNavigate();
     const voiceEngine = useVoiceEngine();
-
     const { setUIContext } = voiceEngine;
 
     /**
-     * Inyectamos navegación al motor
+     * Inyectamos navegación al motor.
+     * Las páginas pueden extender el contexto llamando a setUIContext
+     * con campos adicionales (refreshReminders, refreshTasks, etc.)
      */
     useEffect(() => {
         setUIContext({
@@ -29,6 +25,8 @@ export default function VoiceProvider({ children }) {
             setFilters: null,
             openMessageById: null,
             clearFilters: null,
+            refreshReminders: null,
+            refreshTasks: null,
         });
     }, [navigate, setUIContext]);
 

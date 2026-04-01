@@ -517,11 +517,21 @@ export default function OverviewPage() {
         lastInteraction,
         cancel,
         voiceState,
+        setUIContext,
     } = useVoice();
 
     const { currentAlert, dismissAlert } = useAlerts(token);
-    const { currentReminder, dismissReminder } = useReminders(token, ttsEnabled);
+    const { currentReminder, dismissReminder, checkReminders } = useReminders(token, ttsEnabled);
 
+
+    // Inyectar refresh de recordatorios al contexto de voz
+    useEffect(() => {
+        if (setUIContext) {
+            setUIContext({
+                refreshReminders: checkReminders,
+            });
+        }
+    }, [setUIContext, checkReminders]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [gmailConnected, setGmailConnected] = useState(false);

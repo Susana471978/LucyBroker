@@ -1,5 +1,4 @@
 // src/voice/voiceCommandRouter.js
-
 /**
  * Execute voice assistant actions safely.
  * @param {Array} actions - Actions returned by assistant
@@ -7,41 +6,49 @@
  */
 export function executeVoiceActions(actions = [], context = {}) {
     if (!Array.isArray(actions)) return;
-
     const {
         navigate,
         currentFilters,
         setFilters,
         openMessageById,
         clearFilters,
+        refreshReminders,
+        refreshTasks,
     } = context;
-
     // Limit to maximum 3 actions
     const safeActions = actions.slice(0, 3);
-
     safeActions.forEach((action) => {
         try {
             if (!action || typeof action !== "object") return;
-
             const { type, payload } = action;
-
             switch (type) {
                 case "go_to":
                     handleGoTo(payload, navigate);
                     break;
-
                 case "set_filter":
                     handleSetFilter(payload, currentFilters, setFilters);
                     break;
-
                 case "clear_filters":
                     handleClearFilters(clearFilters);
                     break;
-
                 case "open_message":
                     handleOpenMessage(payload, openMessageById);
                     break;
-
+                case "reminder_created":
+                case "reminder_updated":
+                case "reminder_deleted":
+                    if (refreshReminders) refreshReminders();
+                    console.log("[Voice] Reminder action handled:", type);
+                    break;
+                case "task_created":
+                case "task_updated":
+                case "task_deleted":
+                    if (refreshTasks) refreshTasks();
+                    console.log("[Voice] Task action handled:", type);
+                    break;
+                case "habit_toggled":
+                    console.log("[Voice] Habit toggled");
+                    break;
                 default:
                     console.warn("[Voice] Action ignored (unknown type):", type);
             }
@@ -50,12 +57,9 @@ export function executeVoiceActions(actions = [], context = {}) {
         }
     });
 }
-
 /* ────────────────── HANDLERS ────────────────── */
-
 function handleGoTo(payload, navigate) {
     if (!navigate || !payload) return;
-
     const screenMap = {
         overview: "/app",
         messages: "/app/messages",
@@ -64,34 +68,27 @@ function handleGoTo(payload, navigate) {
         settings: "/app/settings",
         pricing: "/app/pricing",
     };
-
     const target = screenMap[payload.screen];
     if (target) {
         navigate(target);
     }
 }
-
 function handleSetFilter(payload, currentFilters, setFilters) {
     if (!payload || !setFilters || !currentFilters) return;
-
     const allowedKeys = ["unread", "date", "priority", "from", "has_attachment"];
     const patch = {};
-
     Object.keys(payload).forEach((key) => {
         if (allowedKeys.includes(key)) {
             patch[key] = payload[key];
         }
     });
-
     if (Object.keys(patch).length > 0) {
         setFilters({ ...currentFilters, ...patch });
     }
 }
-
 function handleClearFilters(clearFilters) {
     if (clearFilters) clearFilters();
 }
-
 function handleOpenMessage(payload, openMessageById) {
     if (!payload || !openMessageById) return;
     if (payload.id && typeof payload.id === "string") {

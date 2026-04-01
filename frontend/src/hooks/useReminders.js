@@ -113,6 +113,7 @@ export function useReminders(token, ttsEnabled) {
     }, [token, checkReminders, requestPermission]);
 
     return {
+        checkReminders,
         currentReminder,
         dismissReminder,
         dueReminders,

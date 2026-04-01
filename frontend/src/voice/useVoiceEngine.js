@@ -97,7 +97,7 @@ export function useVoiceEngine() {
     useEffect(() => { handsFreeRef.current = handsFreeModeActive; }, [handsFreeModeActive]);
     useEffect(() => { wakeEnabledRef.current = wakeWordEnabled; }, [wakeWordEnabled]);
 
-    const setUIContext = useCallback((ctx) => { uiContextRef.current = ctx; }, []);
+    const setUIContext = useCallback((ctx) => { uiContextRef.current = { ...uiContextRef.current, ...ctx }; }, []);
 
     // ─── Audio context ─────────────────────────────────────────────
     const getAudioCtx = useCallback(() => {
@@ -108,6 +108,26 @@ export function useVoiceEngine() {
         return audioCtxRef.current;
     }, []);
 
+    // ─── Unlock audio on first user interaction ────────────────────
+    useEffect(() => {
+        const unlock = () => {
+            try {
+                const ctx = getAudioCtx();
+                if (ctx.state === "suspended") ctx.resume();
+                const b = ctx.createBuffer(1, 1, 22050);
+                const s = ctx.createBufferSource();
+                s.buffer = b; s.connect(ctx.destination); s.start();
+            } catch (_) {}
+            document.removeEventListener("click", unlock);
+            document.removeEventListener("touchstart", unlock);
+        };
+        document.addEventListener("click", unlock, { once: true });
+        document.addEventListener("touchstart", unlock, { once: true });
+        return () => {
+            document.removeEventListener("click", unlock);
+            document.removeEventListener("touchstart", unlock);
+        };
+    }, [getAudioCtx]);
     const playBeep = useCallback((freq = 880, dur = 0.12) => {
         try {
             const ctx = getAudioCtx();
@@ -143,14 +163,10 @@ export function useVoiceEngine() {
         try {
             stopGlobalAudio();
             setVoiceState(STATES.SPEAKING);
-
             const res = await apiClient.post("/tts", { text }, { responseType: "blob" });
             const url = URL.createObjectURL(res.data);
             const audio = new Audio(url);
-
-            // Set global audio BEFORE play — so analyser can connect first
             setGlobalAudio(audio);
-
             audio.onended = () => {
                 setGlobalAudio(null);
                 URL.revokeObjectURL(url);
@@ -167,14 +183,39 @@ export function useVoiceEngine() {
                 setVoiceState(STATES.IDLE);
                 onEnd?.();
             };
-            await audio.play();
+            // Unlock AudioContext before playing
+            try {
+                const ctx = getAudioCtx();
+                if (ctx.state === "suspended") await ctx.resume();
+            } catch (_) {}
+            try {
+                await audio.play();
+            } catch (playErr) {
+                console.warn("[Voice] Autoplay blocked, retrying after user gesture unlock...");
+                // Create and play a silent buffer to unlock audio
+                try {
+                    const ctx = getAudioCtx();
+                    await ctx.resume();
+                    const silentBuf = ctx.createBuffer(1, 1, 22050);
+                    const src = ctx.createBufferSource();
+                    src.buffer = silentBuf;
+                    src.connect(ctx.destination);
+                    src.start();
+                    await audio.play();
+                } catch (retryErr) {
+                    console.error("[Voice] TTS autoplay failed after retry:", retryErr);
+                    setGlobalAudio(null);
+                    URL.revokeObjectURL(url);
+                    setVoiceState(STATES.IDLE);
+                    onEnd?.();
+                }
+            }
         } catch (err) {
             console.error("[Voice] TTS error:", err);
             setVoiceState(STATES.IDLE);
             onEnd?.();
         }
-    }, []);
-
+    }, [getAudioCtx]);
     // ─── Send to assistant ─────────────────────────────────────────
     const sendToAssistant = useCallback(async (text) => {
         if (!text?.trim() || busyRef.current) return null;
