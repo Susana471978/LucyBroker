@@ -4,13 +4,10 @@ import useAudioLevelFromTTS from "../hooks/useAudioLevelFromTTS";
 
 export default function LucyPulseCanvas({ state = "idle" }) {
     const canvasRef = useRef(null);
-
     const micLevel = useMicrophoneLevel(state === "listening");
     const micLevelRef = useRef(0);
-
     const ttsData = useAudioLevelFromTTS();
     const ttsDataRef = useRef({ level: 0, waveform: null });
-
     const stateRef = useRef(state);
 
     useEffect(() => { micLevelRef.current = micLevel; }, [micLevel]);
@@ -20,19 +17,19 @@ export default function LucyPulseCanvas({ state = "idle" }) {
     useEffect(() => {
         const canvas = canvasRef.current;
         if (!canvas) return;
-
         const ctx = canvas.getContext("2d");
         if (!ctx) return;
 
-        let raf = 0;
-        let W = 0;
-        let H = 0;
-        let t = 0;
+        let raf = 0, W = 0, H = 0, t = 0, smoothLevel = 0;
+        let cR = 30, cG = 110, cB = 220;
+        let gR = 70, gG = 160, gB = 255;
 
-        let smoothLevel = 0;
-
-        let liveColor = [30, 110, 220];
-        let liveColorB = [70, 160, 255];
+        const COLORS = {
+            idle:       { m: [20, 60, 140],   g: [40, 100, 180] },
+            listening:  { m: [0, 180, 216],   g: [100, 220, 255] },
+            processing: { m: [100, 80, 220],  g: [140, 120, 255] },
+            speaking:   { m: [201, 178, 124], g: [255, 220, 150] },
+        };
 
         const resize = () => {
             const dpr = window.devicePixelRatio || 1;
@@ -44,127 +41,72 @@ export default function LucyPulseCanvas({ state = "idle" }) {
             ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
         };
 
-        const COLORS = {
-            idle: { a: [30, 110, 220], b: [70, 160, 255] },
-            listening: { a: [0, 180, 216], b: [120, 220, 255] },
-            processing: { a: [100, 120, 255], b: [160, 140, 255] },
-            speaking: { a: [201, 178, 124], b: [255, 220, 150] },
-        };
-
-        const generateWave = (points, level, st) => {
-            const data = new Float32Array(points);
-
-            const baseAmp =
-                st === "speaking"
-                    ? Math.max(level, 0.35)
-                    : Math.max(level, 0.15);
-
-            for (let i = 0; i < points; i++) {
-                const x = i / points;
-
-                const wave =
-                    Math.sin(x * 12 + t * 0.04) * 0.6 +
-                    Math.sin(x * 24 - t * 0.06) * 0.3 +
-                    Math.sin(x * 6 + t * 0.02) * 0.2;
-
-                data[i] = wave * baseAmp;
-            }
-
-            return data;
-        };
-
-        const drawWave = (data, color, colorB) => {
-            const cy = H / 2;
-            const scaleY = cy * 0.65;
-
+        const drawRibbon = (freq, speed, phase, yBase, amplitude, lineW, alpha) => {
             ctx.beginPath();
-
-            for (let i = 0; i < data.length; i++) {
-                const x = (i / data.length) * W;
-                const y = cy + data[i] * scaleY;
-
-                if (i === 0) ctx.moveTo(x, y);
+            for (let x = 0; x <= W; x += 2) {
+                const nx = x / W;
+                const env = Math.pow(Math.sin(nx * Math.PI), 2.0);
+                const wave = Math.sin(nx * freq + t * speed + phase)
+                           + Math.sin(nx * freq * 0.6 - t * speed * 0.7 + phase * 1.3) * 0.5
+                           + Math.sin(nx * freq * 0.3 + t * speed * 0.4) * 0.25;
+                const y = yBase + wave * amplitude * env;
+                if (x === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
 
-            // Glow suave
-            ctx.strokeStyle = `rgba(${color[0]},${color[1]},${color[2]},0.25)`;
-            ctx.lineWidth = 3;
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = `rgba(${color[0]},${color[1]},${color[2]},0.4)`;
+            ctx.strokeStyle = `rgba(${Math.round(cR)},${Math.round(cG)},${Math.round(cB)},${alpha * 0.12})`;
+            ctx.lineWidth = lineW + 8;
+            ctx.shadowBlur = 40;
+            ctx.shadowColor = `rgba(${Math.round(cR)},${Math.round(cG)},${Math.round(cB)},${alpha * 0.08})`;
             ctx.stroke();
 
-            // Línea principal
             ctx.beginPath();
-            for (let i = 0; i < data.length; i++) {
-                const x = (i / data.length) * W;
-                const y = cy + data[i] * scaleY;
-
-                if (i === 0) ctx.moveTo(x, y);
+            for (let x = 0; x <= W; x += 2) {
+                const nx = x / W;
+                const env = Math.pow(Math.sin(nx * Math.PI), 2.0);
+                const wave = Math.sin(nx * freq + t * speed + phase)
+                           + Math.sin(nx * freq * 0.6 - t * speed * 0.7 + phase * 1.3) * 0.5
+                           + Math.sin(nx * freq * 0.3 + t * speed * 0.4) * 0.25;
+                const y = yBase + wave * amplitude * env;
+                if (x === 0) ctx.moveTo(x, y);
                 else ctx.lineTo(x, y);
             }
 
-            ctx.strokeStyle = `rgba(${colorB[0]},${colorB[1]},${colorB[2]},0.9)`;
-            ctx.lineWidth = 1.4;
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = `rgba(${colorB[0]},${colorB[1]},${colorB[2]},0.5)`;
+            ctx.strokeStyle = `rgba(${Math.round(gR)},${Math.round(gG)},${Math.round(gB)},${alpha})`;
+            ctx.lineWidth = lineW;
+            ctx.shadowBlur = 18;
+            ctx.shadowColor = `rgba(${Math.round(gR)},${Math.round(gG)},${Math.round(gB)},${alpha * 0.35})`;
             ctx.stroke();
-
             ctx.shadowBlur = 0;
         };
 
         const draw = () => {
             const st = stateRef.current;
-            const colorCfg = COLORS[st] || COLORS.idle;
+            const cc = COLORS[st] || COLORS.idle;
 
             let level = 0;
-            let waveform = null;
+            if (st === "listening") level = micLevelRef.current;
+            else if (st === "speaking") level = ttsDataRef.current.level || 0;
+            else if (st === "processing") level = 0.25 + Math.sin(t * 0.04) * 0.1;
 
-            if (st === "listening") {
-                level = micLevelRef.current;
-            } else if (st === "speaking") {
-                const d = ttsDataRef.current;
-                level = d.level || 0;
-                waveform = d.waveform || null;
-            }
+            smoothLevel = smoothLevel * 0.9 + level * 0.1;
+            const eff = st === "idle" ? Math.max(smoothLevel, 0.04) : Math.max(smoothLevel, 0.2);
 
-            smoothLevel = smoothLevel * 0.7 + level * 0.3;
+            const lr = 0.035;
+            cR += (cc.m[0] - cR) * lr; cG += (cc.m[1] - cG) * lr; cB += (cc.m[2] - cB) * lr;
+            gR += (cc.g[0] - gR) * lr; gG += (cc.g[1] - gG) * lr; gB += (cc.g[2] - gB) * lr;
 
-            // transición color suave
-            const lr = 0.05;
-            liveColor[0] += (colorCfg.a[0] - liveColor[0]) * lr;
-            liveColor[1] += (colorCfg.a[1] - liveColor[1]) * lr;
-            liveColor[2] += (colorCfg.a[2] - liveColor[2]) * lr;
-
-            liveColorB[0] += (colorCfg.b[0] - liveColorB[0]) * lr;
-            liveColorB[1] += (colorCfg.b[1] - liveColorB[1]) * lr;
-            liveColorB[2] += (colorCfg.b[2] - liveColorB[2]) * lr;
-
-            // limpiar suave (NO borrar agresivo)
             ctx.fillStyle = "rgba(5,5,8,0.12)";
             ctx.fillRect(0, 0, W, H);
 
-            const points = Math.floor(W / 2);
+            const cy = H / 2;
+            const spread = H * 0.35;
+            const baseAmp = (0.15 + eff * 0.85) * spread;
 
-            let data;
-
-            if (waveform && waveform.length > 0) {
-                data = new Float32Array(points);
-                const ratio = waveform.length / points;
-
-                for (let i = 0; i < points; i++) {
-                    const idx = Math.floor(i * ratio);
-                    data[i] = waveform[Math.min(idx, waveform.length - 1)];
-                }
-            } else {
-                data = generateWave(points, smoothLevel, st);
-            }
-
-            drawWave(
-                data,
-                liveColor.map(Math.round),
-                liveColorB.map(Math.round)
-            );
+            drawRibbon(4.5, 0.012, 0,     cy - spread * 0.5,  baseAmp * 0.7,  1.8, 0.55);
+            drawRibbon(3.8, -0.015, 2.1,   cy - spread * 0.15, baseAmp * 0.9,  2.0, 0.75);
+            drawRibbon(5.2, 0.018, 4.2,    cy + spread * 0.15, baseAmp * 0.85, 1.9, 0.70);
+            drawRibbon(4.0, -0.01, 6.0,    cy + spread * 0.5,  baseAmp * 0.65, 1.6, 0.50);
 
             t += 1;
             raf = requestAnimationFrame(draw);
@@ -181,9 +123,6 @@ export default function LucyPulseCanvas({ state = "idle" }) {
     }, []);
 
     return (
-        <canvas
-            ref={canvasRef}
-            className="block w-full h-full bg-transparent"
-        />
+        <canvas ref={canvasRef} className="block w-full h-full bg-transparent" />
     );
 }

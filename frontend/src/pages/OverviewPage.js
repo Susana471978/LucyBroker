@@ -798,17 +798,6 @@ export default function OverviewPage() {
                     </p>
                 </motion.div>
 
-                <OnboardingBanner
-                    gmailConnected={gmailConnected}
-                    calendarConnected={calendarConnected}
-                    briefingDone={briefingCompleted}
-                    onConnectGmail={handleGmailConnect}
-                    onConnectCalendar={handleCalendarConnect}
-                    onRunBriefing={() => {
-                        if (!briefingInFlightRef.current) runBriefing();
-                    }}
-                />
-
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <ActionCard
                         icon={<Inbox className="w-5 h-5" />}
