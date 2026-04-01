@@ -576,7 +576,6 @@ export function useVoiceEngine() {
                 console.warn("[Wake] Error:", e.error);
             }
         };
-
         rec.onend = () => {
             if (rec._killed) return;
             if (activeRecRef.current !== rec) return;
@@ -585,13 +584,14 @@ export function useVoiceEngine() {
             if (handsFreeRef.current) return;
             if (stateRef.current !== STATES.IDLE) return;
             if (document.visibilityState !== "visible") return;
-
+            const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
+            const delay = isMobile ? 2000 : 500;
             setTimeout(() => {
                 if (!wakeEnabledRef.current || handsFreeRef.current) return;
                 if (stateRef.current !== STATES.IDLE) return;
                 if (activeRecRef.current !== null) return;
                 startWakeListener();
-            }, 500);
+            }, delay);
         };
 
         try { rec.start(); } catch (_) { }
