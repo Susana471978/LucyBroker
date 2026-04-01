@@ -6,7 +6,7 @@ import apiClient from '../services/apiClient';
 
 const PLANS = [
   {
-    key: 'basic',
+    key: 'executive_basic',
     name: 'Básico',
     price: '19',
     period: '/mes',
@@ -21,7 +21,7 @@ const PLANS = [
     ],
   },
   {
-    key: 'pro',
+    key: 'executive_pro',
     name: 'Pro',
     price: '29',
     period: '/mes',
@@ -39,7 +39,7 @@ const PLANS = [
     ],
   },
   {
-    key: 'business',
+    key: 'executive_business',
     name: 'Business',
     price: '49',
     period: '/mes',
@@ -128,7 +128,7 @@ export default function PricingPage() {
     setLoadingPlan(plan.key);
 
     try {
-      const response = await apiClient.post('/billing/checkout', {
+      const response = await apiClient.post(`/billing/checkout?plan=${plan.key}`, {
         plan: plan.key,
         billing_cycle: 'monthly',
       });

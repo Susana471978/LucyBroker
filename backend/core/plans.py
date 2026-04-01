@@ -16,9 +16,9 @@ from typing import Dict, List, Optional, Any
 
 PRICE_IDS = {
     # Lucy Secretaria Ejecutiva
-    "executive_basic":    "price_1TCdFGL07UaiQy6MNGAcfuiI",   # €19/mes
-    "executive_pro":      "price_1TCdFbL07UaiQy6MqamCQpu3",   # €29/mes
-    "executive_business": "price_1TCdG3L07UaiQy6MhgMvqLlG",   # €49/mes
+    "executive_basic":    "price_1THNlTQ1DTK2YH90YUjdMp3j",   # €19/mes
+    "executive_pro":      "price_1THNlTQ1DTK2YH90P9cQX0fU",   # €29/mes
+    "executive_business": "price_1THNlUQ1DTK2YH90UYbvE6Lj",   # €49/mes
 
     # Lucy Asistente Personal (segundo lanzamiento)
     # "personal_basic":     "price_1TCdGUL07UaiQy6MKdLzsQAg",   # €14/mes
