@@ -804,6 +804,13 @@ export default function OverviewPage() {
         setWelcomePhase('idle');
     };
 
+    const handleSkip = () => {
+        sessionStorage.setItem(`lucy_briefing_${new Date().toDateString()}`, '1');
+        setShowWelcome(false);
+        setBriefingCompleted(true);
+        setWelcomePhase('idle');
+    };
+
     const handleGmailConnect = async () => {
         try {
             const res = await apiClient.get('/gmail/auth');
