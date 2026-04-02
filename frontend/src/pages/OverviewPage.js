@@ -1086,250 +1086,226 @@ export default function OverviewPage() {
                                 initial={{ opacity: 0, y: 16 }}
                                 animate={{ opacity: 1, y: 0 }}
                                 transition={{ delay: 0.35, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                                className="relative overflow-hidden card-lucy-comfy border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,12,22,0.92)_0%,rgba(3,7,16,0.97)_100%)] backdrop-blur-xl"
+                                className="relative overflow-hidden rounded-[22px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,12,22,0.96)_0%,rgba(3,7,16,0.99)_100%)] backdrop-blur-xl"
                             >
-                                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(201,178,124,0.05),transparent_28%)]" />
-                                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.3)] to-transparent" />
+                                <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.22)] to-transparent" />
 
-                                <div className="relative z-10 flex flex-col gap-4">
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="relative flex items-center justify-center w-14 h-14">
-                                                <LucyLogoAnimated />
-                                                {wakeWordActive && (
-                                                    <div className="absolute -inset-1 rounded-[18px] border border-[rgba(201,178,124,0.28)] animate-ping" />
-                                                )}
-                                            </div>
-                                            <div>
-                                                <h3 className="text-h3 text-white tracking-wide">Lucy</h3>
-                                                <p className="text-caption text-[rgba(214,227,249,0.46)] mt-0.5">
-                                                    {wakeWordActive
-                                                        ? 'Escuchando…'
-                                                        : wakeWordEnabled
-                                                            ? 'Estoy contigo. Escríbeme o háblame cuando quieras.'
-                                                            : 'Asistente ejecutiva'}
-                                                </p>
-                                            </div>
-                                        </div>
-
-                                        <div className="flex items-center gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    if (!briefingInFlightRef.current) runBriefing('repite mi briefing matutino');
-                                                }}
-                                                disabled={briefingInFlightRef.current || sending}
-                                                className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 bg-[rgba(201,178,124,0.06)] text-[rgba(201,178,124,0.48)] border border-[rgba(201,178,124,0.15)] hover:bg-[rgba(201,178,124,0.12)] hover:text-[#C9B27C] disabled:opacity-30"
-                                                title="Repetir briefing"
-                                            >
-                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                                    <path d="M1 4v6h6M23 20v-6h-6" />
-                                                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" />
-                                                </svg>
-                                            </button>
-
-                                            <button
-                                                onClick={() => { stopGlobalAudio(); setTtsEnabled(prev => !prev); }} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${ttsEnabled ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)]' : 'bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.25)] border border-[rgba(255,255,255,0.07)]'} hover:bg-[rgba(255,255,255,0.07)]`}
-                                                title={ttsEnabled ? 'Silenciar voz' : 'Activar voz'}
-                                            >
-                                                {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                                            </button>
-                                        </div>
-                                    </div>
-
-                                    <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.06)] to-transparent -mx-8" />
-
-                                    <div className="flex justify-center items-center py-8">
-                                        <div className="w-full h-full min-h-[220px]">
-                                            <LucyPulseCanvas state={canvasState} level={canvasLevel} waveform={waveform} />
-                                        </div>
-                                    </div>
-
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* ── Selector de modo ── */}
+                                <div className="p-5 pb-0 grid grid-cols-2 gap-3">
                                     <button
-                                        onClick={handsFreeModeActive ? cancel : undefined}
-                                        className={`group relative overflow-hidden card-lucy border text-left transition-all duration-300 ${!handsFreeModeActive
-                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)]'
-                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] hover:border-[rgba(88,160,255,0.28)]'
-                                            }`}
+                                        onClick={() => handsFreeModeActive && cancel()}
+                                        className={`text-left px-4 py-3 rounded-[14px] border transition-all duration-300 ${!handsFreeModeActive
+                                            ? 'border-[rgba(201,178,124,0.32)] bg-[rgba(201,178,124,0.055)]'
+                                            : 'border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(201,178,124,0.18)]'}`}
                                     >
-                                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(201,178,124,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.06),transparent_36%)] opacity-90" />
-                                        <div className="pointer-events-none absolute inset-[1px] rounded-[15px] border border-[rgba(255,255,255,0.03)]" />
-
-                                        <div className="relative z-10">
-                                            <div className="mb-5 flex items-center gap-3">
-                                                <div
-                                                    className={`flex h-9 w-9 items-center justify-center rounded-[18px] border text-h3 transition-all duration-300 ${!handsFreeModeActive
-                                                        ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
-                                                        : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(184,214,255,0.92)]'
-                                                        }`}
-                                                >
-                                                    🖥️
-                                                </div>
-
-                                                <div className="min-w-0">
-                                                    <h3
-                                                        className={`text-h3 font-medium tracking-[-0.02em] ${!handsFreeModeActive
-                                                            ? 'text-[rgba(248,240,218,0.98)]'
-                                                            : 'text-[rgba(242,247,255,0.96)]'
-                                                            }`}
-                                                    >
-                                                        Modo Escritorio
-                                                    </h3>
-                                                </div>
-                                            </div>
-
-                                            <p
-                                                className={`max-w-[34rem] text-body leading-[1.7] ${!handsFreeModeActive
-                                                    ? 'text-[rgba(232,220,182,0.72)]'
-                                                    : 'text-[rgba(214,227,249,0.68)]'
-                                                    }`}
-                                            >
-                                                Botones, resúmenes y respuestas con un clic.
-                                            </p>
-
-                                            <div className="mt-5 flex items-center gap-2">
-                                                <span
-                                                    className={`inline-block h-2.5 w-2.5 rounded-full ${!handsFreeModeActive
-                                                        ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
-                                                        : 'bg-[rgba(148,163,184,0.55)]'
-                                                        }`}
-                                                />
-                                                <span
-                                                    className={`text-caption font-medium ${!handsFreeModeActive
-                                                        ? 'text-[rgba(237,211,143,0.95)]'
-                                                        : 'text-[rgba(176,190,212,0.70)]'
-                                                        }`}
-                                                >
-                                                    Activo
-                                                </span>
-                                            </div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className={`inline-block w-[6px] h-[6px] rounded-full flex-shrink-0 transition-all duration-300 ${!handsFreeModeActive
+                                                ? 'bg-[#C9B27C] shadow-[0_0_7px_rgba(201,178,124,0.75)]'
+                                                : 'bg-[rgba(148,163,184,0.35)]'}`}
+                                            />
+                                            <span className="text-[13px] font-medium text-[rgba(244,247,255,0.88)]">🖥️ Escritorio</span>
                                         </div>
+                                        <p className="text-[11px] text-[rgba(196,208,228,0.38)] leading-[1.5]">Texto. Sin distracciones.</p>
                                     </button>
 
                                     <button
-                                        onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
-                                        className={`group relative overflow-hidden card-lucy border text-left transition-all duration-300 ${handsFreeModeActive
-                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)]'
-                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] hover:border-[rgba(88,160,255,0.28)]'
-                                            }`}
+                                        onClick={() => handsFreeModeActive ? cancel() : activateHandsFreeMode()}
+                                        className={`text-left px-4 py-3 rounded-[14px] border transition-all duration-300 ${handsFreeModeActive
+                                            ? 'border-[rgba(74,158,255,0.28)] bg-[rgba(74,158,255,0.04)]'
+                                            : 'border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(74,158,255,0.2)]'}`}
                                     >
-                                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(201,178,124,0.05),transparent_34%)] opacity-90" />
-                                        <div className="pointer-events-none absolute inset-[1px] rounded-[15px] border border-[rgba(255,255,255,0.03)]" />
-
-                                        <div className="relative z-10">
-                                            <div className="mb-5 flex items-center gap-3">
-                                                <div
-                                                    className={`flex h-9 w-9 items-center justify-center rounded-[18px] border text-h3 transition-all duration-300 ${handsFreeModeActive
-                                                        ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
-                                                        : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(214,228,255,0.90)]'
-                                                        }`}
-                                                >
-                                                    🎧
-                                                </div>
-
-                                                <div className="min-w-0">
-                                                    <h3
-                                                        className={`text-h3 font-medium tracking-[-0.02em] ${handsFreeModeActive
-                                                            ? 'text-[rgba(248,240,218,0.98)]'
-                                                            : 'text-[rgba(242,247,255,0.96)]'
-                                                            }`}
-                                                    >
-                                                        Manos Libres
-                                                    </h3>
-                                                </div>
-                                            </div>
-
-                                            <p
-                                                className={`max-w-[34rem] text-body leading-[1.7] ${handsFreeModeActive
-                                                    ? 'text-[rgba(232,220,182,0.72)]'
-                                                    : 'text-[rgba(214,227,249,0.68)]'
-                                                    }`}
-                                            >
-                                                Lucy te lee la bandeja en voz alta.
-                                            </p>
-
-                                            <div className="mt-5 flex items-center gap-2">
-                                                <span
-                                                    className={`inline-block h-2.5 w-2.5 rounded-full ${handsFreeModeActive
-                                                        ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
-                                                        : 'bg-[rgba(148,163,184,0.55)]'
-                                                        }`}
-                                                />
-                                                <span
-                                                    className={`text-caption font-medium ${handsFreeModeActive
-                                                        ? 'text-[rgba(237,211,143,0.95)]'
-                                                        : 'text-[rgba(176,190,212,0.70)]'
-                                                        }`}
-                                                >
-                                                    {handsFreeModeActive ? 'Activo' : 'Disponible'}
-                                                </span>
-                                            </div>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <span className={`inline-block w-[6px] h-[6px] rounded-full flex-shrink-0 transition-all duration-300 ${handsFreeModeActive
+                                                ? 'bg-[#4A9EFF] shadow-[0_0_7px_rgba(74,158,255,0.7)]'
+                                                : 'bg-[rgba(148,163,184,0.35)]'}`}
+                                            />
+                                            <span className="text-[13px] font-medium text-[rgba(244,247,255,0.88)]">🎧 Manos libres</span>
                                         </div>
+                                        <p className="text-[11px] text-[rgba(196,208,228,0.38)] leading-[1.5]">Voz. Las ondas hablan.</p>
                                     </button>
                                 </div>
-                                <form
-                                    onSubmit={async (e) => {
-                                        e.preventDefault();
-                                        const input = e.target.elements.lucyInput;
-                                        const text = input.value.trim();
-                                        if (!text || sending) return;
-                                        input.value = '';
-                                        await sendToLucy(text);
-                                    }}
-                                    className="relative mt-2"
-                                >
-                                    <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-[radial-gradient(circle_at_left,rgba(59,130,246,0.06),transparent_30%),radial-gradient(circle_at_right,rgba(201,178,124,0.05),transparent_26%)]" />
 
-                                    <div className="relative flex items-center gap-3 rounded-[26px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(5,9,18,0.92)_0%,rgba(3,6,14,0.97)_100%)] px-4 py-3 shadow-[0_10px_35px_rgba(0,0,0,0.42),0_0_24px_rgba(36,99,235,0.06)]">
-                                        <input
-                                            name="lucyInput"
-                                            type="text"
-                                            placeholder={sending ? 'Lucy está pensando...' : 'Escríbeme lo que necesites… (tareas, ideas, recordatorios)'}
-                                            disabled={sending}
-                                            className="flex-1 bg-transparent px-1 py-1 text-body-sm text-[rgba(242,247,255,0.92)] placeholder:text-[rgba(160,174,198,0.34)] focus:outline-none disabled:opacity-50"
-                                        />
+                                {/* ══ CONTENIDO POR MODO ══ */}
+                                <AnimatePresence mode="wait">
 
-                                        <button
-                                            type="submit"
-                                            disabled={sending}
-                                            className={`w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0 transition-all duration-200 border ${sending
-                                                ? 'bg-[rgba(201,178,124,0.15)] border-[rgba(201,178,124,0.3)] text-[#C9B27C]'
-                                                : 'bg-[linear-gradient(180deg,rgba(46,34,12,0.96)_0%,rgba(24,18,8,0.98)_100%)] border-[rgba(201,178,124,0.18)] text-[rgba(224,196,126,0.92)] hover:border-[rgba(201,178,124,0.34)] hover:text-[rgba(245,219,152,0.98)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.40),0_0_24px_rgba(201,178,124,0.16)]'
-                                                }`}
-                                            title="Enviar"
-                                        >
-                                            {sending ? (
-                                                <div className="w-4 h-4 border-2 border-[rgba(201,178,124,0.3)] border-t-[#C9B27C] rounded-full animate-spin" />
-                                            ) : (
-                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                                    <line x1="22" y1="2" x2="11" y2="13" />
-                                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                                                </svg>
-                                            )}
-                                        </button>
-                                    </div>
-                                </form>
-                                <AnimatePresence>
-                                    {(lastInteraction || briefingText) && (
+                                    {/* ── MODO ESCRITORIO ── */}
+                                    {!handsFreeModeActive && (
                                         <motion.div
-                                            initial={{ opacity: 0, y: 6 }}
-                                            animate={{ opacity: 1, y: 0 }}
+                                            key="escritorio"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
                                             exit={{ opacity: 0 }}
-                                            className="card-lucy bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] max-h-60 overflow-y-auto"
+                                            transition={{ duration: 0.3 }}
+                                            className="p-5 flex flex-col gap-4"
                                         >
-                                            <p className="text-caption text-[rgba(255,255,255,0.2)] uppercase tracking-[0.07em] mb-3">
-                                                Lucy
-                                            </p>
+                                            {/* Header Lucy + botones */}
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="relative flex items-center justify-center w-[34px] h-[34px]">
+                                                        <LucyLogoAnimated />
+                                                        {wakeWordActive && (
+                                                            <div className="absolute -inset-1 rounded-[11px] border border-[rgba(201,178,124,0.28)] animate-ping" />
+                                                        )}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[13px] font-medium text-[rgba(255,255,255,0.9)]">Lucy</p>
+                                                        <p className="text-[10px] text-[rgba(214,227,249,0.35)] uppercase tracking-[0.1em] mt-[1px]">
+                                                            {wakeWordActive ? 'Escuchando…' : wakeWordEnabled ? 'Contigo' : 'Asistente ejecutiva'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button
+                                                        onClick={() => { if (!briefingInFlightRef.current) runBriefing('repite mi briefing matutino'); }}
+                                                        disabled={briefingInFlightRef.current || sending}
+                                                        className="w-[30px] h-[30px] rounded-[10px] flex items-center justify-center border border-[rgba(201,178,124,0.13)] bg-[rgba(201,178,124,0.04)] text-[rgba(201,178,124,0.42)] hover:bg-[rgba(201,178,124,0.11)] hover:text-[#C9B27C] disabled:opacity-25 transition-all duration-200"
+                                                        title="Repetir briefing"
+                                                    >
+                                                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                                            <path d="M1 4v6h6M23 20v-6h-6" />
+                                                            <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" />
+                                                        </svg>
+                                                    </button>
+                                                    <button
+                                                        onClick={() => { stopGlobalAudio(); setTtsEnabled(prev => !prev); }}
+                                                        className={`w-[30px] h-[30px] rounded-[10px] flex items-center justify-center border transition-all duration-200 ${ttsEnabled
+                                                            ? 'border-[rgba(201,178,124,0.22)] bg-[rgba(201,178,124,0.09)] text-[#C9B27C]'
+                                                            : 'border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.03)] text-[rgba(255,255,255,0.22)]'} hover:bg-[rgba(255,255,255,0.06)]`}
+                                                        title={ttsEnabled ? 'Silenciar voz' : 'Activar voz'}
+                                                    >
+                                                        {ttsEnabled ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+                                                    </button>
+                                                </div>
+                                            </div>
 
-                                            <p className="text-body text-[rgba(255,255,255,0.6)] leading-relaxed">
-                                                {lastInteraction || briefingText}
-                                            </p>
+                                            <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.05)] to-transparent" />
+
+                                            {/* Respuesta Lucy en Cormorant — sin cuadro gris */}
+                                            <AnimatePresence>
+                                                {(lastInteraction || briefingText) && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0, y: 4 }}
+                                                        animate={{ opacity: 1, y: 0 }}
+                                                        exit={{ opacity: 0 }}
+                                                        className="relative max-h-[88px] overflow-hidden"
+                                                    >
+                                                        <p
+                                                            className="text-[rgba(255,255,255,0.5)]"
+                                                            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '15px', lineHeight: '1.85' }}
+                                                        >
+                                                            {lastInteraction || briefingText}
+                                                        </p>
+                                                        <div className="absolute inset-x-0 bottom-0 h-[22px] bg-gradient-to-t from-[rgba(3,7,16,0.99)] to-transparent pointer-events-none" />
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+
+                                            {/* Input conversacional */}
+                                            <form
+                                                onSubmit={async (e) => {
+                                                    e.preventDefault();
+                                                    const input = e.target.elements.lucyInput;
+                                                    const text = input.value.trim();
+                                                    if (!text || sending) return;
+                                                    input.value = '';
+                                                    await sendToLucy(text);
+                                                }}
+                                            >
+                                                <div className="flex items-center gap-3 px-4 py-3 rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.025)] focus-within:border-[rgba(201,178,124,0.16)] transition-colors duration-200">
+                                                    <input
+                                                        name="lucyInput"
+                                                        type="text"
+                                                        placeholder={sending ? 'Lucy está pensando…' : 'Escríbeme lo que necesites…'}
+                                                        disabled={sending}
+                                                        className="flex-1 bg-transparent text-[13px] text-[rgba(242,247,255,0.88)] placeholder:text-[rgba(160,174,198,0.28)] focus:outline-none disabled:opacity-40"
+                                                    />
+                                                    <button
+                                                        type="submit"
+                                                        disabled={sending}
+                                                        className="w-[32px] h-[32px] rounded-[11px] flex items-center justify-center flex-shrink-0 border border-[rgba(201,178,124,0.15)] bg-[rgba(201,178,124,0.07)] text-[rgba(201,178,124,0.75)] hover:bg-[rgba(201,178,124,0.14)] hover:text-[#C9B27C] disabled:opacity-30 transition-all duration-200"
+                                                    >
+                                                        {sending
+                                                            ? <div className="w-3 h-3 border border-[rgba(201,178,124,0.3)] border-t-[#C9B27C] rounded-full animate-spin" />
+                                                            : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><line x1="22" y1="2" x2="11" y2="13" /><polygon points="22 2 15 22 11 13 2 9 22 2" /></svg>
+                                                        }
+                                                    </button>
+                                                </div>
+                                            </form>
                                         </motion.div>
                                     )}
+
+                                    {/* ── MODO MANOS LIBRES ── */}
+                                    {handsFreeModeActive && (
+                                        <motion.div
+                                            key="manos-libres"
+                                            initial={{ opacity: 0 }}
+                                            animate={{ opacity: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            transition={{ duration: 0.35 }}
+                                            className="flex flex-col items-center px-6 pt-5 pb-6 gap-5"
+                                        >
+                                            {/* Estado Lucy */}
+                                            <div className="text-center">
+                                                <p className="text-[10px] text-[rgba(201,178,124,0.42)] uppercase tracking-[0.28em] font-medium mb-[5px]">Lucy</p>
+                                                <div className="flex items-center justify-center gap-[7px]">
+                                                    <span
+                                                        className="inline-block w-[5px] h-[5px] rounded-full bg-[#C9B27C] shadow-[0_0_6px_rgba(201,178,124,0.8)]"
+                                                        style={{ animation: 'lucyPulse 1.5s ease-in-out infinite' }}
+                                                    />
+                                                    <span className="text-[10px] text-[rgba(255,255,255,0.16)] uppercase tracking-[0.14em]">
+                                                        {isSpeaking ? 'Hablando…' : isListening ? 'Escuchando…' : isProcessing ? 'Pensando…' : 'Contigo'}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* Banda de ondas — estrecha y centrada */}
+                                            <div className="relative w-full overflow-hidden" style={{ height: '100px' }}>
+                                                <LucyPulseCanvas
+                                                    state={canvasState}
+                                                    level={canvasLevel}
+                                                    waveform={waveform}
+                                                />
+                                                <div className="absolute left-0 top-0 bottom-0 w-10 bg-gradient-to-r from-[rgba(3,7,16,0.99)] to-transparent pointer-events-none z-10" />
+                                                <div className="absolute right-0 top-0 bottom-0 w-10 bg-gradient-to-l from-[rgba(3,7,16,0.99)] to-transparent pointer-events-none z-10" />
+                                            </div>
+
+                                            {/* Transcript — lo que dice Lucy */}
+                                            <AnimatePresence>
+                                                {(lastInteraction || briefingText) && (
+                                                    <motion.div
+                                                        initial={{ opacity: 0 }}
+                                                        animate={{ opacity: 1 }}
+                                                        exit={{ opacity: 0 }}
+                                                        className="text-center min-h-[48px]"
+                                                    >
+                                                        <p
+                                                            className="text-[rgba(255,255,255,0.32)]"
+                                                            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '15px', lineHeight: '1.8' }}
+                                                        >
+                                                            {lastInteraction || briefingText}
+                                                        </p>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+
+                                            {/* Botón detener */}
+                                            <button
+                                                onClick={cancel}
+                                                className="flex items-center gap-2 px-5 py-[9px] rounded-[12px] border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.025)] text-[rgba(255,255,255,0.22)] text-[10px] uppercase tracking-[0.14em] hover:bg-[rgba(255,255,255,0.05)] hover:text-[rgba(255,255,255,0.45)] transition-all duration-200"
+                                            >
+                                                <svg width="7" height="7" viewBox="0 0 24 24" fill="currentColor">
+                                                    <rect x="6" y="6" width="12" height="12" rx="2" />
+                                                </svg>
+                                                Detener
+                                            </button>
+                                        </motion.div>
+                                    )}
+
                                 </AnimatePresence>
-                            </motion.div>  {/* ← este es el que faltaba */}
+
+                                <style>{`@keyframes lucyPulse { 0%,100%{opacity:1} 50%{opacity:0.3} }`}</style>
+                            </motion.div>
+
                         </>
                     )}
                 </div>
