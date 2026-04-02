@@ -67,12 +67,15 @@ export function onGlobalAudioChange(fn) {
 
 export function stopGlobalAudio() {
     if (_globalAudio) {
-        try { _globalAudio.pause(); _globalAudio.currentTime = 0; } catch (_) { }
+        // Soporta formato nuevo { audio, analyser } y formato legacy <audio>
+        const audioEl = (_globalAudio?.audio instanceof HTMLMediaElement)
+            ? _globalAudio.audio
+            : _globalAudio;
+        try { audioEl.pause(); audioEl.currentTime = 0; } catch (_) { }
     }
     setGlobalAudio(null);
     try { window.speechSynthesis.cancel(); } catch (_) { }
 }
-
 export function useVoiceEngine() {
     const [voiceState, setVoiceState] = useState(STATES.IDLE);
     const [transcript, setTranscript] = useState("");
@@ -117,7 +120,7 @@ export function useVoiceEngine() {
                 const b = ctx.createBuffer(1, 1, 22050);
                 const s = ctx.createBufferSource();
                 s.buffer = b; s.connect(ctx.destination); s.start();
-            } catch (_) {}
+            } catch (_) { }
             document.removeEventListener("click", unlock);
             document.removeEventListener("touchstart", unlock);
         };
@@ -154,68 +157,103 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    // ─── Speak ─────────────────────────────────────────────────────
+    // ─── Reemplaza SOLO la función speak() dentro de useVoiceEngine ───────────────
+    //
+    // Cambios respecto a la versión anterior:
+    //   1. Conecta un AnalyserNode al AudioContext del propio voiceEngine
+    //      ANTES de llamar setGlobalAudio(), para que el analyser esté listo
+    //      en el momento en que useAudioLevelFromTTS lo reciba.
+    //   2. Pasa { audio, analyser } en lugar de solo audio a setGlobalAudio().
+    //   3. useAudioLevelFromTTS detecta el formato y lee directamente del analyser.
+    //
+    // NOTA: setGlobalAudio() y onGlobalAudioChange() en useVoiceEngine.js
+    // no necesitan cambios — ya aceptan cualquier valor y lo reenvían tal cual.
+    // ─────────────────────────────────────────────────────────────────────────────
+
     const speak = useCallback(async (text, onEnd) => {
-        if (!ttsRef.current || !text) {
-            onEnd?.();
-            return;
-        }
+        if (!ttsRef.current || !text) { onEnd?.(); return; }
+
         try {
             stopGlobalAudio();
             setVoiceState(STATES.SPEAKING);
+
             const res = await apiClient.post("/tts", { text }, { responseType: "blob" });
             const url = URL.createObjectURL(res.data);
             const audio = new Audio(url);
-            setGlobalAudio(audio);
+
+            // ── Conectar AnalyserNode en nuestro propio AudioContext ──────
+            // Lo hacemos ANTES de setGlobalAudio para que el hook lo reciba
+            // ya listo. Un solo createMediaElementSource por elemento.
+            let analyser = null;
+            try {
+                const ctx = getAudioCtx();
+                if (ctx.state === "suspended") await ctx.resume().catch(() => { });
+
+                const source = ctx.createMediaElementSource(audio);
+                analyser = ctx.createAnalyser();
+                analyser.fftSize = 512;
+                analyser.smoothingTimeConstant = 0.55;
+
+                source.connect(analyser);
+                analyser.connect(ctx.destination);
+            } catch (analyserErr) {
+                // En caso extremo: el audio suena igual, solo sin visualización
+                console.warn("[Voice] AnalyserNode no pudo conectarse:", analyserErr.message);
+            }
+
+            // Notificar al hook de visualización con audio + analyser
+            setGlobalAudio({ audio, analyser });
+
             audio.onended = () => {
                 setGlobalAudio(null);
                 URL.revokeObjectURL(url);
                 setTimeout(() => {
                     onEnd?.();
-                    if (stateRef.current === STATES.SPEAKING) {
-                        setVoiceState(STATES.IDLE);
-                    }
+                    if (stateRef.current === STATES.SPEAKING) setVoiceState(STATES.IDLE);
                 }, 600);
             };
+
             audio.onerror = () => {
                 setGlobalAudio(null);
                 URL.revokeObjectURL(url);
                 setVoiceState(STATES.IDLE);
                 onEnd?.();
             };
-            // Unlock AudioContext before playing
+
+            // Unlock y play
             try {
                 const ctx = getAudioCtx();
                 if (ctx.state === "suspended") await ctx.resume();
-            } catch (_) {}
+            } catch (_) { }
+
             try {
                 await audio.play();
             } catch (playErr) {
-                console.warn("[Voice] Autoplay blocked, retrying after user gesture unlock...");
-                // Create and play a silent buffer to unlock audio
+                console.warn("[Voice] Autoplay bloqueado, reintentando...");
                 try {
                     const ctx = getAudioCtx();
                     await ctx.resume();
-                    const silentBuf = ctx.createBuffer(1, 1, 22050);
+                    const buf = ctx.createBuffer(1, 1, 22050);
                     const src = ctx.createBufferSource();
-                    src.buffer = silentBuf;
-                    src.connect(ctx.destination);
-                    src.start();
+                    src.buffer = buf; src.connect(ctx.destination); src.start();
                     await audio.play();
                 } catch (retryErr) {
-                    console.error("[Voice] TTS autoplay failed after retry:", retryErr);
+                    console.error("[Voice] TTS autoplay falló:", retryErr);
                     setGlobalAudio(null);
                     URL.revokeObjectURL(url);
                     setVoiceState(STATES.IDLE);
                     onEnd?.();
                 }
             }
+
         } catch (err) {
             console.error("[Voice] TTS error:", err);
             setVoiceState(STATES.IDLE);
             onEnd?.();
         }
     }, [getAudioCtx]);
+
+
     // ─── Send to assistant ─────────────────────────────────────────
     const sendToAssistant = useCallback(async (text) => {
         if (!text?.trim() || busyRef.current) return null;

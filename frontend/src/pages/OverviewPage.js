@@ -11,6 +11,8 @@ import {
     Inbox, Clock, Paperclip, Sparkles, Link2, Calendar, Brain, FileText
 } from 'lucide-react';
 
+import useAudioLevelFromTTS from '../hooks/useAudioLevelFromTTS';
+import useMicrophoneLevel from '../hooks/useMicrophoneLevel';
 import LucyPulseCanvas from "../components/LucyPulseCanvas";
 import LucyLogoAnimated from "../components/LucyLogoAnimated";
 
@@ -24,8 +26,83 @@ import OnboardingBanner from '../components/OnboardingBanner';
 import { disconnectGmail } from '../services/mailService';
 import { getCalendarStatus, connectCalendar, disconnectCalendar, getTodayEvents, formatEventTime } from '../services/calendarService';
 
+
 /* ─────────────────────────────────────────────────────────
-   WELCOME OVERLAY
+   PARTICLE — estado thinking: una partícula dorada que late
+───────────────────────────────────────────────────────── */
+function ThinkingParticle() {
+    return (
+        <motion.div
+            initial={{ opacity: 0, scale: 0 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0 }}
+            transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+            className="fixed inset-0 z-50 flex items-center justify-center"
+            style={{ background: 'rgba(3,4,8,0.97)', backdropFilter: 'blur(32px)' }}
+        >
+            {/* Anillos que se expanden hacia afuera */}
+            {[0, 1, 2].map(i => (
+                <motion.div
+                    key={i}
+                    className="absolute rounded-full border border-[rgba(201,178,124,0.15)]"
+                    initial={{ width: 8, height: 8, opacity: 0 }}
+                    animate={{
+                        width: [8, 120 + i * 80],
+                        height: [8, 120 + i * 80],
+                        opacity: [0, 0.4, 0],
+                    }}
+                    transition={{
+                        duration: 2.2,
+                        delay: i * 0.55,
+                        repeat: Infinity,
+                        ease: 'easeOut',
+                    }}
+                />
+            ))}
+
+            {/* Núcleo: partícula dorada pulsante */}
+            <motion.div
+                className="relative flex items-center justify-center"
+                animate={{ scale: [1, 1.15, 1] }}
+                transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+            >
+                {/* Glow exterior */}
+                <motion.div
+                    className="absolute rounded-full"
+                    style={{
+                        width: 32, height: 32,
+                        background: 'radial-gradient(circle, rgba(201,178,124,0.35) 0%, transparent 70%)',
+                        filter: 'blur(8px)',
+                    }}
+                    animate={{ opacity: [0.5, 1, 0.5] }}
+                    transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                {/* Núcleo sólido */}
+                <div
+                    className="relative z-10 rounded-full"
+                    style={{
+                        width: 8, height: 8,
+                        background: 'radial-gradient(circle, #F0E2B0 0%, #C9B27C 60%, #A08952 100%)',
+                        boxShadow: '0 0 12px rgba(201,178,124,0.8), 0 0 24px rgba(201,178,124,0.4)',
+                    }}
+                />
+            </motion.div>
+
+            {/* Texto discreto debajo */}
+            <motion.p
+                className="absolute bottom-[calc(50%-80px)] text-[10px] text-[rgba(201,178,124,0.3)] uppercase tracking-[0.25em]"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: [0, 0.6, 0.3] }}
+                transition={{ duration: 1.2, delay: 0.4 }}
+            >
+                Preparando tu día…
+            </motion.p>
+        </motion.div>
+    );
+}
+
+/* ─────────────────────────────────────────────────────────
+   WELCOME OVERLAY — sin caja de ondas
 ───────────────────────────────────────────────────────── */
 function WelcomeOverlay({ onStart, onSkip, greeting }) {
     return (
@@ -33,27 +110,23 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.5 }}
             className="fixed inset-0 z-50 flex items-center justify-center"
-            style={{ background: 'rgba(4,4,8,0.96)', backdropFilter: 'blur(32px)' }}
+            style={{ background: 'rgba(4,4,8,0.97)', backdropFilter: 'blur(32px)' }}
         >
             <motion.div
                 initial={{ opacity: 0, y: 40, scale: 0.94 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -20, scale: 0.97 }}
                 transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-                className="max-w-lg w-full mx-8 text-center flex flex-col items-center gap-8"
+                className="max-w-lg w-full mx-8 flex flex-col items-center gap-10"
             >
-                <div className="w-full px-4">
-                    <LucyPulseCanvas state="idle" />
-                </div>
-
-                <div className="space-y-3">
+                <div className="space-y-4 text-center">
                     <motion.p
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3, duration: 0.6 }}
-                        className="text-caption text-[rgba(255,255,255,0.25)] uppercase tracking-[0.18em]"
+                        transition={{ delay: 0.2, duration: 0.6 }}
+                        className="text-[11px] text-[rgba(255,255,255,0.25)] uppercase tracking-[0.18em]"
                     >
                         {greeting}
                     </motion.p>
@@ -61,9 +134,9 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
                     <motion.h2
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.45, duration: 0.6 }}
+                        transition={{ delay: 0.35, duration: 0.6 }}
                         className="text-white font-light leading-tight"
-                        style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2rem', fontStyle: 'italic' }}
+                        style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.4rem', fontStyle: 'italic' }}
                     >
                         Soy Lucy, tu secretaria.
                     </motion.h2>
@@ -71,24 +144,27 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
                     <motion.p
                         initial={{ opacity: 0, y: 8 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.6, duration: 0.6 }}
-                        className="text-body-sm text-[rgba(255,255,255,0.3)] leading-relaxed"
+                        transition={{ delay: 0.5, duration: 0.6 }}
+                        className="text-[13px] text-[rgba(255,255,255,0.28)] leading-relaxed"
                     >
-                        Tengo tu briefing listo.
-                        <br />
-                        Toca para escucharlo.
+                        Tengo tu briefing listo.<br />Toca para escucharlo.
                     </motion.p>
                 </div>
 
                 <motion.div
                     initial={{ opacity: 0, y: 12 }}
                     animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.75, duration: 0.6 }}
+                    transition={{ delay: 0.65, duration: 0.6 }}
                     className="flex flex-col items-center gap-4 w-full"
                 >
                     <button
                         onClick={onStart}
-                        className="group relative w-full py-4 rounded-2xl bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.3)] text-[#C9B27C] text-body-sm uppercase tracking-[0.12em] font-medium hover:bg-[rgba(201,178,124,0.18)] hover:border-[rgba(201,178,124,0.5)] hover:shadow-[0_0_40px_rgba(201,178,124,0.15)] transition-all duration-300 overflow-hidden"
+                        className="group relative w-full py-4 rounded-2xl
+                            bg-[rgba(201,178,124,0.1)] border border-[rgba(201,178,124,0.3)]
+                            text-[#C9B27C] text-[11px] uppercase tracking-[0.12em] font-medium
+                            hover:bg-[rgba(201,178,124,0.18)] hover:border-[rgba(201,178,124,0.5)]
+                            hover:shadow-[0_0_40px_rgba(201,178,124,0.15)]
+                            transition-all duration-300 overflow-hidden"
                     >
                         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.4)] to-transparent" />
                         <span className="flex items-center justify-center gap-2">
@@ -101,7 +177,8 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
 
                     <button
                         onClick={onSkip}
-                        className="text-caption text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.4)] uppercase tracking-[0.1em] transition-colors duration-200"
+                        className="text-[10px] text-[rgba(255,255,255,0.18)] hover:text-[rgba(255,255,255,0.4)]
+                            uppercase tracking-[0.1em] transition-colors duration-200"
                     >
                         Entrar sin audio →
                     </button>
@@ -111,168 +188,150 @@ function WelcomeOverlay({ onStart, onSkip, greeting }) {
     );
 }
 
-
 /* ─────────────────────────────────────────────────────────
-   BRIEFING OVERLAY — Premium split layout with typewriter
-   Phase 1: Wave fullscreen → Phase 2: Wave left + text slides from right
-   Text reveals word-by-word for premium feel
+   BRIEFING OVERLAY
+   Typewriter sincronizado con audio.currentTime real.
+   Props nuevas: audioRef — ref al elemento <audio> activo
+   (pásalo desde OverviewPage junto a los demás props)
 ───────────────────────────────────────────────────────── */
-function BriefingOverlay({ text, onDismiss, isSpeaking }) {
+function BriefingOverlay({ text, onDismiss, isSpeaking, canvasState, canvasLevel, waveform, audioRef }) {
     const [showText, setShowText] = useState(false);
-    const [visibleWords, setVisibleWords] = useState(0);
-    const wordsRef = useRef([]);
-    const intervalRef = useRef(null);
+    const [visibleChars, setVisibleChars] = useState(0);
+    const rafRef = useRef(null);
 
-    // Split text into words once
+    // Panel derecho aparece 1.5s después del inicio del audio
     useEffect(() => {
-        if (text) {
-            wordsRef.current = text.split(/(\s+)/); // preserves whitespace
-            setVisibleWords(0);
-        } else {
-            wordsRef.current = [];
-            setVisibleWords(0);
-        }
+        if (!text) { setShowText(false); return; }
+        const t = setTimeout(() => setShowText(true), 1500);
+        return () => clearTimeout(t);
     }, [text]);
 
-    // Phase transition: fullscreen wave → split layout
+    // Sincronización con audio.currentTime
+    // Estrategia: estimamos cuántos chars se han pronunciado
+    // basándonos en la velocidad real del TTS shimmer (≈14 chars/s)
+    // corregida con currentTime del audio para que nunca se desvíe.
     useEffect(() => {
-        if (text) {
-            const timer = setTimeout(() => setShowText(true), 800);
-            return () => clearTimeout(timer);
-        } else {
-            setShowText(false);
-        }
-    }, [text]);
+        if (!showText || !text) return;
 
-    // Typewriter: reveal words progressively when text panel is visible and speaking
-    useEffect(() => {
-        if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-            intervalRef.current = null;
-        }
+        const CHARS_PER_SEC = 14; // shimmer voice ≈ 14 chars/seg (ajusta si va rápido/lento)
 
-        if (!showText || !text || wordsRef.current.length === 0) return;
+        const tick = () => {
+            const audio = audioRef?.current;
+            let elapsed;
 
-        // Words per second — tune to approximate TTS speed
-        // shimmer at speed 1.05 ≈ 2.8 words/sec → ~140ms per token
-        // We reveal whitespace tokens instantly, so effective pace is ~140ms per real word
-        const MS_PER_TOKEN = 130;
-        let idx = visibleWords;
-
-        intervalRef.current = setInterval(() => {
-            idx += 1;
-            if (idx >= wordsRef.current.length) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-                setVisibleWords(wordsRef.current.length);
+            if (audio && !audio.paused && !audio.ended && audio.currentTime > 0) {
+                // Tiempo real del audio — la referencia más precisa
+                elapsed = audio.currentTime;
+            } else {
+                // Fallback: no hay audio activo todavía, esperar
+                rafRef.current = requestAnimationFrame(tick);
                 return;
             }
-            // Skip whitespace-only tokens instantly
-            if (wordsRef.current[idx] && wordsRef.current[idx].trim() === '') {
-                idx += 1;
-            }
-            setVisibleWords(idx);
-        }, MS_PER_TOKEN);
 
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
+            const targetChars = Math.floor(elapsed * CHARS_PER_SEC);
+            setVisibleChars(Math.min(targetChars, text.length));
+
+            if (targetChars < text.length) {
+                rafRef.current = requestAnimationFrame(tick);
             }
         };
-    }, [showText, text]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // Build visible text string
-    const displayedText = wordsRef.current.slice(0, visibleWords).join('');
-    const isFullyRevealed = visibleWords >= wordsRef.current.length;
-    const isDone = text && !isSpeaking && isFullyRevealed;
+        rafRef.current = requestAnimationFrame(tick);
+        return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, [showText, text, audioRef]);
+
+    // Cuando el audio termina, mostrar todo el texto
+    useEffect(() => {
+        if (!isSpeaking && text) {
+            setVisibleChars(text.length);
+        }
+    }, [isSpeaking, text]);
+
+    const displayedText = text ? text.slice(0, visibleChars) : '';
+    const isFullyRevealed = visibleChars >= (text?.length ?? 0);
 
     return (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.8 }}
             className="fixed inset-0 z-50"
             style={{ background: 'rgba(3,4,8,0.97)', backdropFilter: 'blur(32px)' }}
         >
-            {/* ── Desktop: side by side / Mobile: stacked ── */}
             <div className="h-full flex flex-col md:flex-row">
 
-                {/* ── LEFT: Wave + Lucy status ── */}
+                {/* ══ IZQUIERDA: status / onda / botón ══ */}
                 <motion.div
-                    className="flex flex-col items-center justify-center gap-6 p-8 relative"
-                    animate={{
-                        width: showText ? '100%' : '100%',
-                        flex: showText ? '0 0 45%' : '1 1 100%',
-                    }}
-                    transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                    style={{ minHeight: showText ? undefined : '100vh' }}
+                    className="relative overflow-hidden flex flex-col"
+                    animate={{ flex: showText ? '0 0 45%' : '1 1 100%' }}
+                    transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
+                    style={{ minHeight: '100vh' }}
                 >
-                    {/* Ambient glow */}
-                    <div className="absolute inset-0 pointer-events-none">
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] rounded-full"
-                            style={{
-                                background: isSpeaking
-                                    ? 'radial-gradient(ellipse, rgba(201,178,124,0.06) 0%, transparent 70%)'
-                                    : 'radial-gradient(ellipse, rgba(0,180,216,0.04) 0%, transparent 70%)',
-                                transition: 'background 1s ease',
-                            }}
+                    <div className="absolute inset-0 z-0">
+                        <LucyPulseCanvas
+                            state={canvasState}
+                            level={canvasLevel}
+                            waveform={waveform}
                         />
                     </div>
 
-                    <div className="w-full max-w-lg relative z-10">
-                        <LucyPulseCanvas state={isSpeaking ? 'speaking' : text ? 'idle' : 'processing'} />
+                    {/* Superior */}
+                    <div className="relative z-20 flex-none pt-10 flex flex-col items-center">
+                        <motion.div
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.3, duration: 0.5 }}
+                            className="text-center"
+                        >
+                            <p className="text-[11px] text-[rgba(201,178,124,0.45)] uppercase tracking-[0.25em] font-medium">
+                                Lucy
+                            </p>
+                            <p className="text-[11px] text-[rgba(255,255,255,0.2)] uppercase tracking-[0.12em] mt-1.5">
+                                {isSpeaking ? 'Hablando…' : text ? 'Briefing listo' : 'Revisando tu día…'}
+                            </p>
+                        </motion.div>
                     </div>
 
-                    <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.4, duration: 0.5 }}
-                        className="text-center relative z-10"
-                    >
-                        <p className="text-[11px] text-[rgba(201,178,124,0.45)] uppercase tracking-[0.25em] font-medium">
-                            Lucy
-                        </p>
-                        <p className="text-[11px] text-[rgba(255,255,255,0.2)] uppercase tracking-[0.12em] mt-1.5">
-                            {isSpeaking ? 'Hablando…' : text ? 'Briefing listo' : 'Revisando tu día…'}
-                        </p>
-                    </motion.div>
+                    {/* Central — espacio para las ondas */}
+                    <div className="relative z-10 flex-1" />
 
-                    {/* Detener / Cerrar button */}
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ delay: 0.8, duration: 0.4 }}
-                        className="relative z-10 mt-2"
-                    >
-                        {isSpeaking ? (
-                            <button
-                                onClick={onDismiss}
-                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl
-                                    bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]
-                                    text-[rgba(255,255,255,0.3)] text-[10px] uppercase tracking-[0.14em]
-                                    hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(255,255,255,0.5)]
-                                    transition-all duration-200"
-                            >
-                                <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" opacity="0.5">
-                                    <rect x="6" y="6" width="12" height="12" rx="2" />
-                                </svg>
-                                Detener
-                            </button>
-                        ) : text ? (
-                            <button
-                                onClick={onDismiss}
-                                className="text-[10px] text-[rgba(255,255,255,0.15)] hover:text-[rgba(255,255,255,0.4)]
-                                    uppercase tracking-[0.14em] transition-colors duration-200"
-                            >
-                                Cerrar →
-                            </button>
-                        ) : null}
-                    </motion.div>
+                    {/* Inferior — botón */}
+                    <div className="relative z-20 flex-none pb-10 flex flex-col items-center">
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ delay: 1.0, duration: 0.4 }}
+                        >
+                            {isSpeaking ? (
+                                <button
+                                    onClick={onDismiss}
+                                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl
+                                        bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.08)]
+                                        text-[rgba(255,255,255,0.3)] text-[10px] uppercase tracking-[0.14em]
+                                        hover:bg-[rgba(255,255,255,0.06)] hover:text-[rgba(255,255,255,0.5)]
+                                        transition-all duration-200"
+                                >
+                                    <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+                                        <rect x="6" y="6" width="12" height="12" rx="2" />
+                                    </svg>
+                                    Detener
+                                </button>
+                            ) : text ? (
+                                <button
+                                    onClick={onDismiss}
+                                    className="text-[10px] text-[rgba(255,255,255,0.15)]
+                                        hover:text-[rgba(255,255,255,0.4)] uppercase tracking-[0.14em]
+                                        transition-colors duration-200"
+                                >
+                                    Cerrar →
+                                </button>
+                            ) : null}
+                        </motion.div>
+                    </div>
                 </motion.div>
 
-                {/* ── RIGHT: Text panel with typewriter ── */}
+                {/* ══ DERECHA: texto sincronizado ══ */}
                 <AnimatePresence>
                     {showText && text && (
                         <motion.div
@@ -282,35 +341,35 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
                             transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
                             className="flex-1 flex flex-col justify-center relative overflow-hidden"
                         >
-                            {/* Subtle left border glow */}
-                            <div className="absolute left-0 top-0 bottom-0 w-px"
+                            <div
+                                className="absolute left-0 top-0 bottom-0 w-px"
                                 style={{ background: 'linear-gradient(to bottom, transparent, rgba(201,178,124,0.15), transparent)' }}
                             />
 
-                            <div className="h-full flex flex-col justify-center px-8 md:px-12 py-10 overflow-y-auto">
-                                {/* Quote mark */}
+                            <div className="h-full flex flex-col justify-center px-10 md:px-14 py-12 overflow-y-auto">
                                 <motion.span
-                                    initial={{ opacity: 0, y: -10 }}
-                                    animate={{ opacity: 0.12, y: 0 }}
-                                    transition={{ delay: 0.3, duration: 0.5 }}
-                                    className="block text-[5rem] leading-none text-[#C9B27C] mb-4"
-                                    style={{ fontFamily: "'Cormorant Garamond', serif" }}
+                                    initial={{ opacity: 0 }}
+                                    animate={{ opacity: 0.10 }}
+                                    transition={{ delay: 0.2, duration: 0.5 }}
+                                    className="block leading-none text-[#C9B27C] mb-4"
+                                    style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '4rem' }}
                                 >
                                     "
                                 </motion.span>
 
-                                {/* Typewriter text */}
                                 <div
-                                    className="text-[1.05rem] md:text-[1.15rem] leading-[2] tracking-[0.01em] min-h-[4rem]"
-                                    style={{ fontFamily: "'Cormorant Garamond', serif" }}
+                                    className="leading-[1.85] tracking-[0.01em]"
+                                    style={{
+                                        fontFamily: "'Cormorant Garamond', serif",
+                                        fontSize: 'clamp(0.82rem, 1.1vw, 1rem)',
+                                    }}
                                 >
-                                    <span className="text-[rgba(255,255,255,0.6)]">
+                                    <span className="text-[rgba(255,255,255,0.58)]">
                                         {displayedText}
                                     </span>
-                                    {/* Blinking cursor while revealing */}
                                     {!isFullyRevealed && (
                                         <span
-                                            className="inline-block w-[2px] h-[1.1em] ml-[2px] align-middle"
+                                            className="inline-block w-[2px] h-[1em] ml-[2px] align-middle"
                                             style={{
                                                 backgroundColor: 'rgba(201,178,124,0.5)',
                                                 animation: 'cursorBlink 0.8s ease-in-out infinite',
@@ -319,11 +378,10 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
                                     )}
                                 </div>
 
-                                {/* Bottom fade — only when fully revealed */}
                                 {isFullyRevealed && (
                                     <motion.div
                                         initial={{ opacity: 0, width: 0 }}
-                                        animate={{ opacity: 1, width: 48 }}
+                                        animate={{ opacity: 1, width: 40 }}
                                         transition={{ duration: 0.6, delay: 0.2 }}
                                         className="mt-8 h-px bg-gradient-to-r from-[rgba(201,178,124,0.2)] to-transparent"
                                     />
@@ -334,14 +392,10 @@ function BriefingOverlay({ text, onDismiss, isSpeaking }) {
                 </AnimatePresence>
             </div>
 
-            {/* Cursor blink keyframes */}
             <style>{`
                 @keyframes cursorBlink {
                     0%, 100% { opacity: 1; }
-                    50% { opacity: 0; }
-                }
-                @media (max-width: 768px) {
-                    .briefing-overlay-inner { flex-direction: column !important; }
+                    50%       { opacity: 0; }
                 }
             `}</style>
         </motion.div>
@@ -545,6 +599,7 @@ export default function OverviewPage() {
     const [calendarExpanded, setCalendarExpanded] = useState(false);
 
     const [showWelcome, setShowWelcome] = useState(false);
+    const [welcomePhase, setWelcomePhase] = useState('idle');
     const [briefingVisible, setBriefingVisible] = useState(false);
     const [briefingText, setBriefingText] = useState('');
     const [briefingIsSpeaking, setBriefingIsSpeaking] = useState(false);
@@ -553,14 +608,35 @@ export default function OverviewPage() {
     const [briefingCompleted, setBriefingCompleted] = useState(
         !!sessionStorage.getItem(`lucy_briefing_${new Date().toDateString()}`)
     );
-    const lucyPulseState =
-        voiceState === STATES.SPEAKING || briefingIsSpeaking
-            ? 'speaking'
-            : voiceState === STATES.PROCESSING || sending
+    // Derived voice state booleans
+    const isSpeaking = voiceState === STATES.SPEAKING || briefingIsSpeaking;
+    const isListening = voiceState === STATES.LISTENING;
+    const isProcessing = voiceState === STATES.PROCESSING || sending;
+
+    // Hook TTS: activo siempre (escucha el elemento <audio> global)
+    const { level: ttsLevel, waveform } = useAudioLevelFromTTS();
+
+    // Hook micrófono: sólo activo cuando Lucy está escuchando
+    const micLevel = useMicrophoneLevel(isListening);
+
+    // Nivel unificado que se pasa al canvas:
+    //   speaking  → usa el nivel del TTS
+    //   listening → usa el nivel del micrófono
+    //   el resto  → 0 (el canvas genera su animación autónoma)
+    const canvasLevel = isSpeaking
+        ? ttsLevel
+        : isListening
+            ? micLevel
+            : 0;
+
+    // Estado del canvas derivado del estado de voz
+    const canvasState = isSpeaking
+        ? 'speaking'
+        : isListening
+            ? 'listening'
+            : isProcessing
                 ? 'processing'
-                : voiceState === STATES.LISTENING
-                    ? 'listening'
-                    : 'idle';
+                : 'idle';
     const fetchData = useCallback(async () => {
         if (!token) return;
         try {
@@ -624,10 +700,14 @@ export default function OverviewPage() {
         return () => clearTimeout(timer);
     }, [token, gmailLoading, gmailConnected, loading]);
 
+
+
+    const briefingAudioRef = useRef(null); // ref al <audio> activo del briefing
+
+    // 2. Reemplaza sendToLucy() — guarda el audio en briefingAudioRef
     const sendToLucy = useCallback(async (text) => {
         if (!text?.trim()) return;
         if (briefingInFlightRef.current) return;
-
         briefingInFlightRef.current = true;
         setSending(true);
 
@@ -643,38 +723,55 @@ export default function OverviewPage() {
 
                 if (ttsEnabled) {
                     setBriefingIsSpeaking(true);
-
                     try {
                         const ttsRes = await apiClient.post('/tts', { text: reply }, { responseType: 'blob' });
-                        const blob = ttsRes.data;
-                        const url = URL.createObjectURL(blob);
+                        const url = URL.createObjectURL(ttsRes.data);
                         const audio = new Audio(url);
 
-                        setGlobalAudio(audio);
+                        // Guardar ref para que BriefingOverlay acceda a currentTime
+                        briefingAudioRef.current = audio;
+
+                        // Analyser para la visualización
+                        let analyser = null;
+                        try {
+                            if (!audioCtxRef.current) {
+                                audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
+                            }
+                            const ctx = audioCtxRef.current;
+                            if (ctx.state === 'suspended') await ctx.resume().catch(() => { });
+                            const source = ctx.createMediaElementSource(audio);
+                            analyser = ctx.createAnalyser();
+                            analyser.fftSize = 512;
+                            analyser.smoothingTimeConstant = 0.55;
+                            source.connect(analyser);
+                            analyser.connect(ctx.destination);
+                        } catch (ae) {
+                            console.warn('[Briefing] Analyser no disponible:', ae.message);
+                        }
+
+                        setGlobalAudio({ audio, analyser });
 
                         audio.onended = () => {
                             setGlobalAudio(null);
                             URL.revokeObjectURL(url);
                             setBriefingIsSpeaking(false);
+                            briefingAudioRef.current = null;
                         };
-
                         audio.onerror = () => {
                             setGlobalAudio(null);
                             URL.revokeObjectURL(url);
                             setBriefingIsSpeaking(false);
+                            briefingAudioRef.current = null;
                         };
 
                         await audio.play();
-
                     } catch (err) {
-                        console.error("Error TTS:", err);
+                        console.error('[Briefing] TTS error:', err);
                         setBriefingIsSpeaking(false);
                     }
                 }
             }
-
             return reply;
-
         } catch (err) {
             console.error('Lucy error:', err);
         } finally {
@@ -683,23 +780,28 @@ export default function OverviewPage() {
         }
     }, [ttsEnabled]);
 
+    // 3. runBriefing — evita el salto a OverviewPage controlando welcomePhase
     const runBriefing = useCallback(async (promptText = 'buenos días Lucy, dame mi briefing matutino') => {
         setShowWelcome(false);
+        setWelcomePhase('thinking');   // partícula dorada mientras carga
         const todayKey = `lucy_briefing_${new Date().toDateString()}`;
         sessionStorage.setItem(todayKey, '1');
-        await sendToLucy(promptText);
+        const reply = await sendToLucy(promptText);
+        if (reply) {
+            setWelcomePhase('briefing');
+        } else {
+            setWelcomePhase('idle');
+            setShowWelcome(true);
+        }
     }, [sendToLucy]);
 
-    const handleSkip = () => {
-        sessionStorage.setItem(`lucy_briefing_${new Date().toDateString()}`, '1');
-        setShowWelcome(false);
-        setBriefingCompleted(true);
-    };
-
+    // 4. dismissBriefing — resetea welcomePhase
     const dismissBriefing = () => {
         stopGlobalAudio();
         setBriefingVisible(false);
         setBriefingIsSpeaking(false);
+        briefingAudioRef.current = null;
+        setWelcomePhase('idle');
     };
 
     const handleGmailConnect = async () => {
@@ -750,484 +852,492 @@ export default function OverviewPage() {
 
     return (
         <Layout>
-            <AnimatePresence>
-                {showWelcome && (
-                    <WelcomeOverlay
-                        greeting={getGreeting()}
-                        onStart={() => runBriefing()}
-                        onSkip={handleSkip}
-                    />
-                )}
-            </AnimatePresence>
+            <>
+                <AnimatePresence mode="wait">
+                    {showWelcome && welcomePhase === 'idle' && (
+                        <WelcomeOverlay
+                            key="welcome"
+                            greeting={getGreeting()}
+                            onStart={() => runBriefing()}
+                            onSkip={handleSkip}
+                        />
+                    )}
+                    {welcomePhase === 'thinking' && (
+                        <ThinkingParticle key="thinking" />
+                    )}
+                    {briefingVisible && welcomePhase === 'briefing' && (
+                        <BriefingOverlay
+                            key="briefing"
+                            text={briefingText}
+                            isSpeaking={briefingIsSpeaking}
+                            onDismiss={dismissBriefing}
+                            canvasState={canvasState}
+                            canvasLevel={canvasLevel}
+                            waveform={waveform}
+                            audioRef={briefingAudioRef}
+                        />
+                    )}
+                </AnimatePresence>
 
-            <AnimatePresence>
-                {briefingVisible && (
-                    <BriefingOverlay
-                        text={briefingText}
-                        isSpeaking={briefingIsSpeaking}
-                        onDismiss={dismissBriefing}
-                    />
-                )}
-            </AnimatePresence>
-
-            <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
-                <button
-                    onClick={() => window.history.back()}
-                    className="flex items-center gap-1.5 text-caption text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] -mb-6 transition-colors duration-200"
-                >
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                        <path d="M19 12H5M12 19l-7-7 7-7" />
-                    </svg>
-                    Volver
-                </button>
-
-                <motion.div
-                    initial={{ opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                >
-                    <p className="text-caption text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] font-medium mb-3">
-                        {getGreeting()}
-                    </p>
-                    <h1 className="font-light tracking-tight text-white mb-3"
-                        style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.2rem' }}>
-                        {t(language, 'welcomeTitle')}
-                    </h1>
-                    <p className="text-body-sm text-[rgba(255,255,255,0.35)] max-w-xl leading-relaxed">
-                        {t(language, 'welcomeSubtitle')}
-                    </p>
-                </motion.div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <ActionCard
-                        icon={<Inbox className="w-5 h-5" />}
-                        title="Correo"
-                        description="Conecta tu Gmail y Lucy priorizará tu bandeja cada mañana."
-                        actionLabel="Conectar correo"
-                        onAction={handleGmailConnect}
-                        connected={gmailConnected}
-                        connectedLabel={gmailEmail || 'Gmail sincronizado'}
-                        onDisconnect={handleDisconnect}
-                        delay={0.1}
-                    />
-
-                    <ActionCard
-                        icon={<Calendar className="w-5 h-5" />}
-                        title="Agenda"
-                        description="Conecta Google Calendar para incluir eventos en tu briefing."
-                        actionLabel="Conectar agenda"
-                        onAction={handleCalendarConnect}
-                        connected={calendarConnected}
-                        connectedLabel={todayEvents.length === 0 ? 'Sin eventos hoy' : `${todayEvents.length} evento${todayEvents.length !== 1 ? 's' : ''} hoy`}
-                        onDisconnect={handleCalendarDisconnect}
-                        delay={0.15}
-                    />
-
-                    <ActionCard
-                        icon={<Brain className="w-5 h-5" />}
-                        title="Memoria de Lucy"
-                        description="Enséñale tus preferencias: horarios, contactos clave, prioridades."
-                        actionLabel="Configurar"
-                        onAction={() => navigate('/app/settings')}
-                        connected={false}
-                        delay={0.2}
-                    />
-
-                    <ActionCard
-                        icon={<FileText className="w-5 h-5" />}
-                        title="Resumen de correos"
-                        description="Lucy analiza tu bandeja y te prepara un briefing ejecutivo."
-                        actionLabel="Generar briefing"
-                        onAction={() => {
-                            if (!briefingInFlightRef.current) runBriefing();
-                        }}
-                        connected={gmailConnected && stats?.total > 0}
-                        connectedLabel={stats ? `${stats.total} emails · ${stats.prioritarios} prioritarios` : 'Listo'}
-                        delay={0.25}
-                    />
-                </div>
-
-                {!calendarLoading && calendarConnected && todayEvents.length > 0 && (
-                    <motion.div
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.3, duration: 0.5 }}
-                        className="rounded-2xl border backdrop-blur-sm transition-all duration-300 bg-[rgba(255,255,255,0.025)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.1)] overflow-hidden"
+                <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
+                    <button
+                        onClick={() => window.history.back()}
+                        className="flex items-center gap-1.5 text-caption text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] -mb-6 transition-colors duration-200"
                     >
-                        <button
-                            onClick={() => setCalendarExpanded(p => !p)}
-                            className="w-full px-5 py-4 flex items-center justify-between text-left"
-                        >
-                            <div className="flex items-center gap-3">
-                                <Calendar className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
-                                <span className="text-body-sm text-[rgba(255,255,255,0.5)]">
-                                    Agenda de hoy — <span className="text-[rgba(255,255,255,0.7)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</span>
-                                </span>
-                            </div>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                            <path d="M19 12H5M12 19l-7-7 7-7" />
+                        </svg>
+                        Volver
+                    </button>
 
-                            <svg
-                                width="12"
-                                height="12"
-                                viewBox="0 0 24 24"
-                                fill="none"
-                                stroke="rgba(255,255,255,0.3)"
-                                strokeWidth="2"
-                                className={`transition-transform duration-300 ${calendarExpanded ? 'rotate-180' : ''}`}
-                            >
-                                <polyline points="6 9 12 15 18 9" />
-                            </svg>
-                        </button>
-
-                        <AnimatePresence>
-                            {calendarExpanded && (
-                                <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
-                                    className="overflow-hidden"
-                                >
-                                    <div className="px-5 pb-4 border-t border-[rgba(255,255,255,0.04)] pt-3">
-                                        {todayEvents.map((event, i) => (
-                                            <EventRow key={event.id || i} event={event} delay={i * 0.05} />
-                                        ))}
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                        <p className="text-caption text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] font-medium mb-3">
+                            {getGreeting()}
+                        </p>
+                        <h1 className="font-light tracking-tight text-white mb-3"
+                            style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.2rem' }}>
+                            {t(language, 'welcomeTitle')}
+                        </h1>
+                        <p className="text-body-sm text-[rgba(255,255,255,0.35)] max-w-xl leading-relaxed">
+                            {t(language, 'welcomeSubtitle')}
+                        </p>
                     </motion.div>
-                )}
 
-                {!loading && stats && gmailConnected && (
-                    <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <ActionCard
+                            icon={<Inbox className="w-5 h-5" />}
+                            title="Correo"
+                            description="Conecta tu Gmail y Lucy priorizará tu bandeja cada mañana."
+                            actionLabel="Conectar correo"
+                            onAction={handleGmailConnect}
+                            connected={gmailConnected}
+                            connectedLabel={gmailEmail || 'Gmail sincronizado'}
+                            onDisconnect={handleDisconnect}
+                            delay={0.1}
+                        />
+
+                        <ActionCard
+                            icon={<Calendar className="w-5 h-5" />}
+                            title="Agenda"
+                            description="Conecta Google Calendar para incluir eventos en tu briefing."
+                            actionLabel="Conectar agenda"
+                            onAction={handleCalendarConnect}
+                            connected={calendarConnected}
+                            connectedLabel={todayEvents.length === 0 ? 'Sin eventos hoy' : `${todayEvents.length} evento${todayEvents.length !== 1 ? 's' : ''} hoy`}
+                            onDisconnect={handleCalendarDisconnect}
+                            delay={0.15}
+                        />
+
+                        <ActionCard
+                            icon={<Brain className="w-5 h-5" />}
+                            title="Memoria de Lucy"
+                            description="Enséñale tus preferencias: horarios, contactos clave, prioridades."
+                            actionLabel="Configurar"
+                            onAction={() => navigate('/app/settings')}
+                            connected={false}
+                            delay={0.2}
+                        />
+
+                        <ActionCard
+                            icon={<FileText className="w-5 h-5" />}
+                            title="Resumen de correos"
+                            description="Lucy analiza tu bandeja y te prepara un briefing ejecutivo."
+                            actionLabel="Generar briefing"
+                            onAction={() => {
+                                if (!briefingInFlightRef.current) runBriefing();
+                            }}
+                            connected={gmailConnected && stats?.total > 0}
+                            connectedLabel={stats ? `${stats.total} emails · ${stats.prioritarios} prioritarios` : 'Listo'}
+                            delay={0.25}
+                        />
+                    </div>
+
+                    {!calendarLoading && calendarConnected && todayEvents.length > 0 && (
                         <motion.div
-                            initial={{ opacity: 0, y: 12 }}
+                            initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-                            className="card-lucy border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(8,12,22,0.95)_0%,rgba(4,7,15,0.99)_100%)] backdrop-blur-xl"
+                            transition={{ delay: 0.3, duration: 0.5 }}
+                            className="rounded-2xl border backdrop-blur-sm transition-all duration-300 bg-[rgba(255,255,255,0.025)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.1)] overflow-hidden"
                         >
-                            <div className="flex flex-col gap-4">
-                                <h3 className="text-h3 font-medium text-[rgba(248,250,255,0.95)] tracking-[-0.02em]">
-                                    Hoy Lucy ha preparado esto para ti
-                                </h3>
-
-                                <div className="flex flex-col gap-3">
-                                    {stats.total > 0 && (
-                                        <div className="flex items-start gap-3">
-                                            <Inbox className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
-                                            <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
-                                                Tu bandeja tiene <span className="text-[rgba(255,255,255,0.8)]">{stats.total}</span> correo{stats.total !== 1 ? 's' : ''}
-                                            </p>
-                                        </div>
-                                    )}
-                                    {stats.prioritarios > 0 && (
-                                        <div className="flex items-start gap-3">
-                                            <Sparkles className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
-                                            <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
-                                                Tienes <span className="text-[rgba(201,178,124,0.9)]">{stats.prioritarios}</span> email{stats.prioritarios !== 1 ? 's' : ''} prioritario{stats.prioritarios !== 1 ? 's' : ''} pendiente{stats.prioritarios !== 1 ? 's' : ''}
-                                            </p>
-                                        </div>
-                                    )}
-                                    {stats.seguimiento > 0 && (
-                                        <div className="flex items-start gap-3">
-                                            <Clock className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
-                                            <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
-                                                Tienes <span className="text-[rgba(255,255,255,0.8)]">{stats.seguimiento}</span> conversacion{stats.seguimiento !== 1 ? 'es' : ''} en seguimiento
-                                            </p>
-                                        </div>
-                                    )}
-                                    {stats.with_attachments > 0 && (
-                                        <div className="flex items-start gap-3">
-                                            <Paperclip className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
-                                            <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
-                                                <span className="text-[rgba(255,255,255,0.8)]">{stats.with_attachments}</span> correo{stats.with_attachments !== 1 ? 's' : ''} con adjuntos
-                                            </p>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[rgba(255,255,255,0.05)]">
-                                    <button
-                                        onClick={() => navigate('/app/messages')}
-                                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,178,124,0.18)] bg-[linear-gradient(180deg,rgba(40,30,11,0.90)_0%,rgba(22,16,7,0.98)_100%)] px-4 py-2.5 text-caption font-medium text-[rgba(232,205,138,0.96)] transition-all duration-200 hover:border-[rgba(201,178,124,0.34)] hover:shadow-[0_0_14px_rgba(201,178,124,0.10)]"
-                                    >
-                                        <Inbox className="w-3.5 h-3.5" />
-                                        Ver mis correos
-                                    </button>
-                                    <button
-                                        onClick={() => { if (!briefingInFlightRef.current) runBriefing(); }}
-                                        disabled={briefingInFlightRef.current || sending}
-                                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5 text-caption font-medium text-[rgba(196,208,228,0.55)] transition-all duration-200 hover:border-[rgba(255,255,255,0.14)] hover:text-[rgba(255,255,255,0.75)] disabled:opacity-30"
-                                    >
-                                        <Sparkles className="w-3.5 h-3.5" />
-                                        Resumir mi bandeja
-                                    </button>
-                                    <button
-                                        onClick={() => navigate('/app/tasks')}
-                                        className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5 text-caption font-medium text-[rgba(196,208,228,0.55)] transition-all duration-200 hover:border-[rgba(255,255,255,0.14)] hover:text-[rgba(255,255,255,0.75)]"
-                                    >
-                                        <Calendar className="w-3.5 h-3.5" />
-                                        Organizar mi día
-                                    </button>
-                                </div>
-                            </div>
-                        </motion.div>
-
-                        <motion.div
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: 0.35, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                            className="relative overflow-hidden card-lucy-comfy border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,12,22,0.92)_0%,rgba(3,7,16,0.97)_100%)] backdrop-blur-xl"
-                        >
-                            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(201,178,124,0.05),transparent_28%)]" />
-                            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.3)] to-transparent" />
-
-                            <div className="relative z-10 flex flex-col gap-4">
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-4">
-                                        <div className="relative flex items-center justify-center w-14 h-14">
-                                            <LucyLogoAnimated />
-                                            {wakeWordActive && (
-                                                <div className="absolute -inset-1 rounded-[18px] border border-[rgba(201,178,124,0.28)] animate-ping" />
-                                            )}
-                                        </div>
-                                        <div>
-                                            <h3 className="text-h3 text-white tracking-wide">Lucy</h3>
-                                            <p className="text-caption text-[rgba(214,227,249,0.46)] mt-0.5">
-                                                {wakeWordActive
-                                                    ? 'Escuchando…'
-                                                    : wakeWordEnabled
-                                                        ? 'Estoy contigo. Escríbeme o háblame cuando quieras.'
-                                                        : 'Asistente ejecutiva'}
-                                            </p>
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-2">
-                                        <button
-                                            onClick={() => {
-                                                if (!briefingInFlightRef.current) runBriefing('repite mi briefing matutino');
-                                            }}
-                                            disabled={briefingInFlightRef.current || sending}
-                                            className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 bg-[rgba(201,178,124,0.06)] text-[rgba(201,178,124,0.48)] border border-[rgba(201,178,124,0.15)] hover:bg-[rgba(201,178,124,0.12)] hover:text-[#C9B27C] disabled:opacity-30"
-                                            title="Repetir briefing"
-                                        >
-                                            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                                <path d="M1 4v6h6M23 20v-6h-6" />
-                                                <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" />
-                                            </svg>
-                                        </button>
-
-                                        <button
-                                            onClick={() => { stopGlobalAudio(); setTtsEnabled(prev => !prev); }} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${ttsEnabled ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)]' : 'bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.25)] border border-[rgba(255,255,255,0.07)]'} hover:bg-[rgba(255,255,255,0.07)]`}
-                                            title={ttsEnabled ? 'Silenciar voz' : 'Activar voz'}
-                                        >
-                                            {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.06)] to-transparent -mx-8" />
-
-                                <div className="flex justify-center items-center py-8">
-                                    <div className="w-full h-full min-h-[220px]">
-                                        <LucyPulseCanvas state={lucyPulseState} />
-                                    </div>
-                                </div>
-
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <button
-                                    onClick={handsFreeModeActive ? cancel : undefined}
-                                    className={`group relative overflow-hidden card-lucy border text-left transition-all duration-300 ${!handsFreeModeActive
-                                        ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)]'
-                                        : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] hover:border-[rgba(88,160,255,0.28)]'
-                                        }`}
-                                >
-                                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(201,178,124,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.06),transparent_36%)] opacity-90" />
-                                    <div className="pointer-events-none absolute inset-[1px] rounded-[15px] border border-[rgba(255,255,255,0.03)]" />
-
-                                    <div className="relative z-10">
-                                        <div className="mb-5 flex items-center gap-3">
-                                            <div
-                                                className={`flex h-9 w-9 items-center justify-center rounded-[18px] border text-h3 transition-all duration-300 ${!handsFreeModeActive
-                                                    ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
-                                                    : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(184,214,255,0.92)]'
-                                                    }`}
-                                            >
-                                                🖥️
-                                            </div>
-
-                                            <div className="min-w-0">
-                                                <h3
-                                                    className={`text-h3 font-medium tracking-[-0.02em] ${!handsFreeModeActive
-                                                        ? 'text-[rgba(248,240,218,0.98)]'
-                                                        : 'text-[rgba(242,247,255,0.96)]'
-                                                        }`}
-                                                >
-                                                    Modo Escritorio
-                                                </h3>
-                                            </div>
-                                        </div>
-
-                                        <p
-                                            className={`max-w-[34rem] text-body leading-[1.7] ${!handsFreeModeActive
-                                                ? 'text-[rgba(232,220,182,0.72)]'
-                                                : 'text-[rgba(214,227,249,0.68)]'
-                                                }`}
-                                        >
-                                            Botones, resúmenes y respuestas con un clic.
-                                        </p>
-
-                                        <div className="mt-5 flex items-center gap-2">
-                                            <span
-                                                className={`inline-block h-2.5 w-2.5 rounded-full ${!handsFreeModeActive
-                                                    ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
-                                                    : 'bg-[rgba(148,163,184,0.55)]'
-                                                    }`}
-                                            />
-                                            <span
-                                                className={`text-caption font-medium ${!handsFreeModeActive
-                                                    ? 'text-[rgba(237,211,143,0.95)]'
-                                                    : 'text-[rgba(176,190,212,0.70)]'
-                                                    }`}
-                                            >
-                                                Activo
-                                            </span>
-                                        </div>
-                                    </div>
-                                </button>
-
-                                <button
-                                    onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
-                                    className={`group relative overflow-hidden card-lucy border text-left transition-all duration-300 ${handsFreeModeActive
-                                        ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)]'
-                                        : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] hover:border-[rgba(88,160,255,0.28)]'
-                                        }`}
-                                >
-                                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(201,178,124,0.05),transparent_34%)] opacity-90" />
-                                    <div className="pointer-events-none absolute inset-[1px] rounded-[15px] border border-[rgba(255,255,255,0.03)]" />
-
-                                    <div className="relative z-10">
-                                        <div className="mb-5 flex items-center gap-3">
-                                            <div
-                                                className={`flex h-9 w-9 items-center justify-center rounded-[18px] border text-h3 transition-all duration-300 ${handsFreeModeActive
-                                                    ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
-                                                    : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(214,228,255,0.90)]'
-                                                    }`}
-                                            >
-                                                🎧
-                                            </div>
-
-                                            <div className="min-w-0">
-                                                <h3
-                                                    className={`text-h3 font-medium tracking-[-0.02em] ${handsFreeModeActive
-                                                        ? 'text-[rgba(248,240,218,0.98)]'
-                                                        : 'text-[rgba(242,247,255,0.96)]'
-                                                        }`}
-                                                >
-                                                    Manos Libres
-                                                </h3>
-                                            </div>
-                                        </div>
-
-                                        <p
-                                            className={`max-w-[34rem] text-body leading-[1.7] ${handsFreeModeActive
-                                                ? 'text-[rgba(232,220,182,0.72)]'
-                                                : 'text-[rgba(214,227,249,0.68)]'
-                                                }`}
-                                        >
-                                            Lucy te lee la bandeja en voz alta.
-                                        </p>
-
-                                        <div className="mt-5 flex items-center gap-2">
-                                            <span
-                                                className={`inline-block h-2.5 w-2.5 rounded-full ${handsFreeModeActive
-                                                    ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
-                                                    : 'bg-[rgba(148,163,184,0.55)]'
-                                                    }`}
-                                            />
-                                            <span
-                                                className={`text-caption font-medium ${handsFreeModeActive
-                                                    ? 'text-[rgba(237,211,143,0.95)]'
-                                                    : 'text-[rgba(176,190,212,0.70)]'
-                                                    }`}
-                                            >
-                                                {handsFreeModeActive ? 'Activo' : 'Disponible'}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </button>
-                            </div>
-                            <form
-                                onSubmit={async (e) => {
-                                    e.preventDefault();
-                                    const input = e.target.elements.lucyInput;
-                                    const text = input.value.trim();
-                                    if (!text || sending) return;
-                                    input.value = '';
-                                    await sendToLucy(text);
-                                }}
-                                className="relative mt-2"
+                            <button
+                                onClick={() => setCalendarExpanded(p => !p)}
+                                className="w-full px-5 py-4 flex items-center justify-between text-left"
                             >
-                                <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-[radial-gradient(circle_at_left,rgba(59,130,246,0.06),transparent_30%),radial-gradient(circle_at_right,rgba(201,178,124,0.05),transparent_26%)]" />
-
-                                <div className="relative flex items-center gap-3 rounded-[26px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(5,9,18,0.92)_0%,rgba(3,6,14,0.97)_100%)] px-4 py-3 shadow-[0_10px_35px_rgba(0,0,0,0.42),0_0_24px_rgba(36,99,235,0.06)]">
-                                    <input
-                                        name="lucyInput"
-                                        type="text"
-                                        placeholder={sending ? 'Lucy está pensando...' : 'Escríbeme lo que necesites… (tareas, ideas, recordatorios)'}
-                                        disabled={sending}
-                                        className="flex-1 bg-transparent px-1 py-1 text-body-sm text-[rgba(242,247,255,0.92)] placeholder:text-[rgba(160,174,198,0.34)] focus:outline-none disabled:opacity-50"
-                                    />
-
-                                    <button
-                                        type="submit"
-                                        disabled={sending}
-                                        className={`w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0 transition-all duration-200 border ${sending
-                                            ? 'bg-[rgba(201,178,124,0.15)] border-[rgba(201,178,124,0.3)] text-[#C9B27C]'
-                                            : 'bg-[linear-gradient(180deg,rgba(46,34,12,0.96)_0%,rgba(24,18,8,0.98)_100%)] border-[rgba(201,178,124,0.18)] text-[rgba(224,196,126,0.92)] hover:border-[rgba(201,178,124,0.34)] hover:text-[rgba(245,219,152,0.98)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.40),0_0_24px_rgba(201,178,124,0.16)]'
-                                            }`}
-                                        title="Enviar"
-                                    >
-                                        {sending ? (
-                                            <div className="w-4 h-4 border-2 border-[rgba(201,178,124,0.3)] border-t-[#C9B27C] rounded-full animate-spin" />
-                                        ) : (
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                                                <line x1="22" y1="2" x2="11" y2="13" />
-                                                <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                                            </svg>
-                                        )}
-                                    </button>
+                                <div className="flex items-center gap-3">
+                                    <Calendar className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
+                                    <span className="text-body-sm text-[rgba(255,255,255,0.5)]">
+                                        Agenda de hoy — <span className="text-[rgba(255,255,255,0.7)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</span>
+                                    </span>
                                 </div>
-                            </form>
-                            <AnimatePresence>
-                                {(lastInteraction || briefingText) && (
-                                    <motion.div
-                                        initial={{ opacity: 0, y: 6 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        exit={{ opacity: 0 }}
-                                        className="card-lucy bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] max-h-60 overflow-y-auto"
-                                    >
-                                        <p className="text-caption text-[rgba(255,255,255,0.2)] uppercase tracking-[0.07em] mb-3">
-                                            Lucy
-                                        </p>
 
-                                        <p className="text-body text-[rgba(255,255,255,0.6)] leading-relaxed">
-                                            {lastInteraction || briefingText}
-                                        </p>
+                                <svg
+                                    width="12"
+                                    height="12"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                    stroke="rgba(255,255,255,0.3)"
+                                    strokeWidth="2"
+                                    className={`transition-transform duration-300 ${calendarExpanded ? 'rotate-180' : ''}`}
+                                >
+                                    <polyline points="6 9 12 15 18 9" />
+                                </svg>
+                            </button>
+
+                            <AnimatePresence>
+                                {calendarExpanded && (
+                                    <motion.div
+                                        initial={{ height: 0, opacity: 0 }}
+                                        animate={{ height: 'auto', opacity: 1 }}
+                                        exit={{ height: 0, opacity: 0 }}
+                                        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                                        className="overflow-hidden"
+                                    >
+                                        <div className="px-5 pb-4 border-t border-[rgba(255,255,255,0.04)] pt-3">
+                                            {todayEvents.map((event, i) => (
+                                                <EventRow key={event.id || i} event={event} delay={i * 0.05} />
+                                            ))}
+                                        </div>
                                     </motion.div>
                                 )}
                             </AnimatePresence>
-                        </motion.div>  {/* ← este es el que faltaba */}
-                    </>
-                )}
-            </div>
+                        </motion.div>
+                    )}
 
-            <ReminderToast reminder={currentReminder} onDismiss={dismissReminder} />
-            <AlertToast alert={currentAlert} onDismiss={dismissAlert} />
-        </Layout >
+                    {!loading && stats && gmailConnected && (
+                        <>
+                            <motion.div
+                                initial={{ opacity: 0, y: 12 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                                className="card-lucy border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(8,12,22,0.95)_0%,rgba(4,7,15,0.99)_100%)] backdrop-blur-xl"
+                            >
+                                <div className="flex flex-col gap-4">
+                                    <h3 className="text-h3 font-medium text-[rgba(248,250,255,0.95)] tracking-[-0.02em]">
+                                        Hoy Lucy ha preparado esto para ti
+                                    </h3>
+
+                                    <div className="flex flex-col gap-3">
+                                        {stats.total > 0 && (
+                                            <div className="flex items-start gap-3">
+                                                <Inbox className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+                                                <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
+                                                    Tu bandeja tiene <span className="text-[rgba(255,255,255,0.8)]">{stats.total}</span> correo{stats.total !== 1 ? 's' : ''}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {stats.prioritarios > 0 && (
+                                            <div className="flex items-start gap-3">
+                                                <Sparkles className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+                                                <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
+                                                    Tienes <span className="text-[rgba(201,178,124,0.9)]">{stats.prioritarios}</span> email{stats.prioritarios !== 1 ? 's' : ''} prioritario{stats.prioritarios !== 1 ? 's' : ''} pendiente{stats.prioritarios !== 1 ? 's' : ''}
+                                                </p>
+                                            </div>
+                                        )}
+                                        {stats.seguimiento > 0 && (
+                                            <div className="flex items-start gap-3">
+                                                <Clock className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+                                                <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
+                                                    Tienes <span className="text-[rgba(255,255,255,0.8)]">{stats.seguimiento}</span> conversacion{stats.seguimiento !== 1 ? 'es' : ''} en seguimiento
+                                                </p>
+                                            </div>
+                                        )}
+                                        {stats.with_attachments > 0 && (
+                                            <div className="flex items-start gap-3">
+                                                <Paperclip className="w-4 h-4 mt-0.5 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
+                                                <p className="text-body text-[rgba(196,208,228,0.55)] leading-relaxed">
+                                                    <span className="text-[rgba(255,255,255,0.8)]">{stats.with_attachments}</span> correo{stats.with_attachments !== 1 ? 's' : ''} con adjuntos
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-[rgba(255,255,255,0.05)]">
+                                        <button
+                                            onClick={() => navigate('/app/messages')}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-[rgba(201,178,124,0.18)] bg-[linear-gradient(180deg,rgba(40,30,11,0.90)_0%,rgba(22,16,7,0.98)_100%)] px-4 py-2.5 text-caption font-medium text-[rgba(232,205,138,0.96)] transition-all duration-200 hover:border-[rgba(201,178,124,0.34)] hover:shadow-[0_0_14px_rgba(201,178,124,0.10)]"
+                                        >
+                                            <Inbox className="w-3.5 h-3.5" />
+                                            Ver mis correos
+                                        </button>
+                                        <button
+                                            onClick={() => { if (!briefingInFlightRef.current) runBriefing(); }}
+                                            disabled={briefingInFlightRef.current || sending}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5 text-caption font-medium text-[rgba(196,208,228,0.55)] transition-all duration-200 hover:border-[rgba(255,255,255,0.14)] hover:text-[rgba(255,255,255,0.75)] disabled:opacity-30"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5" />
+                                            Resumir mi bandeja
+                                        </button>
+                                        <button
+                                            onClick={() => navigate('/app/tasks')}
+                                            className="inline-flex items-center gap-2 rounded-xl border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.03)] px-4 py-2.5 text-caption font-medium text-[rgba(196,208,228,0.55)] transition-all duration-200 hover:border-[rgba(255,255,255,0.14)] hover:text-[rgba(255,255,255,0.75)]"
+                                        >
+                                            <Calendar className="w-3.5 h-3.5" />
+                                            Organizar mi día
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+
+                            <motion.div
+                                initial={{ opacity: 0, y: 16 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                transition={{ delay: 0.35, duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                                className="relative overflow-hidden card-lucy-comfy border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(7,12,22,0.92)_0%,rgba(3,7,16,0.97)_100%)] backdrop-blur-xl"
+                            >
+                                <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.08),transparent_32%),radial-gradient(circle_at_bottom_right,rgba(201,178,124,0.05),transparent_28%)]" />
+                                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.3)] to-transparent" />
+
+                                <div className="relative z-10 flex flex-col gap-4">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-4">
+                                            <div className="relative flex items-center justify-center w-14 h-14">
+                                                <LucyLogoAnimated />
+                                                {wakeWordActive && (
+                                                    <div className="absolute -inset-1 rounded-[18px] border border-[rgba(201,178,124,0.28)] animate-ping" />
+                                                )}
+                                            </div>
+                                            <div>
+                                                <h3 className="text-h3 text-white tracking-wide">Lucy</h3>
+                                                <p className="text-caption text-[rgba(214,227,249,0.46)] mt-0.5">
+                                                    {wakeWordActive
+                                                        ? 'Escuchando…'
+                                                        : wakeWordEnabled
+                                                            ? 'Estoy contigo. Escríbeme o háblame cuando quieras.'
+                                                            : 'Asistente ejecutiva'}
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => {
+                                                    if (!briefingInFlightRef.current) runBriefing('repite mi briefing matutino');
+                                                }}
+                                                disabled={briefingInFlightRef.current || sending}
+                                                className="w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 bg-[rgba(201,178,124,0.06)] text-[rgba(201,178,124,0.48)] border border-[rgba(201,178,124,0.15)] hover:bg-[rgba(201,178,124,0.12)] hover:text-[#C9B27C] disabled:opacity-30"
+                                                title="Repetir briefing"
+                                            >
+                                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                                    <path d="M1 4v6h6M23 20v-6h-6" />
+                                                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4-4.64 4.36A9 9 0 0 1 3.51 15" />
+                                                </svg>
+                                            </button>
+
+                                            <button
+                                                onClick={() => { stopGlobalAudio(); setTtsEnabled(prev => !prev); }} className={`w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 ${ttsEnabled ? 'bg-[rgba(201,178,124,0.1)] text-[#C9B27C] border border-[rgba(201,178,124,0.2)]' : 'bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.25)] border border-[rgba(255,255,255,0.07)]'} hover:bg-[rgba(255,255,255,0.07)]`}
+                                                title={ttsEnabled ? 'Silenciar voz' : 'Activar voz'}
+                                            >
+                                                {ttsEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div className="h-px bg-gradient-to-r from-transparent via-[rgba(255,255,255,0.06)] to-transparent -mx-8" />
+
+                                    <div className="flex justify-center items-center py-8">
+                                        <div className="w-full h-full min-h-[220px]">
+                                            <LucyPulseCanvas state={canvasState} level={canvasLevel} waveform={waveform} />
+                                        </div>
+                                    </div>
+
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <button
+                                        onClick={handsFreeModeActive ? cancel : undefined}
+                                        className={`group relative overflow-hidden card-lucy border text-left transition-all duration-300 ${!handsFreeModeActive
+                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)]'
+                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] hover:border-[rgba(88,160,255,0.28)]'
+                                            }`}
+                                    >
+                                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(201,178,124,0.10),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(59,130,246,0.06),transparent_36%)] opacity-90" />
+                                        <div className="pointer-events-none absolute inset-[1px] rounded-[15px] border border-[rgba(255,255,255,0.03)]" />
+
+                                        <div className="relative z-10">
+                                            <div className="mb-5 flex items-center gap-3">
+                                                <div
+                                                    className={`flex h-9 w-9 items-center justify-center rounded-[18px] border text-h3 transition-all duration-300 ${!handsFreeModeActive
+                                                        ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
+                                                        : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(184,214,255,0.92)]'
+                                                        }`}
+                                                >
+                                                    🖥️
+                                                </div>
+
+                                                <div className="min-w-0">
+                                                    <h3
+                                                        className={`text-h3 font-medium tracking-[-0.02em] ${!handsFreeModeActive
+                                                            ? 'text-[rgba(248,240,218,0.98)]'
+                                                            : 'text-[rgba(242,247,255,0.96)]'
+                                                            }`}
+                                                    >
+                                                        Modo Escritorio
+                                                    </h3>
+                                                </div>
+                                            </div>
+
+                                            <p
+                                                className={`max-w-[34rem] text-body leading-[1.7] ${!handsFreeModeActive
+                                                    ? 'text-[rgba(232,220,182,0.72)]'
+                                                    : 'text-[rgba(214,227,249,0.68)]'
+                                                    }`}
+                                            >
+                                                Botones, resúmenes y respuestas con un clic.
+                                            </p>
+
+                                            <div className="mt-5 flex items-center gap-2">
+                                                <span
+                                                    className={`inline-block h-2.5 w-2.5 rounded-full ${!handsFreeModeActive
+                                                        ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
+                                                        : 'bg-[rgba(148,163,184,0.55)]'
+                                                        }`}
+                                                />
+                                                <span
+                                                    className={`text-caption font-medium ${!handsFreeModeActive
+                                                        ? 'text-[rgba(237,211,143,0.95)]'
+                                                        : 'text-[rgba(176,190,212,0.70)]'
+                                                        }`}
+                                                >
+                                                    Activo
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </button>
+
+                                    <button
+                                        onClick={handsFreeModeActive ? cancel : activateHandsFreeMode}
+                                        className={`group relative overflow-hidden card-lucy border text-left transition-all duration-300 ${handsFreeModeActive
+                                            ? 'border-[rgba(201,178,124,0.30)] bg-[linear-gradient(180deg,rgba(5,10,20,0.96)_0%,rgba(3,7,16,0.98)_100%)]'
+                                            : 'border-[rgba(88,160,255,0.18)] bg-[linear-gradient(180deg,rgba(4,10,24,0.96)_0%,rgba(3,8,20,0.98)_100%)] hover:border-[rgba(88,160,255,0.28)]'
+                                            }`}
+                                    >
+                                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(59,130,246,0.12),transparent_34%),radial-gradient(circle_at_bottom_left,rgba(201,178,124,0.05),transparent_34%)] opacity-90" />
+                                        <div className="pointer-events-none absolute inset-[1px] rounded-[15px] border border-[rgba(255,255,255,0.03)]" />
+
+                                        <div className="relative z-10">
+                                            <div className="mb-5 flex items-center gap-3">
+                                                <div
+                                                    className={`flex h-9 w-9 items-center justify-center rounded-[18px] border text-h3 transition-all duration-300 ${handsFreeModeActive
+                                                        ? 'border-[rgba(201,178,124,0.24)] bg-[rgba(201,178,124,0.08)] text-[rgba(230,205,140,0.96)] shadow-[0_0_18px_rgba(201,178,124,0.08)]'
+                                                        : 'border-[rgba(88,160,255,0.16)] bg-[rgba(88,160,255,0.06)] text-[rgba(214,228,255,0.90)]'
+                                                        }`}
+                                                >
+                                                    🎧
+                                                </div>
+
+                                                <div className="min-w-0">
+                                                    <h3
+                                                        className={`text-h3 font-medium tracking-[-0.02em] ${handsFreeModeActive
+                                                            ? 'text-[rgba(248,240,218,0.98)]'
+                                                            : 'text-[rgba(242,247,255,0.96)]'
+                                                            }`}
+                                                    >
+                                                        Manos Libres
+                                                    </h3>
+                                                </div>
+                                            </div>
+
+                                            <p
+                                                className={`max-w-[34rem] text-body leading-[1.7] ${handsFreeModeActive
+                                                    ? 'text-[rgba(232,220,182,0.72)]'
+                                                    : 'text-[rgba(214,227,249,0.68)]'
+                                                    }`}
+                                            >
+                                                Lucy te lee la bandeja en voz alta.
+                                            </p>
+
+                                            <div className="mt-5 flex items-center gap-2">
+                                                <span
+                                                    className={`inline-block h-2.5 w-2.5 rounded-full ${handsFreeModeActive
+                                                        ? 'bg-[rgba(222,188,106,0.95)] shadow-[0_0_12px_rgba(222,188,106,0.55)]'
+                                                        : 'bg-[rgba(148,163,184,0.55)]'
+                                                        }`}
+                                                />
+                                                <span
+                                                    className={`text-caption font-medium ${handsFreeModeActive
+                                                        ? 'text-[rgba(237,211,143,0.95)]'
+                                                        : 'text-[rgba(176,190,212,0.70)]'
+                                                        }`}
+                                                >
+                                                    {handsFreeModeActive ? 'Activo' : 'Disponible'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </button>
+                                </div>
+                                <form
+                                    onSubmit={async (e) => {
+                                        e.preventDefault();
+                                        const input = e.target.elements.lucyInput;
+                                        const text = input.value.trim();
+                                        if (!text || sending) return;
+                                        input.value = '';
+                                        await sendToLucy(text);
+                                    }}
+                                    className="relative mt-2"
+                                >
+                                    <div className="pointer-events-none absolute inset-0 rounded-[26px] bg-[radial-gradient(circle_at_left,rgba(59,130,246,0.06),transparent_30%),radial-gradient(circle_at_right,rgba(201,178,124,0.05),transparent_26%)]" />
+
+                                    <div className="relative flex items-center gap-3 rounded-[26px] border border-[rgba(255,255,255,0.08)] bg-[linear-gradient(180deg,rgba(5,9,18,0.92)_0%,rgba(3,6,14,0.97)_100%)] px-4 py-3 shadow-[0_10px_35px_rgba(0,0,0,0.42),0_0_24px_rgba(36,99,235,0.06)]">
+                                        <input
+                                            name="lucyInput"
+                                            type="text"
+                                            placeholder={sending ? 'Lucy está pensando...' : 'Escríbeme lo que necesites… (tareas, ideas, recordatorios)'}
+                                            disabled={sending}
+                                            className="flex-1 bg-transparent px-1 py-1 text-body-sm text-[rgba(242,247,255,0.92)] placeholder:text-[rgba(160,174,198,0.34)] focus:outline-none disabled:opacity-50"
+                                        />
+
+                                        <button
+                                            type="submit"
+                                            disabled={sending}
+                                            className={`w-12 h-12 rounded-[18px] flex items-center justify-center flex-shrink-0 transition-all duration-200 border ${sending
+                                                ? 'bg-[rgba(201,178,124,0.15)] border-[rgba(201,178,124,0.3)] text-[#C9B27C]'
+                                                : 'bg-[linear-gradient(180deg,rgba(46,34,12,0.96)_0%,rgba(24,18,8,0.98)_100%)] border-[rgba(201,178,124,0.18)] text-[rgba(224,196,126,0.92)] hover:border-[rgba(201,178,124,0.34)] hover:text-[rgba(245,219,152,0.98)] hover:shadow-[0_12px_28px_rgba(0,0,0,0.40),0_0_24px_rgba(201,178,124,0.16)]'
+                                                }`}
+                                            title="Enviar"
+                                        >
+                                            {sending ? (
+                                                <div className="w-4 h-4 border-2 border-[rgba(201,178,124,0.3)] border-t-[#C9B27C] rounded-full animate-spin" />
+                                            ) : (
+                                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+                                                    <line x1="22" y1="2" x2="11" y2="13" />
+                                                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                                                </svg>
+                                            )}
+                                        </button>
+                                    </div>
+                                </form>
+                                <AnimatePresence>
+                                    {(lastInteraction || briefingText) && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 6 }}
+                                            animate={{ opacity: 1, y: 0 }}
+                                            exit={{ opacity: 0 }}
+                                            className="card-lucy bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] max-h-60 overflow-y-auto"
+                                        >
+                                            <p className="text-caption text-[rgba(255,255,255,0.2)] uppercase tracking-[0.07em] mb-3">
+                                                Lucy
+                                            </p>
+
+                                            <p className="text-body text-[rgba(255,255,255,0.6)] leading-relaxed">
+                                                {lastInteraction || briefingText}
+                                            </p>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </motion.div>  {/* ← este es el que faltaba */}
+                        </>
+                    )}
+                </div>
+
+                <ReminderToast reminder={currentReminder} onDismiss={dismissReminder} />
+                <AlertToast alert={currentAlert} onDismiss={dismissAlert} />
+            </>
+        </Layout>
     );
 }
 
