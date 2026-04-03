@@ -1116,7 +1116,7 @@ export default function OverviewPage() {
                                     </button>
 
                                     <button
-                                        onClick={() => handsFreeModeActive ? cancel() : activateHandsFreeMode()}
+                                        onClick={() => handsFreeModeActive ? cancel() : activateHandsFreeMode("")}
                                         className={`text-left px-4 py-3 rounded-[14px] border transition-all duration-300 ${handsFreeModeActive
                                             ? 'border-[rgba(74,158,255,0.28)] bg-[rgba(74,158,255,0.04)]'
                                             : 'border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.02)] hover:border-[rgba(74,158,255,0.2)]'}`}
@@ -1278,7 +1278,7 @@ export default function OverviewPage() {
 
                                             {/* Transcript — lo que dice Lucy */}
                                             <AnimatePresence>
-                                                {(lastInteraction || briefingText) && (
+                                                {lastInteraction && (
                                                     <motion.div
                                                         initial={{ opacity: 0 }}
                                                         animate={{ opacity: 1 }}
@@ -1289,7 +1289,7 @@ export default function OverviewPage() {
                                                             className="text-[rgba(255,255,255,0.32)]"
                                                             style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '15px', lineHeight: '1.8' }}
                                                         >
-                                                            {lastInteraction || briefingText}
+                                                            {lastInteraction}
                                                         </p>
                                                     </motion.div>
                                                 )}
