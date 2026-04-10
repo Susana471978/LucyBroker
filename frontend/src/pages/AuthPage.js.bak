@@ -131,14 +131,15 @@ export default function AuthPage() {
   return (
     <>
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300&family=Plus+Jakarta+Sans:wght@200;300;400;500&display=swap');
 
         .auth-root {
           min-height: 100vh;
-          background: var(--background-base);
+          background: #030305;
           display: flex;
           align-items: stretch;
           overflow: hidden;
-          font-family: var(--font-family-base);
+          font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
         .auth-root::before {
@@ -210,7 +211,7 @@ export default function AuthPage() {
           font-family: 'Cormorant Garamond', serif;
           font-size: 4rem;
           font-weight: 300;
-          color: var(--champagne);
+          color: #C9B27C;
           letter-spacing: 0.02em;
           line-height: 1;
           margin: 0 0 0.55rem;
@@ -222,7 +223,7 @@ export default function AuthPage() {
 
         .lucy-tagline {
           font-size: 0.62rem;
-          color: var(--text-secondary);
+          color: rgba(255,255,255,0.5);
           text-transform: uppercase;
           letter-spacing: 0.2em;
           line-height: 1.9;
@@ -275,7 +276,7 @@ export default function AuthPage() {
           font-size: 0.6rem;
           text-transform: uppercase;
           letter-spacing: 0.18em;
-          color: rgba(255,255,255,0.55);
+          color: rgba(255,255,255,0.2);
           margin-bottom: 0.5rem;
         }
 
@@ -294,11 +295,11 @@ export default function AuthPage() {
           padding-left: 2.75rem !important;
           transition: border-color .28s, box-shadow .28s, background .28s !important;
           font-size: 0.85rem !important;
-          font-family: var(--font-family-base) !important;
+          font-family: 'Plus Jakarta Sans', sans-serif !important;
           border-radius: 0.875rem !important;
           box-shadow: 0 0 0 1px rgba(90,170,255,0.08) inset, 0 0 10px rgba(54,126,255,0.06) !important;
         }
-        .auth-input::placeholder { color: rgba(255,255,255,0.30) !important; }
+        .auth-input::placeholder { color: rgba(255,255,255,0.15) !important; }
         .auth-input:focus {
           background: linear-gradient(180deg, rgba(24,18,10,0.96) 0%, rgba(14,10,6,0.92) 100%) !important;
           border-color: rgba(201,178,124,0.72) !important;
@@ -310,9 +311,9 @@ export default function AuthPage() {
           width: 100%;
           background: linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%) !important;
           border: 1px solid rgba(201,178,124,0.34) !important;
-          color: var(--champagne) !important;
+          color: #C9B27C !important;
           font-size: 0.65rem !important;
-          font-family: var(--font-family-base) !important;
+          font-family: 'Plus Jakarta Sans', sans-serif !important;
           text-transform: uppercase !important;
           letter-spacing: 0.15em !important;
           transition: border-color .28s, box-shadow .28s, background .28s, transform .28s !important;
@@ -343,10 +344,10 @@ export default function AuthPage() {
 
         .auth-toggle {
           margin-top: 1.25rem; font-size: 0.68rem;
-          color: rgba(255,255,255,0.40); text-align: center;
+          color: rgba(255,255,255,0.15); text-align: center;
         }
-        .auth-toggle span { color: rgba(88,160,255,0.75); cursor: pointer; transition: color 0.15s; }
-        .auth-toggle span:hover { color: rgba(88,160,255,1); }
+        .auth-toggle span { color: rgba(88,160,255,0.5); cursor: pointer; transition: color 0.15s; }
+        .auth-toggle span:hover { color: rgba(88,160,255,0.9); }
 
         @media (max-width: 768px) {
           .auth-root { flex-direction: column; }

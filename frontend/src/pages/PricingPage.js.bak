@@ -91,7 +91,7 @@ function PlanCard({ plan, onCheckout, loadingPlan }) {
           {plan.features.map((feature) => (
             <li key={feature} className="flex items-start gap-3 pricing-feature-item">
               <Check
-                className={`w-4 h-4 mt-[2px] flex-shrink-0 ${plan.featured ? 'text-[var(--champagne)]' : 'text-[#5DB7FF]'
+                className={`w-4 h-4 mt-[2px] flex-shrink-0 ${plan.featured ? 'text-[#C9B27C]' : 'text-[#5DB7FF]'
                   }`}
               />
               <span>{feature}</span>
@@ -243,7 +243,7 @@ export default function PricingPage() {
         }
 
         .pricing-bundle-note strong {
-          color: var(--champagne);
+          color: #C9B27C;
           font-weight: 600;
         }
 
@@ -299,7 +299,7 @@ export default function PricingPage() {
         .pricing-badge {
           border: 1px solid rgba(201,178,124,0.24);
           background: rgba(201,178,124,0.07);
-          color: var(--champagne);
+          color: #C9B27C;
           font-size: 0.72rem;
           letter-spacing: 0.12em;
           text-transform: uppercase;

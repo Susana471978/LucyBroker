@@ -438,7 +438,7 @@ async def fetch_enriched_messages_light(
 # =========================================================
 
 def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
-    router = APIRouter(tags=["gmail"])
+    router = APIRouter(tags=["gmail"], redirect_slashes=False)
 
     REDIRECT_URI = os.environ.get(
         "GMAIL_REDIRECT_URI",
@@ -470,7 +470,6 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
             access_type="offline",
             include_granted_scopes="true",
             prompt="consent",
-            code_challenge_method=None,
         )
         data = {"auth_url": auth_url}
         return build_response(request, data=data, legacy=data)
@@ -482,11 +481,11 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         code: str,
         state: str = Query(...),
     ):
+        os.environ["OAUTHLIB_INSECURE_TRANSPORT"] = "1"
         flow = _get_flow(REDIRECT_URI, state=state)
         flow.fetch_token(code=code)
 
         creds = flow.credentials
-
         tokens = {
             "token": creds.token,
             "refresh_token": creds.refresh_token,
@@ -498,17 +497,15 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
 
         await db.users.update_one(
             {"id": state},
-            {
-                "$set": {
-                    "gmail_tokens": encrypt_tokens(tokens),
-                    "gmail_connected": True,
-                }
-            },
+            {"$set": {
+                "gmail_tokens": encrypt_tokens(tokens),
+                "gmail_connected": True,
+            }},
         )
 
         frontend_url = os.environ.get("FRONTEND_URL", "http://localhost:3000")
-        return RedirectResponse(url=f"{frontend_url}/app")
-
+        return RedirectResponse(url=f"{frontend_url}/app/settings")
+    
     # ================= MESSAGES (light mode — no body) =================
 
     @router.get("/gmail/messages")

@@ -86,6 +86,6 @@ async def _generate_openai(text: str) -> bytes:
         model="tts-1",
         voice="shimmer",
         input=text,
-        speed=1.05,
+        speed=0.95
     )
     return response.content

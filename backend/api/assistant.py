@@ -326,7 +326,8 @@ def _detect_nav_intent(text: str):
 async def _extract_event_data(user_text: str) -> Optional[Dict[str, Any]]:
     now = datetime.now(timezone.utc)
     today_str = now.strftime("%Y-%m-%d")
-    today_weekday = now.strftime("%A")
+    _days_es = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
+    today_weekday = _days_es[now.weekday()]
 
     prompt = f"""Eres un extractor de datos de eventos de calendario.
 Hoy es {today_str} ({today_weekday}). Zona horaria: Europe/Madrid.

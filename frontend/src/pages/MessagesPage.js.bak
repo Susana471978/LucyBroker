@@ -163,7 +163,7 @@ const AttachmentRow = ({ attachment, emailId, onSummary }) => {
 
   return (
     <div className="flex items-center gap-3 px-4 py-2.5 rounded-xl
-      border border-[var(--border-subtle)]"
+      border border-[rgba(88,160,255,0.10)]"
       style={{ background: 'linear-gradient(180deg, rgba(7,12,24,0.80) 0%, rgba(4,8,18,0.75) 100%)' }}>
       <FileText className="w-4 h-4 text-[rgba(201,178,124,0.5)] flex-shrink-0" />
       <div className="flex-1 min-w-0">
@@ -177,8 +177,8 @@ const AttachmentRow = ({ attachment, emailId, onSummary }) => {
           onClick={handleSummarize}
           disabled={loading}
           className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] uppercase tracking-[0.08em]
-            bg-[var(--glow-champagne)] text-[var(--champagne-dim)]
-            border border-[var(--glow-champagne-md)]
+            bg-[rgba(201,178,124,0.08)] text-[rgba(201,178,124,0.6)]
+            border border-[rgba(201,178,124,0.15)]
             hover:bg-[rgba(201,178,124,0.14)] hover:text-[var(--champagne)]
             transition-all duration-200 disabled:opacity-40 flex-shrink-0"
         >
@@ -415,7 +415,7 @@ export default function MessagesPage() {
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <div className="w-8 h-8 rounded-xl flex items-center justify-center
-                  bg-[var(--glow-champagne)] border border-[var(--glow-champagne-md)]">
+                  bg-[rgba(201,178,124,0.08)] border border-[rgba(201,178,124,0.15)]">
                   <svg width="14" height="14" viewBox="0 0 22 22" fill="none">
                     <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"
                       fill="rgba(201,178,124,0.5)" className="animate-pulse" />
@@ -525,7 +525,7 @@ export default function MessagesPage() {
                         onClick={handleSummarize}
                         disabled={summaryLoading}
                         className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs
-                          bg-[var(--glow-champagne)] text-[rgba(201,178,124,0.7)]
+                          bg-[rgba(201,178,124,0.08)] text-[rgba(201,178,124,0.7)]
                           border border-[var(--border-champagne)]
                           hover:bg-[rgba(201,178,124,0.14)] hover:text-[var(--champagne)]
                           transition-all duration-200 disabled:opacity-40"
@@ -564,7 +564,7 @@ export default function MessagesPage() {
                           exit={{ opacity: 0, scale: 0.97 }}
                           transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
                           className="relative rounded-2xl p-5 overflow-hidden
-                            bg-[rgba(201,178,124,0.04)] border border-[var(--glow-champagne-md)]"
+                            bg-[rgba(201,178,124,0.04)] border border-[rgba(201,178,124,0.15)]"
                         >
                           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[rgba(201,178,124,0.4)] to-transparent" />
                           <div className="flex items-center gap-2 mb-3">
@@ -638,7 +638,7 @@ export default function MessagesPage() {
                     </AnimatePresence>
 
                     {/* Cuerpo email */}
-                    <div className="rounded-2xl p-6 border border-[var(--border-subtle)]"
+                    <div className="rounded-2xl p-6 border border-[rgba(88,160,255,0.12)]"
                       style={{
                         background: 'linear-gradient(180deg, rgba(7,12,24,0.92) 0%, rgba(4,8,18,0.88) 100%)',
                         boxShadow: '0 0 0 1px rgba(90,170,255,0.06) inset, 0 0 10px rgba(54,126,255,0.06)'
@@ -684,7 +684,7 @@ export default function MessagesPage() {
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: 8 }}
                           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                          className="rounded-2xl p-5 border border-[var(--border-subtle)]
+                          className="rounded-2xl p-5 border border-[rgba(88,160,255,0.10)]
                             transition-all duration-300 hover:border-[rgba(201,178,124,0.25)]"
                           style={{ background: 'linear-gradient(180deg, rgba(7,12,24,0.88) 0%, rgba(4,8,18,0.85) 100%)' }}
                         >
@@ -697,7 +697,7 @@ export default function MessagesPage() {
                               onChange={(e) => setDraftInstructions(e.target.value)}
                               placeholder="Ej: Confirmar la reunión para el jueves por la tarde…"
                               rows={3}
-                              className="w-full bg-[var(--surface-glass-hover)] border border-[var(--border-subtle)]
+                              className="w-full bg-[var(--surface-glass-hover)] border border-[rgba(88,160,255,0.12)]
                                 rounded-xl px-4 py-3 pr-12 text-sm text-[var(--text-primary)]
                                 placeholder:text-[rgba(255,255,255,0.2)] resize-none outline-none
                                 focus:border-[rgba(201,178,124,0.35)] focus:bg-[rgba(255,255,255,0.04)]
@@ -710,8 +710,8 @@ export default function MessagesPage() {
                               className={`absolute bottom-3 right-3 w-7 h-7 rounded-lg flex items-center justify-center
                                 transition-all duration-200
                                 ${voiceListening
-                                  ? 'bg-[var(--border-champagne)] text-[var(--champagne)] border border-[rgba(201,178,124,0.4)] animate-pulse'
-                                  : 'bg-[rgba(255,255,255,0.04)] text-[var(--text-tertiary)] border border-[var(--border-subtle)] hover:text-[var(--champagne)] hover:border-[rgba(201,178,124,0.3)]'
+                                  ? 'bg-[rgba(201,178,124,0.2)] text-[var(--champagne)] border border-[rgba(201,178,124,0.4)] animate-pulse'
+                                  : 'bg-[rgba(255,255,255,0.04)] text-[rgba(255,255,255,0.25)] border border-[var(--border-subtle)] hover:text-[var(--champagne)] hover:border-[rgba(201,178,124,0.3)]'
                                 }`}
                             >
                               {voiceListening
@@ -755,7 +755,7 @@ export default function MessagesPage() {
               <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 className="flex-1 flex flex-col items-center justify-center gap-5">
                 <div className="w-14 h-14 rounded-[24px] flex items-center justify-center
-                  bg-[rgba(201,178,124,0.06)] border border-[var(--champagne-faint)]
+                  bg-[rgba(201,178,124,0.06)] border border-[rgba(201,178,124,0.12)]
                   shadow-[0_0_18px_rgba(201,178,124,0.06)]">
                   <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
                     <path d="M11 2L12.8 8.2H19.2L14 12.1L15.8 18.3L11 14.4L6.2 18.3L8 12.1L2.8 8.2H9.2L11 2Z"

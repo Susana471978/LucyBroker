@@ -25,16 +25,16 @@ import { useRef, useEffect, useCallback } from 'react';
 // ─── Paletas ────────────────────────────────────────────────────────────────
 const PALETTES = {
   idle: {
-    primary: '#4A9EFF', secondary: '#2D6FCC', accent: '#7BC8FF',
-    glow: 'rgba(74,158,255,0.35)', particle: 'rgba(123,200,255,0.75)',
+    primary: 'rgba(255,255,255,0.06)', secondary: 'rgba(255,255,255,0.04)', accent: 'rgba(255,255,255,0.08)',
+    glow: 'rgba(0,0,0,0)', particle: 'rgba(255,255,255,0.06)',
   },
   listening: {
-    primary: '#00E5CC', secondary: '#00B3A0', accent: '#80FFEE',
-    glow: 'rgba(0,229,204,0.42)', particle: 'rgba(128,255,238,0.82)',
+    primary: '#4FC3F7', secondary: '#2196F3', accent: '#81D4FA',
+    glow: 'rgba(79,195,247,0.6)', particle: 'rgba(79,195,247,0.75)',
   },
   processing: {
-    primary: '#A855F7', secondary: '#7C3AED', accent: '#D8B4FE',
-    glow: 'rgba(168,85,247,0.38)', particle: 'rgba(216,180,254,0.75)',
+    primary: 'rgba(201,178,124,0.25)', secondary: 'rgba(201,178,124,0.15)', accent: 'rgba(201,178,124,0.30)',
+    glow: 'rgba(0,0,0,0)', particle: 'rgba(201,178,124,0.25)',
   },
   speaking: {
     primary: '#C9B27C', secondary: '#A08952', accent: '#F0E2B0',
@@ -61,19 +61,28 @@ const PARTICLE_COUNT = 24;
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function expSmooth(cur, tgt, a) { return cur + (tgt - cur) * a; }
 
+// Aplica una opacidad hex (e.g. 'AA','33') a cualquier color, soportando hex y rgba()
+function withAlpha(color, hexAlpha) {
+  if (color.startsWith('#')) return color + hexAlpha;
+  const m = color.match(/rgba?\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*(?:,\s*([\d.]+))?\s*\)/);
+  if (!m) return color;
+  const a = (parseInt(hexAlpha, 16) / 255).toFixed(3);
+  return `rgba(${m[1]},${m[2]},${m[3]},${a})`;
+}
+
 function gradient(ctx, W, pal, role) {
   const g = ctx.createLinearGradient(0, 0, W, 0);
   if (role === 'protagonist') {
     g.addColorStop(0, 'rgba(8,10,15,0)');
-    g.addColorStop(0.22, pal.secondary + 'AA');
+    g.addColorStop(0.22, withAlpha(pal.secondary, 'AA'));
     g.addColorStop(0.52, pal.primary);
     g.addColorStop(0.78, pal.accent);
     g.addColorStop(0.92, '#FFFFFFAA');
     g.addColorStop(1, 'rgba(8,10,15,0)');
   } else if (role === 'pulse') {
     g.addColorStop(0, 'rgba(8,10,15,0)');
-    g.addColorStop(0.3, pal.secondary + '33');
-    g.addColorStop(0.7, pal.primary + '33');
+    g.addColorStop(0.3, withAlpha(pal.secondary, '33'));
+    g.addColorStop(0.7, withAlpha(pal.primary, '33'));
     g.addColorStop(1, 'rgba(8,10,15,0)');
   } else {
     g.addColorStop(0, 'rgba(8,10,15,0)');
@@ -162,21 +171,19 @@ export default function LucyPulseCanvas({ state = 'idle', level = 0, waveform = 
       let baseAmp;
       switch (ST) {
         case 'speaking':
-          // Respira con el TTS. Mínimo siempre visible + impulso del nivel.
-          // El seno lento añade una pulsación orgánica aunque el audio sea plano.
           baseAmp = 0.048 + sl * 0.30 + Math.abs(Math.sin(t0 * 0.018)) * 0.022;
           break;
         case 'listening':
-          // Más sensible al micrófono — rango más amplio
-          baseAmp = 0.038 + sl * 0.36 + Math.abs(Math.sin(t0 * 0.022)) * 0.018;
+          // 40% of normal amplitude
+          baseAmp = (0.038 + sl * 0.36 + Math.abs(Math.sin(t0 * 0.022)) * 0.018) * 0.40;
           break;
         case 'processing':
-          // Pulso autónomo tipo "pensando" — sube y baja suavemente
-          baseAmp = 0.042 + Math.abs(Math.sin(t0 * 0.028)) * 0.10;
+          // 5% of normal — minimal pulse
+          baseAmp = (0.042 + Math.abs(Math.sin(t0 * 0.028)) * 0.10) * 0.05;
           break;
         default: // idle
-          // Respiración mínima, siempre presente
-          baseAmp = 0.030 + Math.abs(Math.sin(t0 * 0.014)) * 0.022;
+          // Almost invisible
+          baseAmp = 0.008 + Math.abs(Math.sin(t0 * 0.014)) * 0.004;
           break;
       }
 
@@ -255,8 +262,10 @@ export default function LucyPulseCanvas({ state = 'idle', level = 0, waveform = 
           else ctx.lineTo(px, py);
         }
 
-        // Glow: protagonista siempre, ecos sólo cuando hay señal
-        if (d.role === 'protagonist') {
+        // Glow: only in speaking/listening states
+        if (ST === 'idle' || ST === 'processing') {
+          ctx.shadowBlur = 0;
+        } else if (d.role === 'protagonist') {
           ctx.shadowColor = pal.glow;
           ctx.shadowBlur = 12 + sl * 36;
         } else if ((d.role === 'echo' || d.role === 'shadow') && sl > 0.25) {

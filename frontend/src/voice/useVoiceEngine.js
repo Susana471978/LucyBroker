@@ -157,19 +157,7 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    // ─── Reemplaza SOLO la función speak() dentro de useVoiceEngine ───────────────
-    //
-    // Cambios respecto a la versión anterior:
-    //   1. Conecta un AnalyserNode al AudioContext del propio voiceEngine
-    //      ANTES de llamar setGlobalAudio(), para que el analyser esté listo
-    //      en el momento en que useAudioLevelFromTTS lo reciba.
-    //   2. Pasa { audio, analyser } en lugar de solo audio a setGlobalAudio().
-    //   3. useAudioLevelFromTTS detecta el formato y lee directamente del analyser.
-    //
-    // NOTA: setGlobalAudio() y onGlobalAudioChange() en useVoiceEngine.js
-    // no necesitan cambios — ya aceptan cualquier valor y lo reenvían tal cual.
-    // ─────────────────────────────────────────────────────────────────────────────
-
+    
     const speak = useCallback(async (text, onEnd) => {
         if (!ttsRef.current || !text) { onEnd?.(); return; }
 
@@ -643,16 +631,24 @@ export function useVoiceEngine() {
         handsFreeRef.current = true;
         setHandsFreeModeActive(true);
         conversationActiveRef.current = true;
+        setLastInteraction("");
         getAudioCtx();
         playBeep(880, 0.12);
 
         const query = (typeof wakeText === "string" && wakeText.trim().length > 0)
             ? wakeText.trim()
-            : "buenos días";
+            : null;
 
         console.log("[Voice] Manos libres activado. Query:", query);
 
-        const isBriefing = BRIEFING_TRIGGERS.some(t => query.toLowerCase().includes(t));
+        if (!query) {
+            speak("Dime", () => {
+                listenForFollowUp();
+            });
+            return;
+        }
+
+        const isBriefing = query && BRIEFING_TRIGGERS.some(t => query.toLowerCase().includes(t));
 
         if (isBriefing) {
             const thinkingPhrase = BRIEFING_THINKING_PHRASES[Math.floor(Math.random() * BRIEFING_THINKING_PHRASES.length)];
