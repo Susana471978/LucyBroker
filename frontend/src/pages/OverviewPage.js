@@ -79,6 +79,9 @@ export default function OverviewPage() {
         dismissBriefing,
         handleSkip,
         checkShowWelcome,
+        pendingEmail,
+        confirmEmailSend,
+        cancelEmailSend,
     } = useBriefing({ token, ttsEnabled });
 
     // Inyectar refresh de recordatorios al contexto de voz
@@ -329,6 +332,9 @@ export default function OverviewPage() {
                     canvasState={canvasState}
                     canvasLevel={canvasLevel}
                     waveform={waveform}
+                    pendingEmail={pendingEmail}
+                    onConfirmEmail={confirmEmailSend}
+                    onCancelEmail={cancelEmailSend}
                 />
 
                 {/* ── Context grid: TU CONTEXTO ── */}

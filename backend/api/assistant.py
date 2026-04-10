@@ -12,7 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from backend.core.dependencies import get_current_user
-from backend.api.gmail import fetch_enriched_messages, fetch_enriched_messages_light
+from backend.api.gmail import fetch_enriched_messages, fetch_enriched_messages_light, send_email, resolve_recipient
 from backend.api.calendar import fetch_today_events, _parse_event, CALENDAR_SCOPES
 from backend.api.habits import get_habits_summary
 from backend.core.database import db
@@ -22,8 +22,10 @@ from backend.services.user_memory import get_user_memory, build_user_memory_cont
 from backend.services.ai_service import AIService, generate_llm_response
 from backend.utils.logger import logger
 
-router = APIRouter(prefix="/assistant", tags=["Assistant"])
+async def _empty_list():
+    return []
 
+router = APIRouter(prefix="/assistant", tags=["Assistant"])
 ai_service = AIService()
 
 
@@ -34,6 +36,9 @@ ai_service = AIService()
 class AssistantMessage(BaseModel):
     text: Optional[str] = None
     message: Optional[str] = None
+    # Confirmación de email pendiente
+    confirm_email: Optional[bool] = None   # True = usuario dijo "sí, envía"
+    pending_email_id: Optional[str] = None # ID del borrador pendiente en DB
 
 
 class AssistantAction(BaseModel):
@@ -46,6 +51,8 @@ class AssistantResponse(BaseModel):
     actions: Optional[List[AssistantAction]] = None
     status: str = "ok"
     timestamp: str
+    # Borrador pendiente — frontend guarda esto hasta confirmación
+    pending_email: Optional[Dict[str, Any]] = None
 
 
 class AssistantMessageAction(BaseModel):
@@ -90,10 +97,60 @@ def _build_inbox_context(items: list, counts: dict) -> str:
 
     follow = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"][:3]
     if follow:
-        follow_names = [
-            (re.match(r'^"?([^"<]+)"?\s*<', i["email"].get("from_name", "")) or type("", (), {"group": lambda s, x: i["email"].get("from_name", "").split("@")[0]})).group(1).strip()
-            for i in follow
-        ]
+        follow_names = []
+        for i in follow:
+            sender = i["email"].get("from_name", "") or i["email"].get("from_email", "")
+            m = re.match(r'^"?([^"<]+)"?\s*<', sender)
+            follow_names.append(m.group(1).strip() if m else sender.split("@")[0])
+        lines.append(f"\nEn seguimiento: {', '.join(follow_names)}")
+
+    return "\n".join(lines)
+
+
+def _build_inbox_context_with_vip(items: list, counts: dict) -> str:
+    """
+    Como _build_inbox_context pero sube los correos VIP al principio,
+    con mención explícita del nombre de empresa VIP.
+    """
+    lines = [
+        f"Total: {counts['total']} correos en bandeja.",
+        f"Prioritarios: {counts['prioritarios']} · Seguimiento: {counts['seguimiento']} · Con adjuntos: {counts['adjuntos']}",
+    ]
+
+    # VIP primero
+    vip_items = [i for i in items if i["email"].get("is_vip")]
+    if vip_items:
+        lines.append("\n⚑ Empresas VIP (máxima prioridad):")
+        for item in vip_items[:4]:
+            email = item["email"]
+            sender = email.get("from_name", "") or email.get("from_email", "")
+            name_match = re.match(r'^"?([^"<]+)"?\s*<', sender)
+            clean = name_match.group(1).strip() if name_match else sender
+            vip_name = email.get("vip_company_name", "")
+            subject = email.get("subject", "(Sin asunto)")
+            snippet = email.get("snippet", "")[:80]
+            label = f" [{vip_name}]" if vip_name else ""
+            lines.append(f'  · {clean}{label}: "{subject}" — {snippet}')
+
+    top = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO" and not i["email"].get("is_vip")][:3]
+    if top:
+        lines.append("\nCorreos prioritarios:")
+        for item in top:
+            email = item["email"]
+            sender = email.get("from_name", "") or email.get("from_email", "")
+            name_match = re.match(r'^"?([^"<]+)"?\s*<', sender)
+            clean = name_match.group(1).strip() if name_match else sender
+            subject = email.get("subject", "(Sin asunto)")
+            snippet = email.get("snippet", "")[:80]
+            lines.append(f'  · {clean}: "{subject}" — {snippet}')
+
+    follow = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"][:3]
+    if follow:
+        follow_names = []
+        for i in follow:
+            sender = i["email"].get("from_name", "") or i["email"].get("from_email", "")
+            m = re.match(r'^"?([^"<]+)"?\s*<', sender)
+            follow_names.append(m.group(1).strip() if m else sender.split("@")[0])
         lines.append(f"\nEn seguimiento: {', '.join(follow_names)}")
 
     return "\n".join(lines)
@@ -116,7 +173,6 @@ def _build_calendar_context(events: list) -> str:
 
     meetings = [e for e in events if not e.get("all_day")]
     all_day = [e for e in events if e.get("all_day")]
-
     lines = [f"Agenda: {len(events)} evento{'s' if len(events) != 1 else ''} hoy."]
 
     if all_day:
@@ -132,7 +188,6 @@ def _build_calendar_context(events: list) -> str:
                 time_str = parsed.strftime("%H:%M")
             except Exception:
                 time_str = raw[:16].replace("T", " ")
-
             attendees = e.get("attendees", [])[:3]
             line = f"    · {time_str} — {e.get('title', '')}"
             if attendees:
@@ -149,25 +204,20 @@ def _build_calendar_context(events: list) -> str:
 def _build_tasks_context(tasks: list) -> str:
     if not tasks:
         return ""
-
     high = [t for t in tasks if t.get("priority") == "high"]
     normal = [t for t in tasks if t.get("priority") != "high"]
-
     lines = [f"Tareas pendientes: {len(tasks)} total."]
-
     if high:
         lines.append("  Urgentes:")
         for t in high:
             due = f" (vence: {t['due_date']})" if t.get("due_date") else ""
             lines.append(f"    · {t['title']}{due}")
-
     if normal:
         for t in normal[:3]:
             due = f" (vence: {t['due_date']})" if t.get("due_date") else ""
             lines.append(f"  · {t['title']}{due}")
         if len(normal) > 3:
             lines.append(f"  ...y {len(normal) - 3} más.")
-
     return "\n".join(lines)
 
 
@@ -179,7 +229,7 @@ def _build_habits_context(summary: dict) -> str:
     completed = summary.get("completed", 0)
     lines = [f"Hábitos del día: {completed}/{total} completados."]
     for h in habits:
-        status = "✓" if h["completed_today"] else "pendiente"
+        status = "completado" if h["completed_today"] else "pendiente"
         streak_txt = f" (racha: {h['streak']} días)" if h.get("streak", 0) >= 2 else ""
         lines.append(f"  · {h['icon']} {h['name']}: {status}{streak_txt}")
     if summary.get("all_done"):
@@ -192,12 +242,11 @@ def _get_service_status(user: Dict[str, Any], gmail_ok: bool, calendar_ok: bool)
     if not user.get("gmail_connected"):
         issues.append("correo no conectado")
     elif not gmail_ok:
-        issues.append("correo con error de autenticación (necesita reconectar)")
+        issues.append("correo con error de autenticación")
     if not user.get("calendar_connected"):
         issues.append("agenda no conectada")
     elif not calendar_ok:
-        issues.append("agenda con error de autenticación (necesita reconectar)")
-
+        issues.append("agenda con error de autenticación")
     if issues:
         return f"AVISO: {', '.join(issues)}. Informa al usuario si pregunta por esos servicios."
     return ""
@@ -209,7 +258,6 @@ def _get_lucy_role(user: Dict[str, Any]) -> str:
     _has_executive = user_plan.get("executive_tier") is not None
     _has_personal = user_plan.get("personal_tier") is not None
     _is_admin = user_plan.get("is_admin", False)
-
     if _is_admin or (_has_executive and _has_personal):
         return "secretaria ejecutiva y asistente personal"
     elif _has_executive:
@@ -243,7 +291,7 @@ def _get_date_context():
 
 
 # =====================================================
-# DETECCIÓN DE INTENCIONES RÁPIDAS
+# DETECCIÓN DE INTENCIONES
 # =====================================================
 
 _EVENT_ACTION_KEYWORDS = [
@@ -275,6 +323,7 @@ def _is_create_event_intent(text: str) -> bool:
     has_time = bool(_TIME_PATTERN.search(t))
     return (has_action or has_type) and has_time
 
+
 _TASK_KEYWORDS = [
     "tarea", "pendiente", "to-do", "todo", "añade como tarea",
     "nueva tarea", "apunta como tarea", "tengo que", "hay que",
@@ -284,6 +333,7 @@ _TASK_KEYWORDS = [
 def _is_task_intent(text: str) -> bool:
     t = text.lower().strip()
     return any(kw in t for kw in _TASK_KEYWORDS)
+
 
 _BRIEFING_KEYWORDS = [
     "briefing", "buenos días", "buenos dias", "buen día", "buen dia",
@@ -297,7 +347,57 @@ def _is_briefing_request(text: str) -> bool:
     t = text.lower().strip()
     return any(k in t for k in _BRIEFING_KEYWORDS)
 
-# Navigation intents — no LLM needed, instant response
+
+# ── Intención de email ────────────────────────────────
+_EMAIL_SEND_KEYWORDS = [
+    "manda", "envía", "envia", "escribe", "redacta", "prepara",
+    "mándame", "mandame", "manda un email", "manda un correo",
+    "escribe un email", "escribe un correo", "envía un email",
+    "quiero mandar", "quiero enviar", "quiero escribir",
+]
+
+def _is_email_send_intent(text: str) -> bool:
+    t = text.lower()
+    has_action = any(k in t for k in _EMAIL_SEND_KEYWORDS)
+    has_email_word = any(w in t for w in ["email", "correo", "mail", "mensaje"])
+    # También: "dile a Carlos que..." sin mencionar email explícitamente
+    has_dile = "dile" in t or "cuéntale" in t or "avísale" in t
+    return has_action and (has_email_word or has_dile)
+
+
+# ── Confirmación de envío ─────────────────────────────
+_CONFIRM_WORDS = [
+    "sí", "si", "sí envíalo", "envíalo", "envialo", "mándalo", "mandalo",
+    "perfecto", "adelante", "venga", "dale", "correcto", "de acuerdo",
+    "confirmado", "confirmo", "hazlo", "procede",
+]
+_REJECT_WORDS = [
+    "no", "cancela", "no lo envíes", "no lo mandes", "espera",
+    "modifica", "cambia", "para", "stop",
+]
+
+def _is_confirm(text: str) -> bool:
+    t = text.lower().strip()
+    return any(w in t for w in _CONFIRM_WORDS)
+
+def _is_reject(text: str) -> bool:
+    t = text.lower().strip()
+    return any(w in t for w in _REJECT_WORDS)
+
+
+# ── Intención de leer correo ──────────────────────────
+_READ_EMAIL_KEYWORDS = [
+    "léeme", "lee", "leeme", "lee el correo", "léeme el correo",
+    "qué dice", "que dice", "lee el último", "lee el ultimo",
+    "léeme el último", "lee el de", "léeme el de",
+]
+
+def _is_read_email_intent(text: str) -> bool:
+    t = text.lower()
+    return any(k in t for k in _READ_EMAIL_KEYWORDS)
+
+
+# Navigation intents
 _NAV_INTENTS = {
     "messages": (["mensajes", "correos", "bandeja", "ir a mensajes", "mis correos", "ver correos"],
                  "Te llevo a tus mensajes.", "messages"),
@@ -320,7 +420,47 @@ def _detect_nav_intent(text: str):
 
 
 # =====================================================
-# EVENT EXTRACTION + CREATION (unchanged)
+# EMAIL EXTRACTION
+# =====================================================
+
+async def _extract_email_intent(user_text: str, user_name: str) -> Optional[Dict[str, Any]]:
+    """
+    Extrae destinatario, asunto y cuerpo de un comando de voz.
+    Devuelve {"to_name": str, "subject": str, "body": str} o None.
+    """
+    prompt = f"""Eres un extractor de intenciones de email por voz.
+El usuario se llama {user_name}.
+El usuario dice: "{user_text}"
+
+Extrae la intención de enviar un email.
+Devuelve ÚNICAMENTE un JSON válido sin backticks ni texto adicional:
+{{
+  "to_name": "nombre o email del destinatario",
+  "subject": "asunto del correo",
+  "body": "cuerpo del correo redactado de forma profesional en español"
+}}
+
+Reglas:
+- Si el usuario no especificó asunto, inventa uno apropiado.
+- El cuerpo debe sonar natural y profesional en español.
+- Si el usuario dijo "dile que...", construye el correo con ese contenido.
+- No incluyas saludo formal tipo "Estimado/a" a menos que el usuario lo pida — empieza directo.
+- Firma con el nombre del remitente: {user_name}.
+- Si no hay destinatario claro, usa to_name: "".
+"""
+    try:
+        raw = await generate_llm_response(prompt)
+        clean = raw.strip().replace("```json", "").replace("```", "").strip()
+        data = json.loads(clean)
+        if data.get("body"):
+            return data
+    except Exception as e:
+        logger.warning("Email extraction error: %s", e)
+    return None
+
+
+# =====================================================
+# EVENT EXTRACTION + CREATION
 # =====================================================
 
 async def _extract_event_data(user_text: str) -> Optional[Dict[str, Any]]:
@@ -334,8 +474,7 @@ Hoy es {today_str} ({today_weekday}). Zona horaria: Europe/Madrid.
 El usuario dice: "{user_text}"
 
 Devuelve ÚNICAMENTE un objeto JSON válido, sin texto adicional ni backticks.
-
-Formato exacto:
+Formato:
 {{
   "title": "nombre del evento",
   "date": "YYYY-MM-DD",
@@ -346,25 +485,20 @@ Formato exacto:
 }}
 
 Reglas:
-- Si no hay hora de fin, suma 1 hora a la de inicio.
+- Si no hay hora de fin, suma 1 hora.
 - "mañana" → calcula desde hoy.
-- Si dice un día de la semana, calcula la PRÓXIMA ocurrencia desde hoy.
-- Año: usa el más próximo futuro.
-- "12h30" o "12.30" o "12:30" = start_time "12:30".
-- Si no hay título explícito, construye uno con las palabras clave.
+- Si dice un día de la semana, calcula la PRÓXIMA ocurrencia.
+- Año: el más próximo futuro.
 - location y description pueden quedar vacíos.
 """
-
     raw = await generate_llm_response(prompt)
     clean = raw.strip().replace("```json", "").replace("```", "").strip()
-
     try:
         data = json.loads(clean)
         if data.get("date") and data.get("title"):
             return data
     except Exception:
         pass
-
     match = re.search(r'\{[^{}]+\}', clean, re.DOTALL)
     if match:
         try:
@@ -394,7 +528,6 @@ async def _create_calendar_event_direct(
         date = event_data.get("date", "")
         start_time = event_data.get("start_time", "09:00")
         end_time = event_data.get("end_time", "10:00")
-
         body: Dict[str, Any] = {
             "summary": event_data.get("title", "Evento"),
             "start": {"dateTime": f"{date}T{start_time}:00", "timeZone": "Europe/Madrid"},
@@ -404,7 +537,6 @@ async def _create_calendar_event_direct(
             body["description"] = event_data["description"]
         if event_data.get("location"):
             body["location"] = event_data["location"]
-
         created = service.events().insert(calendarId="primary", body=body).execute()
         return _parse_event(created)
     except Exception as exc:
@@ -417,18 +549,17 @@ def _format_event_confirmation(event_data: Dict[str, Any], created: Optional[Dic
     date = event_data.get("date", "")
     start_time = event_data.get("start_time", "")
     location = event_data.get("location", "")
-
     try:
         dt = datetime.strptime(date, "%Y-%m-%d")
         _months = ["enero","febrero","marzo","abril","mayo","junio",
-                    "julio","agosto","septiembre","octubre","noviembre","diciembre"]
+                   "julio","agosto","septiembre","octubre","noviembre","diciembre"]
         _days = ["lunes","martes","miércoles","jueves","viernes","sábado","domingo"]
         date_str = f"el {_days[dt.weekday()]} {dt.day} de {_months[dt.month - 1]}"
     except Exception:
         date_str = f"el {date}"
 
     if created:
-        parts = [f"Anotado. {title} {date_str}"]
+        parts = [f"Listo. {title} {date_str}"]
         if start_time:
             parts.append(f"a las {start_time}")
         if location:
@@ -439,7 +570,7 @@ def _format_event_confirmation(event_data: Dict[str, Any], created: Optional[Dic
 
 
 # =====================================================
-# ENDPOINT PRINCIPAL — OPTIMIZED
+# ENDPOINT PRINCIPAL
 # =====================================================
 
 @router.post("", response_model=AssistantResponse)
@@ -453,9 +584,67 @@ async def assistant_endpoint(
             raise HTTPException(status_code=400, detail="Mensaje vacío")
 
         now_ts = datetime.now(timezone.utc).isoformat()
+        user_name = user.get("name", "")
 
         # ══════════════════════════════════════════════════════
-        # FAST PATH — Instant intents (no LLM, no data fetch)
+        # CONFIRMACIÓN DE EMAIL PENDIENTE
+        # Cuando el frontend guarda un borrador y el usuario confirma,
+        # llega confirm_email=True + pending_email con los datos.
+        # ══════════════════════════════════════════════════════
+
+        if payload.confirm_email is not None and payload.pending_email_id:
+            # Recuperar borrador de DB
+            from bson import ObjectId
+            try:
+                draft_doc = await db.email_drafts.find_one({
+                    "_id": ObjectId(payload.pending_email_id),
+                    "user_id": user["id"],
+                })
+            except Exception:
+                draft_doc = None
+
+            if not draft_doc:
+                return AssistantResponse(
+                    assistant_text="No encuentro el borrador. ¿Quieres que lo redacte de nuevo?",
+                    actions=None, status="ok", timestamp=now_ts,
+                )
+
+            if payload.confirm_email is False or _is_reject(user_text):
+                await db.email_drafts.delete_one({"_id": draft_doc["_id"]})
+                return AssistantResponse(
+                    assistant_text="Entendido, cancelo el correo.",
+                    actions=[AssistantAction(type="email_cancelled", payload={})],
+                    status="ok", timestamp=now_ts,
+                )
+
+            if payload.confirm_email is True or _is_confirm(user_text):
+                try:
+                    result = await send_email(
+                        user=user, db=db,
+                        to=draft_doc["to"],
+                        subject=draft_doc["subject"],
+                        body=draft_doc["body"],
+                    )
+                    await db.email_drafts.delete_one({"_id": draft_doc["_id"]})
+                    recipient_name = draft_doc.get("to_name") or draft_doc["to"]
+                    return AssistantResponse(
+                        assistant_text=f"Enviado. El correo a {recipient_name} acaba de salir.",
+                        actions=[AssistantAction(type="email_sent", payload={
+                            "to": draft_doc["to"],
+                            "subject": draft_doc["subject"],
+                            "message_id": result.get("message_id", ""),
+                        })],
+                        status="ok", timestamp=now_ts,
+                    )
+                except Exception as e:
+                    logger.error("Send email error: %s", e)
+                    return AssistantResponse(
+                        assistant_text="Ha habido un problema al enviar el correo. Comprueba que Gmail sigue conectado en ajustes.",
+                        actions=None, status="error", timestamp=now_ts,
+                    )
+
+        # ══════════════════════════════════════════════════════
+        # FAST PATH — Instant intents
         # ══════════════════════════════════════════════════════
 
         # 1. Navigation intent
@@ -464,8 +653,7 @@ async def assistant_endpoint(
             return AssistantResponse(
                 assistant_text=nav_text,
                 actions=[AssistantAction(type="go_to", payload={"screen": nav_screen})],
-                status="ok",
-                timestamp=now_ts,
+                status="ok", timestamp=now_ts,
             )
 
         # 2. Filter intents
@@ -490,7 +678,7 @@ async def assistant_endpoint(
             )
 
         # ══════════════════════════════════════════════════════
-        # MEDIUM PATH — LLM-powered but no heavy data fetch
+        # MEDIUM PATH — LLM, no heavy fetch
         # ══════════════════════════════════════════════════════
 
         # 3. Create calendar event
@@ -519,7 +707,6 @@ El usuario dice: "{user_text}"
                 _raw = await generate_llm_response(_task_prompt)
                 _clean = _raw.strip().replace("```json", "").replace("```", "").strip()
                 _task_data = json.loads(_clean)
-
                 if _task_data.get("title"):
                     _doc = {
                         "user_id": user["id"],
@@ -534,9 +721,9 @@ El usuario dice: "{user_text}"
                     }
                     _result = await db.tasks.insert_one(_doc)
                     _due = f" para el {_task_data['due_date']}" if _task_data.get("due_date") else ""
-                    _pri = " (prioritaria)" if _task_data.get("priority") == "high" else ""
+                    _pri = " como urgente" if _task_data.get("priority") == "high" else ""
                     return AssistantResponse(
-                        assistant_text=f"Tarea añadida: {_task_data['title']}{_pri}{_due}.",
+                        assistant_text=f"Tarea añadida{_pri}: {_task_data['title']}{_due}.",
                         actions=[AssistantAction(type="task_created", payload={"id": str(_result.inserted_id), "title": _task_data["title"]})],
                         status="ok", timestamp=now_ts,
                     )
@@ -559,7 +746,7 @@ El usuario dice: "{user_text}"
                 result = await db.reminders.insert_one(doc)
                 friendly = reminder_data.get("friendly_time", reminder_data["remind_at"])
                 return AssistantResponse(
-                    assistant_text=f"Listo. Te recordaré {reminder_data['text']} {friendly}.",
+                    assistant_text=f"Listo. Te recuerdo {reminder_data['text']} {friendly}.",
                     actions=[AssistantAction(type="reminder_created", payload={"id": str(result.inserted_id), "text": reminder_data["text"]})],
                     status="ok", timestamp=now_ts,
                 )
@@ -585,7 +772,7 @@ El usuario dice: "{user_text}"
                 "proyecto": "Anotado para el proyecto.",
                 "preferencia": "Preferencia guardada. Lo recordaré.",
                 "recado": f"Apuntado: {note_text}.",
-                "salud": "Anotado. Lo tendré en cuenta.",
+                "salud": "Anotado.",
                 "general": "Anotado. Lo tendré en cuenta.",
             }
             return AssistantResponse(
@@ -594,13 +781,137 @@ El usuario dice: "{user_text}"
                 status="ok", timestamp=now_ts,
             )
 
+        # 7. ── EMAIL POR VOZ ─────────────────────────────────────────
+        if _is_email_send_intent(user_text):
+            if not user.get("gmail_connected"):
+                return AssistantResponse(
+                    assistant_text="Tu correo no está conectado. Puedes conectarlo desde ajustes.",
+                    actions=None, status="ok", timestamp=now_ts,
+                )
+
+            email_data = await _extract_email_intent(user_text, user_name)
+            if not email_data:
+                return AssistantResponse(
+                    assistant_text="No he entendido bien a quién va el correo ni qué quieres decir. ¿Puedes repetirlo?",
+                    actions=None, status="ok", timestamp=now_ts,
+                )
+
+            to_name = email_data.get("to_name", "")
+            subject = email_data.get("subject", "")
+            body_text = email_data.get("body", "")
+
+            # Resolver email del destinatario
+            resolved_email = await resolve_recipient(to_name, user["id"], db)
+
+            if not resolved_email:
+                # No tenemos email — pedimos confirmación con nombre
+                # Guardamos borrador en DB con to pendiente de resolver
+                draft_doc = {
+                    "user_id": user["id"],
+                    "to": to_name,  # será el nombre hasta que se resuelva
+                    "to_name": to_name,
+                    "subject": subject,
+                    "body": body_text,
+                    "resolved": False,
+                    "created_at": now_ts,
+                }
+                draft_result = await db.email_drafts.insert_one(draft_doc)
+                draft_id = str(draft_result.inserted_id)
+
+                # Lucy lee el borrador en voz alta para que el usuario confirme
+                preview = body_text[:200] + ("..." if len(body_text) > 200 else "")
+                confirmation_text = (
+                    f"He redactado esto para {to_name}. "
+                    f"Asunto: {subject}. "
+                    f"Mensaje: {preview}. "
+                    f"¿Lo envío?"
+                )
+                return AssistantResponse(
+                    assistant_text=confirmation_text,
+                    actions=None,
+                    status="ok",
+                    timestamp=now_ts,
+                    pending_email={
+                        "id": draft_id,
+                        "to_name": to_name,
+                        "to_email": None,
+                        "subject": subject,
+                        "body": body_text,
+                        "needs_confirm": True,
+                    },
+                )
+
+            # Tenemos email resuelto — guardar borrador y pedir confirmación
+            draft_doc = {
+                "user_id": user["id"],
+                "to": resolved_email,
+                "to_name": to_name,
+                "subject": subject,
+                "body": body_text,
+                "resolved": True,
+                "created_at": now_ts,
+            }
+            draft_result = await db.email_drafts.insert_one(draft_doc)
+            draft_id = str(draft_result.inserted_id)
+
+            preview = body_text[:200] + ("..." if len(body_text) > 200 else "")
+            confirmation_text = (
+                f"Listo. He redactado esto para {to_name}. "
+                f"Asunto: {subject}. "
+                f"Dice: {preview}. "
+                f"¿Lo envío?"
+            )
+            return AssistantResponse(
+                assistant_text=confirmation_text,
+                actions=None,
+                status="ok",
+                timestamp=now_ts,
+                pending_email={
+                    "id": draft_id,
+                    "to_name": to_name,
+                    "to_email": resolved_email,
+                    "subject": subject,
+                    "body": body_text,
+                    "needs_confirm": True,
+                },
+            )
+
+        # 8. ── LEER CORREO EN VOZ ALTA ────────────────────────────────
+        if _is_read_email_intent(user_text):
+            if not user.get("gmail_connected"):
+                return AssistantResponse(
+                    assistant_text="Tu correo no está conectado.",
+                    actions=None, status="ok", timestamp=now_ts,
+                )
+            try:
+                recent = await fetch_enriched_messages_light(user, db, max_results=5)
+                if not recent:
+                    return AssistantResponse(
+                        assistant_text="No encuentro correos recientes.",
+                        actions=None, status="ok", timestamp=now_ts,
+                    )
+                # Elegir el más reciente o el prioritario
+                target = recent[0]
+                email = target["email"]
+                sender = email.get("from_name", "") or email.get("from_email", "")
+                name_match = re.match(r'^"?([^"<]+)"?\s*<', sender)
+                clean_sender = name_match.group(1).strip() if name_match else sender
+                subject = email.get("subject", "sin asunto")
+                snippet = email.get("snippet", "")[:300]
+                read_text = f"El correo más reciente es de {clean_sender}. Asunto: {subject}. Dice: {snippet}."
+                return AssistantResponse(
+                    assistant_text=read_text,
+                    actions=[AssistantAction(type="highlight_email", payload={"email_id": email.get("id", "")})],
+                    status="ok", timestamp=now_ts,
+                )
+            except Exception as e:
+                logger.warning("Read email error: %s", e)
+
         # ══════════════════════════════════════════════════════
-        # SLOW PATH — Briefing or general query (full context)
+        # SLOW PATH — Briefing o consulta general con contexto
         # ══════════════════════════════════════════════════════
 
         is_briefing = _is_briefing_request(user_text)
-
-        # Only fetch heavy context for briefing or general queries that need it
         gmail_ok = True
         calendar_ok = True
 
@@ -609,7 +920,7 @@ El usuario dice: "{user_text}"
             if not user.get("gmail_connected"):
                 return []
             try:
-                return await fetch_enriched_messages_light(user, db, max_results=50)
+                return await fetch_enriched_messages_light(user, db, max_results=15)
             except Exception as e:
                 gmail_ok = False
                 logger.warning("Gmail fetch error: %s", e)
@@ -640,27 +951,18 @@ El usuario dice: "{user_text}"
                 return {"habits": [], "completed": 0, "total": 0}
 
         if is_briefing:
-            # Full parallel fetch for briefing
             _results = await asyncio.gather(
-                _fetch_gmail(),
-                _fetch_calendar(),
-                get_memory(db, user["id"]),
-                get_all_contacts(db, user["id"], limit=5),
-                get_user_memory(db, user["id"]),
-                _fetch_tasks(),
-                _fetch_habits(),
+                _fetch_gmail(), _fetch_calendar(),
+                get_memory(db, user["id"]), get_all_contacts(db, user["id"], limit=5),
+                get_user_memory(db, user["id"]), _fetch_tasks(), _fetch_habits(),
                 return_exceptions=True,
             )
         else:
-            # Light fetch for general queries — only fast local DB queries
             _results = await asyncio.gather(
-                asyncio.coroutine(lambda: [])() if not user.get("gmail_connected") else _fetch_gmail(),
-                _fetch_calendar(),
-                get_memory(db, user["id"]),
-                asyncio.coroutine(lambda: [])(),  # skip contacts
-                get_user_memory(db, user["id"]),
-                _fetch_tasks(),
-                _fetch_habits(),
+                _empty_list() if not user.get("gmail_connected") else _fetch_gmail(),
+                _fetch_calendar(), get_memory(db, user["id"]),
+                _empty_list(), get_user_memory(db, user["id"]),
+                _fetch_tasks(), _fetch_habits(),
                 return_exceptions=True,
             )
 
@@ -675,18 +977,20 @@ El usuario dice: "{user_text}"
         pending_tasks = _safe(_results[5], [])
         habits_summary = _safe(_results[6], {"habits": [], "completed": 0, "total": 0})
 
-        for i, r in enumerate(_results):
-            if isinstance(r, BaseException):
-                logger.warning("Context gather task %d failed: %s", i, r)
-
         total = len(items)
         prioritarios = [i for i in items if i["priority"]["priority_label"] == "PRIORITARIO"]
         seguimiento = [i for i in items if i["priority"]["priority_label"] == "SEGUIMIENTO"]
         adjuntos = [i for i in items if i["email"].get("has_attachments", False)]
-        counts = {"total": total, "prioritarios": len(prioritarios), "seguimiento": len(seguimiento), "adjuntos": len(adjuntos)}
+        counts = {
+            "total": total,
+            "prioritarios": len(prioritarios),
+            "seguimiento": len(seguimiento),
+            "adjuntos": len(adjuntos),
+        }
 
         user_memory_context = build_user_memory_context(user_mem_doc)
-        inbox_context = _build_inbox_context(items, counts) if items else "Bandeja: sin correos disponibles."
+        # Usar versión con VIP destacado
+        inbox_context = _build_inbox_context_with_vip(items, counts) if items else "Bandeja: sin correos disponibles."
         calendar_context = _build_calendar_context(calendar_events)
         tasks_context = _build_tasks_context(pending_tasks)
         habits_context = _build_habits_context(habits_summary)
@@ -704,22 +1008,32 @@ El usuario dice: "{user_text}"
         now_madrid, today_label, today_iso, time_of_day = _get_date_context()
         lucy_role = _get_lucy_role(user)
 
-        if is_briefing:
-            prompt = f"""Eres Lucy, {lucy_role} de {user.get('name', 'el usuario')}.
+        # ── INSTRUCCIÓN BASE PARA VOZ ────────────────────────────────
+        # Lucy siempre habla como si fuera audio: frases cortas, sin listas,
+        # sin markdown, sin guiones, sin emojis. Natural y fluido.
+        voice_base = """IMPORTANTE — tu respuesta se leerá en voz alta.
+Reglas absolutas:
+- Sin listas, sin guiones, sin asteriscos, sin markdown de ningún tipo.
+- Frases cortas y naturales, como en una conversación real.
+- Sin emojis.
+- En español de España, registro profesional pero cercano.
+- Máximo las frases indicadas en cada prompt."""
 
+        if is_briefing:
+            prompt = f"""{voice_base}
+
+Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
 HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
 
-Tu trabajo es dar un briefing completo. Hablas con naturalidad, elegancia y cercanía profesional. En español.
+Da un briefing completo en prosa fluida. Estructura natural hablada:
+Primero saluda brevemente según la hora.
+Luego la agenda de hoy con las reuniones importantes.
+Después los correos, empezando siempre por los de empresas VIP si los hay, luego los prioritarios.
+Después las tareas urgentes.
+Después los hábitos pendientes.
+Cierra con una frase motivadora breve.
 
-ESTRUCTURA DEL BRIEFING (prosa fluida, no listas):
-1. Saludo breve adaptado a la hora.
-2. AGENDA: reuniones/eventos. Si hay videollamadas, menciónalo.
-3. CORREOS: resumen de bandeja. Destaca prioritarios por nombre y asunto.
-4. TAREAS: pendientes, destaca urgentes.
-5. HÁBITOS: completados y pendientes.
-6. Cierre motivador.
-
-DATOS REALES:
+DATOS:
 {calendar_context}
 {inbox_context}
 {tasks_context if tasks_context else "Sin tareas pendientes."}
@@ -729,15 +1043,16 @@ DATOS REALES:
 {memory_context}
 {user_memory_context}
 
-REGLAS: Prosa fluida, máximo 8-10 frases. Nombra personas y asuntos reales. NO inventes datos.
-
+Máximo 10 frases. Nombra personas y asuntos reales. No inventes datos.
 El usuario dice: "{user_text}"
 """
             max_tokens = 500
         else:
-            prompt = f"""Eres Lucy, {lucy_role} de {user.get('name', 'el usuario')}.
+            prompt = f"""{voice_base}
+
+Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
 HOY: {today_label}. Hora: {now_madrid.strftime("%H:%M")}.
-Personalidad: elegante, directa, concisa. Máximo 3-4 frases. En español.
+Responde en máximo 3 frases, directo y natural.
 
 DATOS:
 {calendar_context}
@@ -749,15 +1064,13 @@ DATOS:
 {user_memory_context}
 
 El usuario dice: "{user_text}"
-
-Responde con datos reales. No inventes. Si pide algo específico, responde directamente.
+No inventes datos. Si pide algo específico, responde directamente.
 """
-            max_tokens = 250
+            max_tokens = 200
 
-        # Generate response
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:
-            assistant_text = "No puedo procesar tu solicitud porque la configuración de IA no está disponible."
+            assistant_text = "La configuración de inteligencia artificial no está disponible en este momento."
         else:
             from openai import AsyncOpenAI
             client = AsyncOpenAI(api_key=api_key)
@@ -768,8 +1081,8 @@ Responde con datos reales. No inventes. Si pide algo específico, responde direc
                 max_tokens=max_tokens,
             )
             assistant_text = response.choices[0].message.content.strip()
+            logger.info("LLM response: %s", assistant_text)
 
-        # Save executive memory (fire-and-forget)
         try:
             await set_memory(db=db, user_id=user["id"], fields={
                 "last_action": "briefing" if is_briefing else "assistant_query",
@@ -810,9 +1123,9 @@ async def assistant_message_endpoint(
             raise HTTPException(status_code=400, detail="Contenido vacío")
 
         if payload.mode == "summarize":
-            prompt = f"""Resume este correo en máximo 4 frases.
-Natural, claro y conversacional. Sin encabezados ni listas.
-Solo síntesis clara. Si hay una acción requerida, menciónala al final.
+            prompt = f"""Resume este correo en máximo 3 frases.
+Natural, claro y conversacional. Sin encabezados ni listas. Sin markdown.
+Si hay una acción requerida, menciónala al final.
 
 Correo:
 {payload.message_content}
@@ -827,7 +1140,7 @@ Correo:
 
         elif payload.mode == "auto_reply":
             prompt = f"""Redacta una respuesta profesional, clara y concisa al siguiente correo.
-Lista para enviar tal cual.
+Lista para enviar. Sin markdown.
 
 Correo:
 {payload.message_content}
@@ -846,3 +1159,4 @@ Correo:
     except Exception as e:
         logger.exception("Assistant message error: %s", e)
         raise HTTPException(status_code=500, detail="Error procesando el mensaje")
+    

@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { t } from '../i18n';
-import { LayoutDashboard, Mail, CheckSquare, Settings, LogOut, Globe, ChevronDown, Flame, Crown } from 'lucide-react';
+import { LayoutDashboard, Mail, CheckSquare, Settings, LogOut, Globe, ChevronDown, Flame, Crown, Users } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { TrialBanner, TrialExpiredOverlay } from './TrialBanner';
 import logoLucy from '../assets/Logo-Lucy.png';
@@ -68,6 +68,7 @@ const Layout = ({ children }) => {
     { path: '/app', icon: LayoutDashboard, label: t(language, 'overview') },
     { path: '/app/messages', icon: Mail, label: t(language, 'messages') },
     { path: '/app/tasks', icon: CheckSquare, label: 'Tareas y recordatorios' },
+    { path: '/app/contacts', icon: Users, label: 'Contactos' },
   ];
 
   const languages = [

@@ -12,6 +12,7 @@ import SettingsPage from "./pages/SettingsPage";
 import HabitsPage from "./pages/HabitsPage";
 import PricingPage from "./pages/PricingPage";
 import { BillingSuccessPage, BillingCancelPage } from "./pages/BillingResultPage";
+import ContactsPage from "./pages/ContactsPage";
 
 // Smart Landing — redirects authenticated users to /app
 const SmartLanding = () => {
@@ -134,6 +135,15 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <BillingCancelPage />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/app/contacts"
+        element={
+          <ProtectedRoute>
+            <ContactsPage />
           </ProtectedRoute>
         }
       />

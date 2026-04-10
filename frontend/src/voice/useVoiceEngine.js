@@ -3,19 +3,24 @@ import { executeVoiceActions } from "./voiceCommandRouter";
 import apiClient from "../services/apiClient";
 
 /**
- * useVoiceEngine v4 — Conversational mode
- * 
+ * useVoiceEngine v4.1 — Conversational mode
+ *
  * Flow after wake word:
  *   1. "Hola Lucy" → beep → command listener
  *   2. Command captured → process → Lucy speaks response
  *   3. Lucy says "¿Algo más?" → listens 10 seconds
  *   4. User says something → process → Lucy responds → "¿Algo más?" → loop
  *   5. 10 seconds silence OR user says "gracias/no/hasta luego" → back to wake listener
- * 
+ *
  * Briefing flow:
- *   1. "Hola Lucy, buenos días" → instant "Dame un momento..."
+ *   1. "Hola Lucy, buenos días" → instant "Dame un momento para ponerme al día..."
  *   2. Full briefing loads in background
  *   3. Lucy speaks full briefing → "¿Algo más?"
+ *
+ * Manos libres:
+ *   - Activa escucha continua sin wake word
+ *   - Al terminar conversación/timeout vuelve a startCommandListener (no wake)
+ *   - Solo sale del modo con goodbye words
  */
 
 export const STATES = {
@@ -40,7 +45,7 @@ const BRIEFING_TRIGGERS = [
 ];
 
 const BRIEFING_THINKING_PHRASES = [
-    "Dame un momento, estoy revisando tu día...",
+    "Dame un momento para ponerme al día...",
     "Un segundo, estoy preparando tu briefing...",
     "Déjame revisar todo, un momento...",
 ];
@@ -67,7 +72,6 @@ export function onGlobalAudioChange(fn) {
 
 export function stopGlobalAudio() {
     if (_globalAudio) {
-        // Soporta formato nuevo { audio, analyser } y formato legacy <audio>
         const audioEl = (_globalAudio?.audio instanceof HTMLMediaElement)
             ? _globalAudio.audio
             : _globalAudio;
@@ -76,6 +80,7 @@ export function stopGlobalAudio() {
     setGlobalAudio(null);
     try { window.speechSynthesis.cancel(); } catch (_) { }
 }
+
 export function useVoiceEngine() {
     const [voiceState, setVoiceState] = useState(STATES.IDLE);
     const [transcript, setTranscript] = useState("");
@@ -131,6 +136,7 @@ export function useVoiceEngine() {
             document.removeEventListener("touchstart", unlock);
         };
     }, [getAudioCtx]);
+
     const playBeep = useCallback((freq = 880, dur = 0.12) => {
         try {
             const ctx = getAudioCtx();
@@ -157,21 +163,19 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    
+    // ─── Speak ─────────────────────────────────────────────────────
     const speak = useCallback(async (text, onEnd) => {
         if (!ttsRef.current || !text) { onEnd?.(); return; }
 
+        stopGlobalAudio();
+        killRecognition();
         try {
-            stopGlobalAudio();
             setVoiceState(STATES.SPEAKING);
 
             const res = await apiClient.post("/tts", { text }, { responseType: "blob" });
             const url = URL.createObjectURL(res.data);
             const audio = new Audio(url);
 
-            // ── Conectar AnalyserNode en nuestro propio AudioContext ──────
-            // Lo hacemos ANTES de setGlobalAudio para que el hook lo reciba
-            // ya listo. Un solo createMediaElementSource por elemento.
             let analyser = null;
             try {
                 const ctx = getAudioCtx();
@@ -185,11 +189,9 @@ export function useVoiceEngine() {
                 source.connect(analyser);
                 analyser.connect(ctx.destination);
             } catch (analyserErr) {
-                // En caso extremo: el audio suena igual, solo sin visualización
                 console.warn("[Voice] AnalyserNode no pudo conectarse:", analyserErr.message);
             }
 
-            // Notificar al hook de visualización con audio + analyser
             setGlobalAudio({ audio, analyser });
 
             audio.onended = () => {
@@ -208,7 +210,6 @@ export function useVoiceEngine() {
                 onEnd?.();
             };
 
-            // Unlock y play
             try {
                 const ctx = getAudioCtx();
                 if (ctx.state === "suspended") await ctx.resume();
@@ -239,8 +240,7 @@ export function useVoiceEngine() {
             setVoiceState(STATES.IDLE);
             onEnd?.();
         }
-    }, [getAudioCtx]);
-
+    }, [getAudioCtx, killRecognition]);
 
     // ─── Send to assistant ─────────────────────────────────────────
     const sendToAssistant = useCallback(async (text) => {
@@ -266,17 +266,25 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    // ─── End conversation gracefully ───────────────────────────────
-    const endConversation = useCallback(() => {
-        console.log("[Voice] Conversación terminada");
+    // ─── End conversation ──────────────────────────────────────────
+    // exitHandsFree=true → sale completamente del modo manos libres
+    // exitHandsFree=false → solo termina la conversación activa, mantiene manos libres
+    const endConversation = useCallback((exitHandsFree = false) => {
+        console.log("[Voice] Conversación terminada, exitHandsFree:", exitHandsFree);
         conversationActiveRef.current = false;
-        handsFreeRef.current = false;
-        setHandsFreeModeActive(false);
+        if (exitHandsFree) {
+            handsFreeRef.current = false;
+            setHandsFreeModeActive(false);
+        }
         setVoiceState(STATES.IDLE);
         stateRef.current = STATES.IDLE;
     }, []);
 
-    // ─── Listen for follow-up (10s timeout) ────────────────────────
+    // ─── Forward declarations (resueltas por useCallback más abajo) ─
+    const startCommandListenerRef = useRef(null);
+    const startWakeListenerRef = useRef(null);
+
+    // ─── Listen for follow-up (15s timeout) ────────────────────────
     const listenForFollowUp = useCallback(() => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) return;
@@ -294,24 +302,29 @@ export function useVoiceEngine() {
         let abandonTimer = null;
 
         setVoiceState(STATES.LISTENING);
-        console.log("[Voice] Esperando seguimiento (10s)...");
+        console.log("[Voice] Esperando seguimiento (15s)...");
 
         const clearTimers = () => {
             if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
             if (abandonTimer) { clearTimeout(abandonTimer); abandonTimer = null; }
         };
 
-        // 10s abandon timer
-        abandonTimer = setTimeout(() => {
-            console.log("[Voice] 10s sin respuesta, cerrando conversación");
+        const afterTimeout = () => {
             killRecognition();
-            endConversation();
-            // Restart wake listener
-            setTimeout(() => {
-                // eslint-disable-next-line no-use-before-define
-                startWakeListener();
-            }, 500);
-        }, 10000);
+            if (handsFreeRef.current) {
+                // Manos libres: no salir del modo, volver a escuchar
+                endConversation(false);
+                setTimeout(() => startCommandListenerRef.current?.(), 500);
+            } else {
+                endConversation(true);
+                setTimeout(() => startWakeListenerRef.current?.(), 500);
+            }
+        };
+
+        abandonTimer = setTimeout(() => {
+            console.log("[Voice] 15s sin respuesta, cerrando conversación");
+            afterTimeout();
+        }, 15000);
 
         rec.onresult = (event) => {
             if (abandonTimer) { clearTimeout(abandonTimer); abandonTimer = null; }
@@ -329,20 +342,16 @@ export function useVoiceEngine() {
             }
             setTranscript(finalText + interim);
 
-            const timeout = hasFinal && interim.length === 0 ? 1200 : 1800;
+            const timeout = hasFinal && interim.length === 0 ? 2000 : 2800;
 
             silenceTimer = setTimeout(() => {
                 const cmd = finalText.trim();
                 killRecognition();
                 if (cmd.length > 0) {
                     // eslint-disable-next-line no-use-before-define
-                    processCommand(cmd);
+                    processCommandRef.current?.(cmd);
                 } else {
-                    endConversation();
-                    setTimeout(() => {
-                        // eslint-disable-next-line no-use-before-define
-                        startWakeListener();
-                    }, 500);
+                    afterTimeout();
                 }
             }, timeout);
         };
@@ -350,18 +359,10 @@ export function useVoiceEngine() {
         rec.onerror = (e) => {
             clearTimers();
             if (e.error === "no-speech" || e.error === "aborted") {
-                endConversation();
-                setTimeout(() => {
-                    // eslint-disable-next-line no-use-before-define
-                    startWakeListener();
-                }, 500);
+                afterTimeout();
             } else {
                 console.warn("[Voice] Follow-up error:", e.error);
-                endConversation();
-                setTimeout(() => {
-                    // eslint-disable-next-line no-use-before-define
-                    startWakeListener();
-                }, 500);
+                afterTimeout();
             }
         };
 
@@ -369,26 +370,28 @@ export function useVoiceEngine() {
             if (rec._killed) return;
             clearTimers();
             if (activeRecRef.current === rec && stateRef.current === STATES.LISTENING) {
-                endConversation();
-                setTimeout(() => {
-                    // eslint-disable-next-line no-use-before-define
-                    startWakeListener();
-                }, 500);
+                afterTimeout();
             }
         };
 
         try { rec.start(); } catch (e) {
             console.warn("[Voice] Failed to start follow-up listener:", e);
-            endConversation();
+            afterTimeout();
         }
     }, [killRecognition, endConversation]);
+
+    // ─── Process command ref (para uso en closures) ─────────────────
+    const processCommandRef = useRef(null);
 
     // ─── Process command (conversational) ──────────────────────────
     const processCommand = useCallback(async (text) => {
         console.log("[Voice] Procesando comando:", text);
+        if (text.trim().length < 4) return;
+        const _noise = ["time", "times", "the", "a", "ok", "yes", "no", "hi", "hey"];
+        if (_noise.includes(text.trim().toLowerCase())) return;
         const textLower = text.toLowerCase();
 
-        // Check goodbye
+        // Check goodbye → siempre sale del modo manos libres
         if (STOP_WORDS.some(w => textLower.includes(w)) || GOODBYE_WORDS.some(w => textLower.includes(w))) {
             conversationActiveRef.current = false;
             handsFreeRef.current = false;
@@ -396,13 +399,12 @@ export function useVoiceEngine() {
             speak("Perfecto, aquí estaré cuando me necesites.", () => {
                 setVoiceState(STATES.IDLE);
                 stateRef.current = STATES.IDLE;
-                // eslint-disable-next-line no-use-before-define
-                startWakeListener();
+                startWakeListenerRef.current?.();
             });
             return;
         }
 
-        // Check if briefing — ONLY if not already in a conversation
+        // Check briefing — solo si no estamos ya en conversación
         const isBriefing = !conversationActiveRef.current && BRIEFING_TRIGGERS.some(t => textLower.includes(t));
 
         if (isBriefing) {
@@ -426,7 +428,7 @@ export function useVoiceEngine() {
             return;
         }
 
-        // Normal command
+        // Comando normal
         const reply = await sendToAssistant(text);
         if (reply) {
             conversationActiveRef.current = true;
@@ -441,7 +443,10 @@ export function useVoiceEngine() {
         }
     }, [sendToAssistant, speak, playBeep, listenForFollowUp]);
 
-    // ─── Command listener (first command after wake word) ──────────
+    // Mantener ref actualizada
+    useEffect(() => { processCommandRef.current = processCommand; }, [processCommand]);
+
+    // ─── Command listener (escucha activa, post-wake o manos libres) ─
     const startCommandListener = useCallback(() => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) return;
@@ -476,20 +481,27 @@ export function useVoiceEngine() {
             }
             setTranscript(finalText + interim);
 
-            const timeout = hasFinal && interim.length === 0 ? 1200 : 1800;
+            const timeout = hasFinal && interim.length === 0 ? 2000 : 2800;
 
             silenceTimer = setTimeout(() => {
                 const cmd = finalText.trim();
                 killRecognition();
                 if (cmd.length > 0) {
-                    processCommand(cmd);
+                    let cleanCmd = cmd;
+                    WAKE_WORDS.forEach(w => { cleanCmd = cleanCmd.replace(new RegExp(w, 'i'), '').trim(); });
+                    if (cleanCmd.length === 0) {
+                        // Solo dijeron "Hola Lucy" sin comando — volver a escuchar
+                        speak("Te escucho", () => { startCommandListenerRef.current?.(); });
+                        return;
+                    }
+                    processCommandRef.current?.(cleanCmd);
                 } else if (handsFreeRef.current) {
-                    startCommandListener();
+                    // Manos libres: silencio → seguir escuchando
+                    startCommandListenerRef.current?.();
                 } else {
                     setVoiceState(STATES.IDLE);
                     stateRef.current = STATES.IDLE;
-                    // eslint-disable-next-line no-use-before-define
-                    startWakeListener();
+                    startWakeListenerRef.current?.();
                 }
             }, timeout);
         };
@@ -499,20 +511,18 @@ export function useVoiceEngine() {
             console.log("[Voice] Command recognition error:", e.error);
             if (e.error === "no-speech" || e.error === "aborted") {
                 if (handsFreeRef.current) {
-                    setTimeout(() => startCommandListener(), 500);
+                    setTimeout(() => startCommandListenerRef.current?.(), 500);
                 } else {
                     setVoiceState(STATES.IDLE);
                     stateRef.current = STATES.IDLE;
-                    // eslint-disable-next-line no-use-before-define
-                    startWakeListener();
+                    startWakeListenerRef.current?.();
                 }
             } else {
                 setVoiceState(STATES.ERROR);
                 setTimeout(() => {
                     setVoiceState(STATES.IDLE);
                     stateRef.current = STATES.IDLE;
-                    // eslint-disable-next-line no-use-before-define
-                    startWakeListener();
+                    startWakeListenerRef.current?.();
                 }, 2000);
             }
         };
@@ -522,7 +532,7 @@ export function useVoiceEngine() {
             clearSilence();
             if (activeRecRef.current === rec && stateRef.current === STATES.LISTENING) {
                 if (handsFreeRef.current) {
-                    setTimeout(() => startCommandListener(), 300);
+                    setTimeout(() => startCommandListenerRef.current?.(), 300);
                 }
             }
         };
@@ -531,7 +541,10 @@ export function useVoiceEngine() {
             console.warn("[Voice] Failed to start command listener:", e);
             setVoiceState(STATES.IDLE);
         }
-    }, [killRecognition, processCommand]);
+    }, [killRecognition, speak]);
+
+    // Mantener ref actualizada
+    useEffect(() => { startCommandListenerRef.current = startCommandListener; }, [startCommandListener]);
 
     // ─── Wake word listener ────────────────────────────────────────
     const startWakeListener = useCallback(() => {
@@ -587,11 +600,11 @@ export function useVoiceEngine() {
                 if (event.results[i].isFinal && cleanText.length > 3) {
                     console.log("[Wake] Comando completo:", cleanText);
                     getAudioCtx();
-                    setTimeout(() => processCommand(cleanText), 200);
+                    setTimeout(() => processCommandRef.current?.(cleanText), 200);
                 } else {
                     console.log("[Wake] Esperando comando...");
                     getAudioCtx();
-                    setTimeout(() => startCommandListener(), 400);
+                    setTimeout(() => startCommandListenerRef.current?.(), 400);
                 }
                 return;
             }
@@ -602,6 +615,7 @@ export function useVoiceEngine() {
                 console.warn("[Wake] Error:", e.error);
             }
         };
+
         rec.onend = () => {
             if (rec._killed) return;
             if (activeRecRef.current !== rec) return;
@@ -616,14 +630,17 @@ export function useVoiceEngine() {
                 if (!wakeEnabledRef.current || handsFreeRef.current) return;
                 if (stateRef.current !== STATES.IDLE) return;
                 if (activeRecRef.current !== null) return;
-                startWakeListener();
+                startWakeListenerRef.current?.();
             }, delay);
         };
 
         try { rec.start(); } catch (_) { }
-    }, [killRecognition, playBeep, processCommand, startCommandListener, getAudioCtx]);
+    }, [killRecognition, playBeep, getAudioCtx]);
 
-    // ─── Activate hands-free (from UI button) ──────────────────────
+    // Mantener ref actualizada
+    useEffect(() => { startWakeListenerRef.current = startWakeListener; }, [startWakeListener]);
+
+    // ─── Activate hands-free (desde botón UI) ──────────────────────
     const activateHandsFreeMode = useCallback(async (wakeText) => {
         if (handsFreeRef.current) return;
 
@@ -642,8 +659,9 @@ export function useVoiceEngine() {
         console.log("[Voice] Manos libres activado. Query:", query);
 
         if (!query) {
-            speak("Dime", () => {
-                listenForFollowUp();
+            // Sin query → saludo + escucha
+            speak("Dame un momento para ponerme al día contigo.", () => {
+                startCommandListenerRef.current?.();
             });
             return;
         }
@@ -687,13 +705,13 @@ export function useVoiceEngine() {
         conversationActiveRef.current = false;
         setTranscript("");
         setVoiceState(STATES.IDLE);
-        setTimeout(() => startWakeListener(), 1000);
-    }, [killRecognition, startWakeListener]);
+        setTimeout(() => startWakeListenerRef.current?.(), 1000);
+    }, [killRecognition]);
 
     const startListening = useCallback(() => {
         killRecognition();
-        startCommandListener();
-    }, [killRecognition, startCommandListener]);
+        startCommandListenerRef.current?.();
+    }, [killRecognition]);
 
     const setTtsEnabledWithStop = useCallback((value) => {
         const newVal = typeof value === "function" ? value(ttsRef.current) : value;
@@ -707,8 +725,15 @@ export function useVoiceEngine() {
     // ─── Lifecycle ─────────────────────────────────────────────────
     useEffect(() => {
         if (wakeWordEnabled && !handsFreeModeActive) {
+            // Modo normal: arrancar wake listener si IDLE
             if (!activeRecRef.current && stateRef.current === STATES.IDLE) {
-                const timer = setTimeout(() => startWakeListener(), 1000);
+                const timer = setTimeout(() => startWakeListenerRef.current?.(), 1000);
+                return () => clearTimeout(timer);
+            }
+        } else if (handsFreeModeActive) {
+            // Manos libres: si no hay reconocimiento activo y está IDLE, arrancar escucha directa
+            if (!activeRecRef.current && stateRef.current === STATES.IDLE) {
+                const timer = setTimeout(() => startCommandListenerRef.current?.(), 500);
                 return () => clearTimeout(timer);
             }
         }
@@ -721,14 +746,14 @@ export function useVoiceEngine() {
     useEffect(() => {
         const handler = () => {
             if (document.visibilityState === "visible" && wakeEnabledRef.current && !handsFreeRef.current && stateRef.current === STATES.IDLE) {
-                startWakeListener();
+                startWakeListenerRef.current?.();
             } else if (document.visibilityState === "hidden") {
                 killRecognition();
             }
         };
         document.addEventListener("visibilitychange", handler);
         return () => document.removeEventListener("visibilitychange", handler);
-    }, [startWakeListener, killRecognition]);
+    }, [killRecognition]);
 
     useEffect(() => {
         const init = () => {

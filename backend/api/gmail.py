@@ -21,12 +21,16 @@ from backend.services.contact_memory import record_interaction, get_contact_memo
 from backend.services.google_auth import get_valid_credentials
 from backend.services.token_encryption import encrypt_tokens
 from backend.utils.response import build_response
+from pydantic import BaseModel
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CREDENTIALS_FILE = BASE_DIR / "credentials" / "google_oauth.json"
 
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+SCOPES = [
+    "https://www.googleapis.com/auth/gmail.send",
+    "https://www.googleapis.com/auth/gmail.readonly",
+]
 
 os.environ.setdefault("OAUTHLIB_INSECURE_TRANSPORT", "1")
 
@@ -599,6 +603,22 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
 
         return build_response(request, data=data, legacy=data)
     
+    # ================= SEND EMAIL =================
+
+    @router.post("/gmail/send")
+    async def gmail_send(
+        body: SendEmailRequest,
+        request: Request,
+        user: Dict[str, Any] = Depends(get_current_user),
+    ):
+        if not user.get("gmail_connected"):
+            raise HTTPException(status_code=400, detail="Gmail no conectado")
+        result = await send_email(
+            user=user, db=db,
+            to=body.to, subject=body.subject, body=body.body,
+        )
+        return build_response(request, data=result, legacy=result)
+
     # ================= DISCONNECT =================
 
     @router.post("/gmail/disconnect")
@@ -614,3 +634,63 @@ def create_gmail_router(db, get_current_user: Callable) -> APIRouter:
         return build_response(request, data=data, legacy=data)
 
     return router
+
+
+class SendEmailRequest(BaseModel):
+    to: str
+    subject: str
+    body: str
+
+
+async def send_email(
+    user: Dict[str, Any],
+    db,
+    to: str,
+    subject: str,
+    body: str,
+) -> Dict[str, Any]:
+    creds = await get_valid_credentials(
+        user, db, token_field="gmail_tokens", default_scopes=SCOPES,
+    )
+    if creds is None:
+        raise HTTPException(status_code=401, detail="Token Gmail expirado. Reconecta Gmail en ajustes.")
+
+    service = build_service("gmail", "v1", credentials=creds)
+
+    mime = MIMEText(body, "plain", "utf-8")
+    mime["to"] = to
+    mime["subject"] = subject
+    raw = base64.urlsafe_b64encode(mime.as_bytes()).decode("utf-8")
+
+    try:
+        sent = service.users().messages().send(
+            userId="me",
+            body={"raw": raw},
+        ).execute()
+        return {"ok": True, "message_id": sent.get("id", "")}
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Error al enviar: {exc}")
+
+
+async def resolve_recipient(
+    name_or_email: str,
+    user_id: str,
+    db,
+) -> Optional[str]:
+    n = name_or_email.strip().lower()
+
+    if "@" in n and "." in n:
+        return name_or_email.strip()
+
+    try:
+        from backend.services.contact_memory import get_all_contacts
+        contacts = await get_all_contacts(db, user_id, limit=100)
+        for c in contacts:
+            full_name = (c.get("name") or "").lower()
+            email_addr = c.get("email", "")
+            if n in full_name or full_name.startswith(n):
+                return email_addr
+    except Exception:
+        pass
+
+    return None
