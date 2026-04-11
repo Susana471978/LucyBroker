@@ -480,6 +480,27 @@ export function useVoiceEngine() {
             return;
         }
 
+        // ── Si hay draft needs_confirm, pasar pending_email_id automáticamente ──
+        const confirmCtx = pendingEmailContextRef.current;
+        if (confirmCtx?.needs_confirm && !confirmCtx?.awaiting_body) {
+            const mergedPayload = {
+                ...extraPayload,
+                pending_email_id: confirmCtx.id,
+            };
+            const result = await sendToAssistant(text, mergedPayload);
+            if (!result) {
+                speak("No he podido procesar eso. ¿Puedes repetirlo?", () => listenForFollowUp());
+                return;
+            }
+            const { reply, data } = result;
+            conversationActiveRef.current = true;
+            speak(reply + (data?.pending_email ? "" : " ¿Algo más?"), () => {
+                playBeep(660, 0.1);
+                listenForFollowUp();
+            });
+            return;
+        }
+
         // Comando normal
         const result = await sendToAssistant(text, extraPayload);
         if (!result) {

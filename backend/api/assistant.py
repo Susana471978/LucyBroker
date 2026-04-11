@@ -428,7 +428,7 @@ async def _extract_email_intent(user_text: str, user_name: str) -> Optional[Dict
     Extrae destinatario, asunto y cuerpo de un comando de voz.
     Devuelve {"to_name": str, "subject": str, "body": str} o None.
     """
-        prompt = f"""Eres un extractor de intenciones de email por voz.
+    prompt = f"""Eres un extractor de intenciones de email por voz.
 El usuario se llama {user_name}.
 El usuario dice: "{user_text}"
 
