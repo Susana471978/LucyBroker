@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../voice/VoiceProvider';
 import { STATES } from '../voice/useVoiceEngine';
@@ -82,7 +82,18 @@ export default function OverviewPage() {
         pendingEmail,
         confirmEmailSend,
         cancelEmailSend,
+
     } = useBriefing({ token, ttsEnabled });
+
+    // Prefill desde CRM — botón "Enviar correo"
+    const location = useLocation();
+    useEffect(() => {
+        if (location.state?.lucyPrefill && sendToLucy) {
+            const msg = location.state.lucyPrefill;
+            window.history.replaceState({}, document.title); // limpiar state
+            setTimeout(() => sendToLucy(msg), 800); // esperar a que Lucy esté lista
+        }
+    }, [location.state, sendToLucy]);
 
     // Inyectar refresh de recordatorios al contexto de voz
     useEffect(() => {
@@ -275,28 +286,20 @@ export default function OverviewPage() {
                     Volver
                 </button>
 
-                {/* ── Header ── */}
                 <motion.div
-                    initial={{ opacity: 0, y: 12 }}
+                    initial={{ opacity: 0, y: 16 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
                 >
-                    <p style={{
-                        fontSize: '10px',
-                        color: 'rgba(255,255,255,0.2)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.1em',
-                        fontWeight: 500,
-                        marginBottom: '8px',
-                    }}>
+                    <p style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '10px' }}>
                         {getGreeting()}
                     </p>
                     <h1 style={{
                         fontFamily: "'Cormorant Garamond', serif",
-                        fontSize: '2.2rem',
+                        fontSize: 'clamp(2rem, 5vw, 3rem)',
                         fontWeight: 300,
-                        color: 'white',
-                        letterSpacing: '-0.02em',
+                        color: 'var(--text-primary)',
+                        lineHeight: 1.1,
                         marginBottom: '8px',
                     }}>
                         {t(language, 'welcomeTitle')}

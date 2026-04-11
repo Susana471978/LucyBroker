@@ -4,7 +4,7 @@ import { t } from '../i18n';
 import { LayoutDashboard, Mail, CheckSquare, Settings, LogOut, Globe, ChevronDown, Flame, Crown, Users } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { TrialBanner, TrialExpiredOverlay } from './TrialBanner';
-import logoLucy from '../assets/Logo-Lucy.png';
+import logoLucy from '../assets/Logo-Lucy.svg';
 
 /* ─── Dropdown propio — sin dependencia de Radix/slate ───── */
 

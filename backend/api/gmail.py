@@ -1,5 +1,6 @@
 # backend/api/gmail.py
 
+import asyncio
 import os
 import base64
 import re
@@ -426,8 +427,29 @@ async def fetch_enriched_messages_light(
         priority = calculate_priority(email_event, contact_memory=contact_mem)
 
         email_dict = email_event.model_dump()
+
         email_dict["is_vip"] = is_vip
         email_dict["vip_company_name"] = vip_company_name
+
+        # Auto-poblar CRM desde correos leídos
+        try:
+            _match = re.search(r"<([^>]+)>", from_header)
+            _contact_email = _match.group(1).strip() if _match else from_header.strip()
+            _name_match = re.match(r"^([^<]+)<", from_header)
+            _contact_name = _name_match.group(1).strip().strip('"') if _name_match else _contact_email
+            if _contact_email and "@" in _contact_email:
+                import asyncio
+                asyncio.ensure_future(record_interaction(
+                    db=db,
+                    user_id=user["id"],
+                    contact_email=_contact_email,
+                    contact_name=_contact_name,
+                    subject=headers.get("subject", "(Sin asunto)"),
+                    action="read",
+                    is_vip=is_vip,
+                ))
+        except Exception:
+            pass
 
         enriched.append({
             "email": email_dict,

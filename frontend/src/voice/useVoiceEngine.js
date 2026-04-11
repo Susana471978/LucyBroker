@@ -31,7 +31,16 @@ export const STATES = {
     ERROR: "ERROR",
 };
 
-const WAKE_WORDS = ["hola lucy", "ola lucy", "hola luci", "oye lucy", "hey lucy"];
+const WAKE_WORDS = [
+    "hola lucy",
+    "ola lucy",
+    "hola luci",
+    "oye lucy",
+    "hey lucy",
+    "buenos días lucy",
+    "buenas lucy",
+    "buenas luci"
+];
 const STOP_WORDS = ["lucy para", "lucy stop", "detente lucy", "detente", "stop", "para lucy", "cállate", "silencio"];
 const GOODBYE_WORDS = [
     "no gracias", "no nada", "nada más", "nada mas", "eso es todo",
@@ -39,9 +48,9 @@ const GOODBYE_WORDS = [
     "no nada más", "no nada mas", "ya está", "ya esta",
 ];
 const BRIEFING_TRIGGERS = [
-    "buenos días", "buenos dias", "buen día", "buen dia",
     "briefing", "qué tengo hoy", "que tengo hoy",
-    "resumen del día", "resumen matutino",
+    "resumen del día", "resumen del dia", "resumen matutino",
+    "ponme al día", "ponme al dia", "cuéntame el día", "cuentame el dia",
 ];
 
 const BRIEFING_THINKING_PHRASES = [
@@ -659,10 +668,8 @@ export function useVoiceEngine() {
         console.log("[Voice] Manos libres activado. Query:", query);
 
         if (!query) {
-            // Sin query → saludo + escucha
-            speak("Dame un momento para ponerme al día contigo.", () => {
-                startCommandListenerRef.current?.();
-            });
+            // Sin query → arrancar wake listener en silencio
+            setTimeout(() => startWakeListenerRef.current?.(), 300);
             return;
         }
 

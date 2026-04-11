@@ -33,13 +33,13 @@ async def generate_tts_audio(text: str) -> bytes:
     if len(text) > 4096:
         text = text[:4096]
 
-    elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
 
-    if elevenlabs_key:
-        try:
-            return await _generate_elevenlabs(text, elevenlabs_key)
-        except Exception as e:
-            logger.warning("ElevenLabs failed (%s), falling back to OpenAI TTS", str(e))
+    # elevenlabs_key = os.getenv("ELEVENLABS_API_KEY")
+    # if elevenlabs_key:
+    #     try:
+    #         return await _generate_elevenlabs(text, elevenlabs_key)
+    #     except Exception as e:
+    #         logger.warning("ElevenLabs failed (%s), falling back to OpenAI TTS", str(e))
 
     # Fallback a OpenAI
     return await _generate_openai(text)

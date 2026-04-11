@@ -112,8 +112,14 @@ export default function useBriefing({ token, ttsEnabled }) {
             }
 
             if (reply) {
-                setBriefingText(reply);
-                setBriefingVisible(true);
+                // Solo mostrar overlay de briefing si es un briefing real
+                // (no para confirmaciones de email u otras respuestas cortas)
+                const isBriefingReply = reply.length > 200 || 
+                    options.confirm_email === undefined;
+                if (isBriefingReply && options.confirm_email === undefined) {
+                    setBriefingText(reply);
+                    setBriefingVisible(true);
+                }
                 setBriefingIsSpeaking(false);
                 await speakText(reply);
             }

@@ -257,26 +257,31 @@ export default function LucyConversationCard({
             }}
         >
             {/* ── States row ── */}
-            <div className="flex items-center justify-center pt-6 pb-1">
-                {STATES_LIST.map((s, i) => (
-                    <span key={s.key} className="flex items-center">
-                        {i > 0 && (
-                            <span className="mx-2.5" style={{ color: 'var(--text-tertiary)', fontSize: '10px' }}>·</span>
-                        )}
-                        <span style={{
-                            fontSize: '10px',
-                            letterSpacing: '0.18em',
-                            color: activeState === s.key ? 'var(--text-secondary)' : 'var(--text-tertiary)',
-                            borderBottom: activeState === s.key
-                                ? '0.5px solid var(--text-tertiary)'
-                                : '0.5px solid transparent',
-                            paddingBottom: '2px',
-                            transition: 'color 0.3s ease, border-color 0.3s ease',
-                        }}>
-                            {s.label}
-                        </span>
+            <div className="pt-6 pb-1 px-2">
+                <div className="flex sm:hidden items-center justify-center">
+                    <span style={{ fontSize: '10px', letterSpacing: '0.18em', color: 'var(--text-secondary)', borderBottom: '0.5px solid var(--text-tertiary)', paddingBottom: '2px' }}>
+                        {STATES_LIST.find(s => s.key === activeState)?.label || 'PRESENTE'}
                     </span>
-                ))}
+                </div>
+                <div className="hidden sm:flex items-center justify-center">
+                    {STATES_LIST.map((s, i) => (
+                        <span key={s.key} className="flex items-center">
+                            {i > 0 && (
+                                <span className="mx-2.5" style={{ color: 'var(--text-tertiary)', fontSize: '10px' }}>·</span>
+                            )}
+                            <span style={{
+                                fontSize: '10px',
+                                letterSpacing: '0.18em',
+                                color: activeState === s.key ? 'var(--text-secondary)' : 'var(--text-tertiary)',
+                                borderBottom: activeState === s.key ? '0.5px solid var(--text-tertiary)' : '0.5px solid transparent',
+                                paddingBottom: '2px',
+                                transition: 'color 0.3s ease, border-color 0.3s ease',
+                            }}>
+                                {s.label}
+                            </span>
+                        </span>
+                    ))}
+                </div>
             </div>
 
             {/* ── Status text ── */}

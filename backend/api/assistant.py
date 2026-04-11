@@ -428,22 +428,22 @@ async def _extract_email_intent(user_text: str, user_name: str) -> Optional[Dict
     Extrae destinatario, asunto y cuerpo de un comando de voz.
     Devuelve {"to_name": str, "subject": str, "body": str} o None.
     """
-    prompt = f"""Eres un extractor de intenciones de email por voz.
+        prompt = f"""Eres un extractor de intenciones de email por voz.
 El usuario se llama {user_name}.
 El usuario dice: "{user_text}"
 
 Extrae la intención de enviar un email.
 Devuelve ÚNICAMENTE un JSON válido sin backticks ni texto adicional:
 {{
-  "to_name": "nombre o email del destinatario",
-  "subject": "asunto del correo",
-  "body": "cuerpo del correo redactado de forma profesional en español"
+    "to_name": "nombre o email del destinatario",
+    "subject": "asunto del correo",
+    "body": "cuerpo del correo redactado de forma profesional en español"
 }}
 
 Reglas:
 - Si el usuario no especificó asunto, inventa uno apropiado.
-- El cuerpo debe sonar natural y profesional en español.
-- Si el usuario dijo "dile que...", construye el correo con ese contenido.
+- Si el usuario dijo "dile que..." o especificó el contenido, construye el cuerpo con ese contenido en español profesional.
+- Si el usuario NO especificó qué decir (solo mencionó el destinatario), deja body como string vacío "".
 - No incluyas saludo formal tipo "Estimado/a" a menos que el usuario lo pida — empieza directo.
 - Firma con el nombre del remitente: {user_name}.
 - Si no hay destinatario claro, usa to_name: "".
@@ -789,16 +789,24 @@ El usuario dice: "{user_text}"
                     actions=None, status="ok", timestamp=now_ts,
                 )
 
+
             email_data = await _extract_email_intent(user_text, user_name)
             if not email_data:
                 return AssistantResponse(
-                    assistant_text="No he entendido bien a quién va el correo ni qué quieres decir. ¿Puedes repetirlo?",
+                    assistant_text="No he entendido bien a quién va el correo. ¿Puedes repetirlo?",
                     actions=None, status="ok", timestamp=now_ts,
                 )
 
             to_name = email_data.get("to_name", "")
             subject = email_data.get("subject", "")
             body_text = email_data.get("body", "")
+
+            # Si no hay contenido claro → preguntar antes de redactar
+            if not body_text or len(body_text.strip()) < 10:
+                return AssistantResponse(
+                    assistant_text=f"Entendido, le escribo a {to_name}. ¿Qué quieres decirle?",
+                    actions=None, status="ok", timestamp=now_ts,
+                )
 
             # Resolver email del destinatario
             resolved_email = await resolve_recipient(to_name, user["id"], db)
@@ -1019,9 +1027,9 @@ Reglas absolutas:
 - En español de España, registro profesional pero cercano.
 - Máximo las frases indicadas en cada prompt."""
 
-        if is_briefing:
-            prompt = f"""{voice_base}
 
+        if is_briefing:
+            prompt = f"""
 Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
 HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
 
@@ -1048,8 +1056,7 @@ El usuario dice: "{user_text}"
 """
             max_tokens = 500
         else:
-            prompt = f"""{voice_base}
-
+            prompt = f"""
 Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
 HOY: {today_label}. Hora: {now_madrid.strftime("%H:%M")}.
 Responde en máximo 3 frases, directo y natural.
@@ -1076,7 +1083,10 @@ No inventes datos. Si pide algo específico, responde directamente.
             client = AsyncOpenAI(api_key=api_key)
             response = await client.chat.completions.create(
                 model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
+                messages=[
+                    {"role": "system", "content": voice_base},
+                    {"role": "user", "content": prompt},
+                ],
                 temperature=0.5 if is_briefing else 0.4,
                 max_tokens=max_tokens,
             )

@@ -129,7 +129,6 @@ async def record_interaction(
         },
         "$setOnInsert": {
             "created_at": now,
-            "interaction_count": 0,
             "topics": [],
             "preferred_tone": tone_used or "formal",
         },

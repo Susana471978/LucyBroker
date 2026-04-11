@@ -1,0 +1,85 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 200" width="160" height="200">
+  <defs>
+    <linearGradient id="goldBright" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F5EAB0"/>
+      <stop offset="30%" style="stop-color:#E8D080"/>
+      <stop offset="60%" style="stop-color:#C9B27C"/>
+      <stop offset="100%" style="stop-color:#8A6D3A"/>
+    </linearGradient>
+    <linearGradient id="glowLine" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#C9B27C;stop-opacity:0"/>
+      <stop offset="50%" style="stop-color:#E8D080;stop-opacity:0.8"/>
+      <stop offset="100%" style="stop-color:#C9B27C;stop-opacity:0"/>
+    </linearGradient>
+    <filter id="softGlow">
+      <feGaussianBlur in="SourceGraphic" stdDeviation="1.5" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Fondo interior sutil -->
+  <rect x="28" y="14" width="104" height="122" fill="#C9B27C" opacity="0.03"/>
+
+  <!-- Caja exterior fina -->
+  <rect x="26" y="12" width="108" height="126" fill="none" stroke="#C9B27C" stroke-width="0.5" opacity="0.18"/>
+
+  <!-- Esquinas brillantes -->
+  <line x1="26" y1="12" x2="46" y2="12" stroke="#E8D080" stroke-width="1.6" opacity="0.9"/>
+  <line x1="26" y1="12" x2="26" y2="32" stroke="#E8D080" stroke-width="1.6" opacity="0.9"/>
+  <line x1="134" y1="12" x2="114" y2="12" stroke="#E8D080" stroke-width="1.6" opacity="0.9"/>
+  <line x1="134" y1="12" x2="134" y2="32" stroke="#E8D080" stroke-width="1.6" opacity="0.9"/>
+  <line x1="26" y1="138" x2="46" y2="138" stroke="#E8D080" stroke-width="1.6" opacity="0.9"/>
+  <line x1="26" y1="138" x2="26" y2="118" stroke="#E8D080" stroke-width="1.6" opacity="0.9"/>
+  <line x1="134" y1="138" x2="114" y2="138" stroke="#E8D080" stroke-width="1.6" opacity="0.9"/>
+  <line x1="134" y1="138" x2="134" y2="118" stroke="#E8D080" stroke-width="1.6" opacity="0.9"/>
+
+  <!-- Puntos en esquinas -->
+  <circle cx="26" cy="12" r="1.2" fill="#E8D080" opacity="0.8"/>
+  <circle cx="134" cy="12" r="1.2" fill="#E8D080" opacity="0.8"/>
+  <circle cx="26" cy="138" r="1.2" fill="#E8D080" opacity="0.8"/>
+  <circle cx="134" cy="138" r="1.2" fill="#E8D080" opacity="0.8"/>
+
+  <!-- Glow detrás de la L -->
+  <text x="80" y="118"
+    text-anchor="middle"
+    fill="#C9B27C"
+    opacity="0.18"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="108"
+    font-style="italic"
+    filter="url(#softGlow)">L</text>
+
+  <!-- L principal -->
+  <text x="80" y="118"
+    text-anchor="middle"
+    fill="url(#goldBright)"
+    font-family="Georgia, 'Times New Roman', serif"
+    font-size="108"
+    font-style="italic"
+    font-weight="400">L</text>
+
+  <!-- Línea separadora luminosa -->
+  <line x1="30" y1="152" x2="130" y2="152" stroke="url(#glowLine)" stroke-width="0.6"/>
+
+  <!-- LUCY -->
+  <text x="80" y="168"
+    text-anchor="middle"
+    fill="#E8D080"
+    opacity="0.95"
+    font-family="Georgia, serif"
+    font-size="13"
+    letter-spacing="9"
+    font-weight="400">LUCY</text>
+
+  <!-- SYNTEXIA SOLUTIONS -->
+  <text x="80" y="183"
+    text-anchor="middle"
+    fill="#C9B27C"
+    opacity="0.38"
+    font-family="Arial, sans-serif"
+    font-size="6.5"
+    letter-spacing="3">SYNTEXIA SOLUTIONS</text>
+</svg>
