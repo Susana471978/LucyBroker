@@ -592,7 +592,7 @@ async def assistant_endpoint(
         # llega confirm_email=True + pending_email con los datos.
         # ══════════════════════════════════════════════════════
 
-        if payload.confirm_email is not None and payload.pending_email_id:
+        if payload.pending_email_id:
             # Recuperar borrador de DB
             from bson import ObjectId
             try:
@@ -607,6 +607,62 @@ async def assistant_endpoint(
                 return AssistantResponse(
                     assistant_text="No encuentro el borrador. ¿Quieres que lo redacte de nuevo?",
                     actions=None, status="ok", timestamp=now_ts,
+                )
+
+            # ── awaiting_body: el usuario acaba de decir el cuerpo del email ──
+            if draft_doc.get("awaiting_body"):
+                body_from_user = user_text.strip()
+                if not body_from_user or len(body_from_user) < 3:
+                    return AssistantResponse(
+                        assistant_text="No he entendido bien el mensaje. ¿Qué quieres decirle exactamente?",
+                        actions=None, status="ok", timestamp=now_ts,
+                        pending_email={
+                            "id": str(draft_doc["_id"]),
+                            "to_name": draft_doc.get("to_name", ""),
+                            "to_email": draft_doc["to"] if draft_doc.get("resolved") else None,
+                            "subject": draft_doc.get("subject", ""),
+                            "body": "",
+                            "needs_confirm": False,
+                            "awaiting_body": True,
+                        },
+                    )
+                # Generar cuerpo profesional con LLM
+                body_prompt = f"""Redacta un email profesional en español.
+Remitente: {user_name}
+Destinatario: {draft_doc.get("to_name", "")}
+El remitente quiere decir: "{body_from_user}"
+Devuelve SOLO el cuerpo del email, sin asunto ni saludo formal. Directo y profesional. Firma con {user_name}."""
+                try:
+                    body_generated = await generate_llm_response(body_prompt)
+                    body_generated = body_generated.strip()
+                except Exception:
+                    body_generated = body_from_user
+
+                # Actualizar draft con body y quitar awaiting_body
+                await db.email_drafts.update_one(
+                    {"_id": draft_doc["_id"]},
+                    {"$set": {"body": body_generated, "awaiting_body": False}},
+                )
+                draft_doc["body"] = body_generated
+                draft_doc["awaiting_body"] = False
+
+                to_name_disp = draft_doc.get("to_name", draft_doc["to"])
+                preview = body_generated[:200] + ("..." if len(body_generated) > 200 else "")
+                confirmation_text = (
+                    f"De acuerdo. He redactado esto para {to_name_disp}: {preview}. ¿Lo envío?"
+                )
+                return AssistantResponse(
+                    assistant_text=confirmation_text,
+                    actions=None, status="ok", timestamp=now_ts,
+                    pending_email={
+                        "id": str(draft_doc["_id"]),
+                        "to_name": to_name_disp,
+                        "to_email": draft_doc["to"] if draft_doc.get("resolved") else None,
+                        "subject": draft_doc.get("subject", ""),
+                        "body": body_generated,
+                        "needs_confirm": True,
+                        "awaiting_body": False,
+                    },
                 )
 
             if payload.confirm_email is False or _is_reject(user_text):
@@ -803,9 +859,32 @@ El usuario dice: "{user_text}"
 
             # Si no hay contenido claro → preguntar antes de redactar
             if not body_text or len(body_text.strip()) < 10:
+                # Guardar draft awaiting_body para que el siguiente turno lo encuentre
+                resolved_email_pre = await resolve_recipient(to_name, user["id"], db)
+                draft_doc_pre = {
+                    "user_id": user["id"],
+                    "to": resolved_email_pre or to_name,
+                    "to_name": to_name,
+                    "subject": subject or f"Mensaje de {user_name}",
+                    "body": "",
+                    "resolved": bool(resolved_email_pre),
+                    "awaiting_body": True,
+                    "created_at": now_ts,
+                }
+                draft_result_pre = await db.email_drafts.insert_one(draft_doc_pre)
+                draft_id_pre = str(draft_result_pre.inserted_id)
                 return AssistantResponse(
                     assistant_text=f"Entendido, le escribo a {to_name}. ¿Qué quieres decirle?",
                     actions=None, status="ok", timestamp=now_ts,
+                    pending_email={
+                        "id": draft_id_pre,
+                        "to_name": to_name,
+                        "to_email": resolved_email_pre,
+                        "subject": subject or f"Mensaje de {user_name}",
+                        "body": "",
+                        "needs_confirm": False,
+                        "awaiting_body": True,
+                    },
                 )
 
             # Resolver email del destinatario

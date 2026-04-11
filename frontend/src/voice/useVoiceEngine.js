@@ -108,6 +108,7 @@ export function useVoiceEngine() {
     const activeRecRef = useRef(null);
     const uiContextRef = useRef(null);
     const conversationActiveRef = useRef(false);
+    const pendingEmailContextRef = useRef(null);  // contexto email awaiting_body
 
     useEffect(() => { stateRef.current = voiceState; }, [voiceState]);
     useEffect(() => { ttsRef.current = ttsEnabled; }, [ttsEnabled]);
@@ -252,20 +253,28 @@ export function useVoiceEngine() {
     }, [getAudioCtx, killRecognition]);
 
     // ─── Send to assistant ─────────────────────────────────────────
-    const sendToAssistant = useCallback(async (text) => {
+    const sendToAssistant = useCallback(async (text, extraPayload = {}) => {
         if (!text?.trim() || busyRef.current) return null;
         busyRef.current = true;
         setVoiceState(STATES.PROCESSING);
         try {
-            const res = await apiClient.post("/assistant", { text });
-            const data = res.data;
+            const res = await apiClient.post("/assistant", { text, ...extraPayload });
+            const data = res.data?.data || res.data;
             const reply = data?.assistant_text || "";
             setLastInteraction(reply);
             setTranscript("");
+            // Propagar contexto de email pendiente
+            if (data?.pending_email?.awaiting_body) {
+                pendingEmailContextRef.current = data.pending_email;
+            } else if (data?.pending_email?.needs_confirm) {
+                pendingEmailContextRef.current = data.pending_email;
+            } else {
+                pendingEmailContextRef.current = null;
+            }
             if (Array.isArray(data.actions) && data.actions.length > 0 && uiContextRef.current) {
                 executeVoiceActions(data.actions, uiContextRef.current);
             }
-            return reply;
+            return { reply, data };
         } catch (err) {
             console.error("[Voice] Assistant error:", err);
             setVoiceState(STATES.ERROR);
@@ -393,7 +402,7 @@ export function useVoiceEngine() {
     const processCommandRef = useRef(null);
 
     // ─── Process command (conversational) ──────────────────────────
-    const processCommand = useCallback(async (text) => {
+    const processCommand = useCallback(async (text, extraPayload = {}) => {
         console.log("[Voice] Procesando comando:", text);
         if (text.trim().length < 4) return;
         const _noise = ["time", "times", "the", "a", "ok", "yes", "no", "hi", "hey"];
@@ -402,6 +411,7 @@ export function useVoiceEngine() {
 
         // Check goodbye → siempre sale del modo manos libres
         if (STOP_WORDS.some(w => textLower.includes(w)) || GOODBYE_WORDS.some(w => textLower.includes(w))) {
+            pendingEmailContextRef.current = null;
             conversationActiveRef.current = false;
             handsFreeRef.current = false;
             setHandsFreeModeActive(false);
@@ -413,6 +423,38 @@ export function useVoiceEngine() {
             return;
         }
 
+        // ── Si hay contexto de email awaiting_body, este turno ES el cuerpo ──
+        const emailCtx = pendingEmailContextRef.current;
+        if (emailCtx?.awaiting_body) {
+            console.log("[Voice] Recibiendo cuerpo del email para draft:", emailCtx.id);
+            pendingEmailContextRef.current = null;
+            const result = await sendToAssistant(text, {
+                pending_email_id: emailCtx.id,
+                confirm_email: null,   // no es confirmación, es el cuerpo
+            });
+            if (!result) {
+                speak("No he podido procesar el mensaje. ¿Puedes repetirlo?", () => {
+                    listenForFollowUp();
+                });
+                return;
+            }
+            const { reply, data } = result;
+            if (data?.pending_email?.needs_confirm) {
+                // Lucy leyó el borrador → esperar confirmación sí/no
+                conversationActiveRef.current = true;
+                speak(reply, () => {
+                    playBeep(660, 0.1);
+                    listenForFollowUp();
+                });
+            } else {
+                speak(reply + " ¿Algo más?", () => {
+                    playBeep(660, 0.1);
+                    listenForFollowUp();
+                });
+            }
+            return;
+        }
+
         // Check briefing — solo si no estamos ya en conversación
         const isBriefing = !conversationActiveRef.current && BRIEFING_TRIGGERS.some(t => textLower.includes(t));
 
@@ -421,7 +463,8 @@ export function useVoiceEngine() {
             console.log("[Voice] Briefing detectado, respuesta intermedia...");
 
             speak(thinkingPhrase, async () => {
-                const reply = await sendToAssistant(text);
+                const result = await sendToAssistant(text);
+                const reply = result?.reply || result;
                 if (reply) {
                     speak(reply + " ¿Algo más?", () => {
                         conversationActiveRef.current = true;
@@ -438,15 +481,31 @@ export function useVoiceEngine() {
         }
 
         // Comando normal
-        const reply = await sendToAssistant(text);
-        if (reply) {
-            conversationActiveRef.current = true;
-            speak(reply + " ¿Algo más?", () => {
+        const result = await sendToAssistant(text, extraPayload);
+        if (!result) {
+            speak("No he podido procesar eso. ¿Puedes repetirlo?", () => {
+                listenForFollowUp();
+            });
+            return;
+        }
+        const { reply, data } = result;
+        conversationActiveRef.current = true;
+
+        if (data?.pending_email?.awaiting_body) {
+            // Lucy preguntó el cuerpo → escuchar sin "¿Algo más?"
+            speak(reply, () => {
+                playBeep(660, 0.1);
+                listenForFollowUp();
+            });
+        } else if (data?.pending_email?.needs_confirm) {
+            // Lucy tiene borrador listo → esperar sí/no sin "¿Algo más?"
+            speak(reply, () => {
                 playBeep(660, 0.1);
                 listenForFollowUp();
             });
         } else {
-            speak("No he podido procesar eso. ¿Puedes repetirlo?", () => {
+            speak(reply + " ¿Algo más?", () => {
+                playBeep(660, 0.1);
                 listenForFollowUp();
             });
         }
