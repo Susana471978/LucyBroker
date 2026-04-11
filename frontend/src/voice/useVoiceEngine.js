@@ -3,24 +3,33 @@ import { executeVoiceActions } from "./voiceCommandRouter";
 import apiClient from "../services/apiClient";
 
 /**
- * useVoiceEngine v4.1 — Conversational mode
+ * useVoiceEngine v4.2 — Conversational mode
  *
  * Flow after wake word:
  *   1. "Hola Lucy" → beep → command listener
  *   2. Command captured → process → Lucy speaks response
- *   3. Lucy says "¿Algo más?" → listens 10 seconds
- *   4. User says something → process → Lucy responds → "¿Algo más?" → loop
- *   5. 10 seconds silence OR user says "gracias/no/hasta luego" → back to wake listener
+ *   3. Lucy listens 15 seconds for follow-up
+ *   4. User says something → process → Lucy responds → loop
+ *   5. 15 seconds silence OR user says "gracias/no/hasta luego" → back to wake listener
  *
- * Briefing flow:
- *   1. "Hola Lucy, buenos días" → instant "Dame un momento para ponerme al día..."
- *   2. Full briefing loads in background
- *   3. Lucy speaks full briefing → "¿Algo más?"
+ * Saludo flow:
+ *   1. "Hola Lucy, buenos días" → Lucy responde con saludo natural → escucha
+ *   2. "¿Cómo tenemos el día?" → "Dame un segundo..." → briefing completo
+ *
+ * Email flow:
+ *   1. "manda email a Carlos" → backend: no body → awaiting_body
+ *   2. "que le diga saludos" → backend: genera cuerpo → needs_confirm
+ *   3. "sí envíalo" → backend envía → confirmación
  *
  * Manos libres:
  *   - Activa escucha continua sin wake word
  *   - Al terminar conversación/timeout vuelve a startCommandListener (no wake)
  *   - Solo sale del modo con goodbye words
+ *
+ * Cambios v4.2:
+ *   - Lucy decide el cierre de cada respuesta — sin "¿Algo más?" hardcodeado
+ *   - pendingEmailContextRef no se limpia antes del await (bug fix)
+ *   - Saludo simple detectado antes del briefing trigger
  */
 
 export const STATES = {
@@ -51,12 +60,21 @@ const BRIEFING_TRIGGERS = [
     "briefing", "qué tengo hoy", "que tengo hoy",
     "resumen del día", "resumen del dia", "resumen matutino",
     "ponme al día", "ponme al dia", "cuéntame el día", "cuentame el dia",
+    "cómo tenemos el día", "como tenemos el dia",
+    "cómo está el día", "como esta el dia",
+    "qué hay hoy", "que hay hoy",
+];
+
+// Saludos simples — respuesta natural sin briefing
+const GREETING_ONLY = [
+    "buenos días", "buenos dias", "buenas tardes", "buenas noches",
+    "buenas", "hola", "qué tal", "que tal",
 ];
 
 const BRIEFING_THINKING_PHRASES = [
-    "Dame un momento para ponerme al día...",
-    "Un segundo, estoy preparando tu briefing...",
-    "Déjame revisar todo, un momento...",
+    "Dame un segundo que me pongo al día...",
+    "Un momento, estoy revisando todo...",
+    "Déjame ver cómo tienes el día...",
 ];
 
 // ─── Global audio with change notification ───
@@ -108,7 +126,7 @@ export function useVoiceEngine() {
     const activeRecRef = useRef(null);
     const uiContextRef = useRef(null);
     const conversationActiveRef = useRef(false);
-    const pendingEmailContextRef = useRef(null);  // contexto email awaiting_body
+    const pendingEmailContextRef = useRef(null);
 
     useEffect(() => { stateRef.current = voiceState; }, [voiceState]);
     useEffect(() => { ttsRef.current = ttsEnabled; }, [ttsEnabled]);
@@ -263,7 +281,8 @@ export function useVoiceEngine() {
             const reply = data?.assistant_text || "";
             setLastInteraction(reply);
             setTranscript("");
-            // Propagar contexto de email pendiente
+
+            // Actualizar contexto de email pendiente
             if (data?.pending_email?.awaiting_body) {
                 pendingEmailContextRef.current = data.pending_email;
             } else if (data?.pending_email?.needs_confirm) {
@@ -271,6 +290,7 @@ export function useVoiceEngine() {
             } else {
                 pendingEmailContextRef.current = null;
             }
+
             if (Array.isArray(data.actions) && data.actions.length > 0 && uiContextRef.current) {
                 executeVoiceActions(data.actions, uiContextRef.current);
             }
@@ -285,8 +305,6 @@ export function useVoiceEngine() {
     }, []);
 
     // ─── End conversation ──────────────────────────────────────────
-    // exitHandsFree=true → sale completamente del modo manos libres
-    // exitHandsFree=false → solo termina la conversación activa, mantiene manos libres
     const endConversation = useCallback((exitHandsFree = false) => {
         console.log("[Voice] Conversación terminada, exitHandsFree:", exitHandsFree);
         conversationActiveRef.current = false;
@@ -298,7 +316,7 @@ export function useVoiceEngine() {
         stateRef.current = STATES.IDLE;
     }, []);
 
-    // ─── Forward declarations (resueltas por useCallback más abajo) ─
+    // ─── Forward declarations ──────────────────────────────────────
     const startCommandListenerRef = useRef(null);
     const startWakeListenerRef = useRef(null);
 
@@ -330,7 +348,6 @@ export function useVoiceEngine() {
         const afterTimeout = () => {
             killRecognition();
             if (handsFreeRef.current) {
-                // Manos libres: no salir del modo, volver a escuchar
                 endConversation(false);
                 setTimeout(() => startCommandListenerRef.current?.(), 500);
             } else {
@@ -398,22 +415,21 @@ export function useVoiceEngine() {
         }
     }, [killRecognition, endConversation]);
 
-    // ─── Process command ref (para uso en closures) ─────────────────
+    // ─── Process command ref ────────────────────────────────────────
     const processCommandRef = useRef(null);
 
-    // ─── Process command (conversational) ──────────────────────────
+    // ─── Process command ───────────────────────────────────────────
     const processCommand = useCallback(async (text, extraPayload = {}) => {
-        // Limpiar ruido del reconocimiento de voz (puntos, comas iniciales)
         const cleanText = text.replace(/^[.,\s]+/, '').trim();
         console.log("[Voice] Procesando comando:", cleanText);
-        if (cleanText.length < 4) return;
+        if (cleanText.length < 2) return;
         text = cleanText;
-        if (text.trim().length < 4) return;
+
         const _noise = ["time", "times", "the", "a", "ok", "yes", "no", "hi", "hey"];
         if (_noise.includes(text.trim().toLowerCase())) return;
         const textLower = text.toLowerCase();
 
-        // Check goodbye → siempre sale del modo manos libres
+        // ── Goodbye → salir siempre ────────────────────────────────
         if (STOP_WORDS.some(w => textLower.includes(w)) || GOODBYE_WORDS.some(w => textLower.includes(w))) {
             pendingEmailContextRef.current = null;
             conversationActiveRef.current = false;
@@ -427,31 +443,66 @@ export function useVoiceEngine() {
             return;
         }
 
-        // ── Si hay contexto de email awaiting_body, este turno ES el cuerpo ──
+        // ── Email: awaiting_body → este turno ES el cuerpo ─────────
         const emailCtx = pendingEmailContextRef.current;
         if (emailCtx?.awaiting_body) {
             console.log("[Voice] Recibiendo cuerpo del email para draft:", emailCtx.id);
-            pendingEmailContextRef.current = null;
+            // FIX: no limpiar el contexto antes del await
+            // Solo se limpia dentro de sendToAssistant si la respuesta es exitosa
             const result = await sendToAssistant(text, {
                 pending_email_id: emailCtx.id,
-                confirm_email: null,   // no es confirmación, es el cuerpo
+                confirm_email: null,
             });
             if (!result) {
+                // Restaurar contexto si falló
+                pendingEmailContextRef.current = emailCtx;
                 speak("No he podido procesar el mensaje. ¿Puedes repetirlo?", () => {
                     listenForFollowUp();
                 });
                 return;
             }
             const { reply, data } = result;
-            if (data?.pending_email?.needs_confirm) {
-                // Lucy leyó el borrador → esperar confirmación sí/no
+            conversationActiveRef.current = true;
+            // Lucy habla el borrador y espera sí/no — sin "¿Algo más?"
+            speak(reply, () => {
+                playBeep(660, 0.1);
+                listenForFollowUp();
+            });
+            return;
+        }
+
+        // ── Email: needs_confirm → este turno ES la confirmación ───
+        const confirmCtx = pendingEmailContextRef.current;
+        if (confirmCtx?.needs_confirm) {
+            console.log("[Voice] Confirmando email draft:", confirmCtx.id);
+            const result = await sendToAssistant(text, {
+                pending_email_id: confirmCtx.id,
+            });
+            if (!result) {
+                speak("No he podido procesar eso. ¿Puedes repetirlo?", () => listenForFollowUp());
+                return;
+            }
+            const { reply } = result;
+            conversationActiveRef.current = true;
+            // Después de enviar o cancelar — Lucy decide el cierre
+            speak(reply, () => {
+                playBeep(660, 0.1);
+                listenForFollowUp();
+            });
+            return;
+        }
+
+        // ── Saludo simple sin comando → respuesta natural ──────────
+        // Detectar si es solo un saludo (sin pregunta ni tarea añadida)
+        const isGreetingOnly = GREETING_ONLY.some(g => textLower.trim() === g || textLower.trim() === g + ".")
+            && !BRIEFING_TRIGGERS.some(t => textLower.includes(t));
+
+        if (isGreetingOnly) {
+            console.log("[Voice] Saludo simple detectado");
+            const result = await sendToAssistant(text);
+            if (result?.reply) {
                 conversationActiveRef.current = true;
-                speak(reply, () => {
-                    playBeep(660, 0.1);
-                    listenForFollowUp();
-                });
-            } else {
-                speak(reply + " ¿Algo más?", () => {
+                speak(result.reply, () => {
                     playBeep(660, 0.1);
                     listenForFollowUp();
                 });
@@ -459,18 +510,18 @@ export function useVoiceEngine() {
             return;
         }
 
-        // Check briefing — solo si no estamos ya en conversación
+        // ── Briefing ───────────────────────────────────────────────
         const isBriefing = !conversationActiveRef.current && BRIEFING_TRIGGERS.some(t => textLower.includes(t));
 
         if (isBriefing) {
             const thinkingPhrase = BRIEFING_THINKING_PHRASES[Math.floor(Math.random() * BRIEFING_THINKING_PHRASES.length)];
-            console.log("[Voice] Briefing detectado, respuesta intermedia...");
+            console.log("[Voice] Briefing detectado");
 
             speak(thinkingPhrase, async () => {
                 const result = await sendToAssistant(text);
-                const reply = result?.reply || result;
+                const reply = result?.reply;
                 if (reply) {
-                    speak(reply + " ¿Algo más?", () => {
+                    speak(reply, () => {
                         conversationActiveRef.current = true;
                         playBeep(660, 0.1);
                         listenForFollowUp();
@@ -484,28 +535,7 @@ export function useVoiceEngine() {
             return;
         }
 
-        // ── Si hay draft needs_confirm, pasar pending_email_id automáticamente ──
-        const confirmCtx = pendingEmailContextRef.current;
-        if (confirmCtx?.needs_confirm && !confirmCtx?.awaiting_body) {
-            const mergedPayload = {
-                ...extraPayload,
-                pending_email_id: confirmCtx.id,
-            };
-            const result = await sendToAssistant(text, mergedPayload);
-            if (!result) {
-                speak("No he podido procesar eso. ¿Puedes repetirlo?", () => listenForFollowUp());
-                return;
-            }
-            const { reply, data } = result;
-            conversationActiveRef.current = true;
-            speak(reply + (data?.pending_email ? "" : " ¿Algo más?"), () => {
-                playBeep(660, 0.1);
-                listenForFollowUp();
-            });
-            return;
-        }
-
-        // Comando normal
+        // ── Comando normal ─────────────────────────────────────────
         const result = await sendToAssistant(text, extraPayload);
         if (!result) {
             speak("No he podido procesar eso. ¿Puedes repetirlo?", () => {
@@ -516,30 +546,24 @@ export function useVoiceEngine() {
         const { reply, data } = result;
         conversationActiveRef.current = true;
 
-        if (data?.pending_email?.awaiting_body) {
-            // Lucy preguntó el cuerpo → escuchar sin "¿Algo más?"
-            speak(reply, () => {
-                playBeep(660, 0.1);
-                listenForFollowUp();
-            });
-        } else if (data?.pending_email?.needs_confirm) {
-            // Lucy tiene borrador listo → esperar sí/no sin "¿Algo más?"
+        if (data?.pending_email?.awaiting_body || data?.pending_email?.needs_confirm) {
+            // Flujo de email activo — Lucy habla y espera, sin cierre forzado
             speak(reply, () => {
                 playBeep(660, 0.1);
                 listenForFollowUp();
             });
         } else {
-            speak(reply + " ¿Algo más?", () => {
+            // Respuesta normal — Lucy decide si cierra o no (viene del backend)
+            speak(reply, () => {
                 playBeep(660, 0.1);
                 listenForFollowUp();
             });
         }
     }, [sendToAssistant, speak, playBeep, listenForFollowUp]);
 
-    // Mantener ref actualizada
     useEffect(() => { processCommandRef.current = processCommand; }, [processCommand]);
 
-    // ─── Command listener (escucha activa, post-wake o manos libres) ─
+    // ─── Command listener ──────────────────────────────────────────
     const startCommandListener = useCallback(() => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) return;
@@ -583,13 +607,11 @@ export function useVoiceEngine() {
                     let cleanCmd = cmd;
                     WAKE_WORDS.forEach(w => { cleanCmd = cleanCmd.replace(new RegExp(w, 'i'), '').trim(); });
                     if (cleanCmd.length === 0) {
-                        // Solo dijeron "Hola Lucy" sin comando — volver a escuchar
                         speak("Te escucho", () => { startCommandListenerRef.current?.(); });
                         return;
                     }
                     processCommandRef.current?.(cleanCmd);
                 } else if (handsFreeRef.current) {
-                    // Manos libres: silencio → seguir escuchando
                     startCommandListenerRef.current?.();
                 } else {
                     setVoiceState(STATES.IDLE);
@@ -636,7 +658,6 @@ export function useVoiceEngine() {
         }
     }, [killRecognition, speak]);
 
-    // Mantener ref actualizada
     useEffect(() => { startCommandListenerRef.current = startCommandListener; }, [startCommandListener]);
 
     // ─── Wake word listener ────────────────────────────────────────
@@ -730,10 +751,9 @@ export function useVoiceEngine() {
         try { rec.start(); } catch (_) { }
     }, [killRecognition, playBeep, getAudioCtx]);
 
-    // Mantener ref actualizada
     useEffect(() => { startWakeListenerRef.current = startWakeListener; }, [startWakeListener]);
 
-    // ─── Activate hands-free (desde botón UI) ──────────────────────
+    // ─── Activate hands-free ───────────────────────────────────────
     const activateHandsFreeMode = useCallback(async (wakeText) => {
         if (handsFreeRef.current) return;
 
@@ -752,19 +772,19 @@ export function useVoiceEngine() {
         console.log("[Voice] Manos libres activado. Query:", query);
 
         if (!query) {
-            // Sin query → arrancar wake listener en silencio
             setTimeout(() => startWakeListenerRef.current?.(), 300);
             return;
         }
 
-        const isBriefing = query && BRIEFING_TRIGGERS.some(t => query.toLowerCase().includes(t));
+        const isBriefing = BRIEFING_TRIGGERS.some(t => query.toLowerCase().includes(t));
 
         if (isBriefing) {
             const thinkingPhrase = BRIEFING_THINKING_PHRASES[Math.floor(Math.random() * BRIEFING_THINKING_PHRASES.length)];
             speak(thinkingPhrase, async () => {
-                const reply = await sendToAssistant(query);
+                const result = await sendToAssistant(query);
+                const reply = result?.reply;
                 if (reply) {
-                    speak(reply + " ¿Algo más?", () => {
+                    speak(reply, () => {
                         playBeep(660, 0.1);
                         listenForFollowUp();
                     });
@@ -775,9 +795,10 @@ export function useVoiceEngine() {
                 }
             });
         } else {
-            const reply = await sendToAssistant(query);
+            const result = await sendToAssistant(query);
+            const reply = result?.reply;
             if (reply) {
-                speak(reply + " ¿Algo más?", () => {
+                speak(reply, () => {
                     playBeep(660, 0.1);
                     listenForFollowUp();
                 });
@@ -816,13 +837,11 @@ export function useVoiceEngine() {
     // ─── Lifecycle ─────────────────────────────────────────────────
     useEffect(() => {
         if (wakeWordEnabled && !handsFreeModeActive) {
-            // Modo normal: arrancar wake listener si IDLE
             if (!activeRecRef.current && stateRef.current === STATES.IDLE) {
                 const timer = setTimeout(() => startWakeListenerRef.current?.(), 1000);
                 return () => clearTimeout(timer);
             }
         } else if (handsFreeModeActive) {
-            // Manos libres: si no hay reconocimiento activo y está IDLE, arrancar escucha directa
             if (!activeRecRef.current && stateRef.current === STATES.IDLE) {
                 const timer = setTimeout(() => startCommandListenerRef.current?.(), 500);
                 return () => clearTimeout(timer);

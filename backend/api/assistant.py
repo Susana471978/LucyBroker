@@ -456,11 +456,26 @@ Reglas:
         raw = await generate_llm_response(prompt)
         clean = raw.strip().replace("```json", "").replace("```", "").strip()
         data = json.loads(clean)
-        if data.get("body"):
+        if data.get("to_name"):
             return data
     except Exception as e:
         logger.warning("Email extraction error: %s", e)
     return None
+
+
+_GREETING_ONLY_WORDS = [
+    "hola", "buenos días", "buenos dias", "buenas tardes",
+    "buenas noches", "buenas", "qué tal", "que tal",
+]
+
+
+def _is_greeting_only(text: str) -> bool:
+    t = text.lower().strip().rstrip(".")
+    return t in _GREETING_ONLY_WORDS or any(
+        t == f"hola {g}" for g in _GREETING_ONLY_WORDS
+    )
+
+
 
 
 # =====================================================
@@ -1104,11 +1119,81 @@ El usuario dice: "{user_text}"
         # sin markdown, sin guiones, sin emojis. Natural y fluido.
         voice_base = """IMPORTANTE — tu respuesta se leerá en voz alta.
 Reglas absolutas:
-- Sin listas, sin guiones, sin asteriscos, sin markdown de ningún tipo.
-- Frases cortas y naturales, como en una conversación real.
-- Sin emojis.
-- En español de España, registro profesional pero cercano.
-- Máximo las frases indicadas en cada prompt."""
+        + Sin listas, sin guiones, sin asteriscos, sin markdown de ningún tipo.
+        + Frases cortas y naturales, como en una conversación real.
+        + Sin emojis.
+        + En español de España, registro profesional pero cercano.
+        + Máximo las frases indicadas en cada prompt.
+        + Cierre natural: solo pregunta si hay algo más cuando sea apropiado.
+          No lo hagas si acabas de dar un briefing completo, si acabas de confirmar
+          una acción, o si el usuario claramente ha terminado."""
+
+        # Saludo simple — respuesta directa sin slow path completo
+        if _is_greeting_only(user_text) and not is_briefing:
+            user_first = user_name.split()[0] if user_name else ""
+            hour = now_madrid.hour
+            if hour < 12:
+                saludo = "Buenos días"
+            elif hour < 20:
+                saludo = "Buenas tardes"
+            else:
+                saludo = "Buenas noches"
+            greeting_text = f"{saludo}{', ' + user_first if user_first else ''}. ¿En qué puedo ayudarte?"
+            return AssistantResponse(
+                assistant_text=greeting_text,
+                actions=None,
+                status="ok",
+                timestamp=now_ts,
+            )
+
+        if is_briefing:
+            prompt = f"""
+Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
+HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
+
+Da un briefing completo en prosa fluida. Estructura natural hablada:
+Primero saluda brevemente según la hora.
+Luego la agenda de hoy con las reuniones importantes.
+Después los correos, empezando siempre por los de empresas VIP si los hay, luego los prioritarios.
+Después las tareas urgentes.
+Después los hábitos pendientes.
+Cierra con una frase natural. NO añadas "¿algo más?" al final del briefing.
+
+DATOS:
+{calendar_context}
+{inbox_context}
+{tasks_context if tasks_context else "Sin tareas pendientes."}
+{habits_context if habits_context else "Sin hábitos registrados."}
+{contacts_context}
+{service_status}
+{memory_context}
+{user_memory_context}
+
+Máximo 10 frases. Nombra personas y asuntos reales. No inventes datos.
+El usuario dice: "{user_text}"
+"""
+            max_tokens = 500
+        else:
+            prompt = f"""
+Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
+HOY: {today_label}. Hora: {now_madrid.strftime("%H:%M")}.
+Responde en máximo 3 frases, directo y natural.
+
+DATOS:
+{calendar_context}
+{inbox_context if items else ""}
+{tasks_context}
+{habits_context}
+{service_status}
+{memory_context}
+{user_memory_context}
+
+El usuario dice: "{user_text}"
+No inventes datos. Si pide algo específico, responde directamente.
+Solo añade una pregunta de seguimiento si la respuesta fue corta y tiene continuación natural.
+No lo añadas si acabas de confirmar una acción o dar información completa.
+"""
+            max_tokens = 200
 
 
         if is_briefing:
