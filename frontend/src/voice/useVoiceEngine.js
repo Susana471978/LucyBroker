@@ -403,7 +403,11 @@ export function useVoiceEngine() {
 
     // ─── Process command (conversational) ──────────────────────────
     const processCommand = useCallback(async (text, extraPayload = {}) => {
-        console.log("[Voice] Procesando comando:", text);
+        // Limpiar ruido del reconocimiento de voz (puntos, comas iniciales)
+        const cleanText = text.replace(/^[.,\s]+/, '').trim();
+        console.log("[Voice] Procesando comando:", cleanText);
+        if (cleanText.length < 4) return;
+        text = cleanText;
         if (text.trim().length < 4) return;
         const _noise = ["time", "times", "the", "a", "ok", "yes", "no", "hi", "hey"];
         if (_noise.includes(text.trim().toLowerCase())) return;

@@ -181,11 +181,13 @@ export default function useBriefing({ token, ttsEnabled }) {
     }, []);
 
     const checkShowWelcome = useCallback(({ gmailLoading, gmailConnected, loading }) => {
-        if (!token || gmailLoading || !gmailConnected || loading || briefingDoneRef.current) return;
+        if (!token || gmailLoading || !gmailConnected || loading) return;
         const todayKey = `lucy_briefing_${new Date().toDateString()}`;
         if (sessionStorage.getItem(todayKey)) return;
+        // Marcar inmediatamente para evitar doble disparo en re-renders
+        sessionStorage.setItem(todayKey, 'pending');
         briefingDoneRef.current = true;
-        const timer = setTimeout(() => setShowWelcome(true), 600);
+        const timer = setTimeout(() => setShowWelcome(true), 1200);
         return () => clearTimeout(timer);
     }, [token]);
 

@@ -332,6 +332,10 @@ _TASK_KEYWORDS = [
 
 def _is_task_intent(text: str) -> bool:
     t = text.lower().strip()
+    # No interpretar como tarea si hay contexto de email activo
+    email_context_words = ["email", "correo", "mail", "mensaje", "cuerpo", "asunto", "destinatario"]
+    if any(w in t for w in email_context_words):
+        return False
     return any(kw in t for kw in _TASK_KEYWORDS)
 
 
