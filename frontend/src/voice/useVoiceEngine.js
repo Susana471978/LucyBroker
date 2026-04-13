@@ -875,7 +875,7 @@ export function useVoiceEngine() {
             console.log("[Voice] Saludo activado, ttsEnabled:", ttsRef.current);
             try { getAudioCtx().resume(); } catch (_) { }
             speak(`${greeting}. Te escucho.`, () => {
-                startCommandListenerRef.current?.();
+                setTimeout(() => startCommandListenerRef.current?.(), 500);
             });
             return;
         }
