@@ -221,7 +221,9 @@ def _build_tasks_context(tasks: list) -> str:
     return "\n".join(lines)
 
 
-def _build_habits_context(summary: dict) -> str:
+def _build_habits_context(summary) -> str:
+    if not isinstance(summary, dict):
+        return ""
     habits = summary.get("habits", [])
     if not habits:
         return ""

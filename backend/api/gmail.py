@@ -1,3 +1,4 @@
+from email.mime.text import MIMEText
 # backend/api/gmail.py
 
 import asyncio
@@ -700,6 +701,7 @@ async def resolve_recipient(
     db,
 ) -> Optional[str]:
     n = name_or_email.strip().lower()
+    n = n.rstrip(".,;:!?")
 
     if "@" in n and "." in n:
         return name_or_email.strip()
@@ -708,9 +710,17 @@ async def resolve_recipient(
         from backend.services.contact_memory import get_all_contacts
         contacts = await get_all_contacts(db, user_id, limit=100)
         for c in contacts:
-            full_name = (c.get("name") or "").lower()
-            email_addr = c.get("email", "")
+            full_name = (c.get("contact_name") or c.get("name") or "").lower()
+            email_addr = c.get("contact_email") or c.get("email", "")
+            if not full_name or not email_addr:
+                continue
+            # Coincidencia exacta o parcial
             if n in full_name or full_name.startswith(n):
+                return email_addr
+            # Buscar por palabras individuales (apellido, nombre por separado)
+            n_parts = n.split()
+            full_parts = full_name.split()
+            if any(part in full_parts for part in n_parts if len(part) > 3):
                 return email_addr
     except Exception:
         pass
