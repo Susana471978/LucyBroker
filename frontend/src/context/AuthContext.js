@@ -212,7 +212,7 @@ export const AuthProvider = ({ children }) => {
         logout,
         updateLanguage,
         fetchTrialStatus,
-        isAuthenticated: !!token,
+        isAuthenticated: !!user,
       }}
     >
       {children}
