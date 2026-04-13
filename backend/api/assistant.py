@@ -330,6 +330,9 @@ _TASK_KEYWORDS = [
     "tarea", "pendiente", "to-do", "todo", "añade como tarea",
     "nueva tarea", "apunta como tarea", "tengo que", "hay que",
     "no olvidar hacer", "agregar tarea",
+    "añade una tarea", "crea una tarea", "apunta que", "anota que",
+    "no me olvide", "que no se me olvide", "acuérdate de", "acuerdate de",
+    "apúntame", "apuntame", "añádeme", "anademe",
 ]
 
 def _is_task_intent(text: str) -> bool:
