@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useVoice } from '../voice/VoiceProvider';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, Circle, Plus, Trash2, Loader2, Flag, Calendar, X } from 'lucide-react';
 import Layout from '../components/Layout';
@@ -225,6 +226,8 @@ export default function TasksPage() {
     const [showDone, setShowDone] = useState(false);
     const [showForm, setShowForm] = useState(false);
 
+    const { setUIContext } = useVoice() || {};
+
     const fetchTasks = useCallback(async () => {
         setLoading(true);
         try {
@@ -239,6 +242,11 @@ export default function TasksPage() {
     }, []);
 
     useEffect(() => { fetchTasks(); }, [fetchTasks]);
+
+    useEffect(() => {
+        setUIContext?.({ refreshTasks: fetchTasks });
+        return () => setUIContext?.({ refreshTasks: null });
+    }, [fetchTasks, setUIContext]);
 
     const handleAdd = async (payload) => {
         try {
