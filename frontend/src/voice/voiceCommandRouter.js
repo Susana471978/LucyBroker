@@ -44,6 +44,7 @@ export function executeVoiceActions(actions = [], context = {}) {
                 case "task_updated":
                 case "task_deleted":
                     if (refreshTasks) refreshTasks();
+                    else if (navigate) navigate("/app/tasks");
                     console.log("[Voice] Task action handled:", type);
                     break;
                 case "habit_toggled":
