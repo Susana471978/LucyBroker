@@ -70,7 +70,7 @@ from backend.api.gmail import create_gmail_router
 # =========================
 # TTS (ElevenLabs)
 # =========================
-from backend.services.tts_service import generate_tts_audio
+from backend.services.tts_service import generate_tts_audio, stream_openai_tts
 
 # =========================
 # DB
@@ -305,6 +305,28 @@ async def tts_endpoint(
 
 
 api_router.include_router(tts_router)
+@tts_router.post("/stream")
+async def tts_stream_endpoint(
+    request: Request,
+    payload: Dict[str, Any],
+    user: Dict[str, Any] = Depends(get_current_user),
+    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+):
+    """Streaming TTS — empieza a devolver audio antes de tener el blob completo."""
+    from fastapi.responses import StreamingResponse
+    text = (payload or {}).get("text", "")
+    text = text.strip() if isinstance(text, str) else ""
+    if not text:
+        raise HTTPException(status_code=400, detail="Texto vacío")
+    try:
+        return StreamingResponse(
+            stream_openai_tts(text),
+            media_type="audio/mpeg",
+            headers={"X-Accel-Buffering": "no"},
+        )
+    except Exception:
+        logger.exception("TTS stream error")
+        raise HTTPException(status_code=502, detail="Error generando audio")
 
 
 # ======================================================

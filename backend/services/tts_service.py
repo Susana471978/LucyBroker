@@ -74,6 +74,7 @@ async def _generate_elevenlabs(text: str, api_key: str) -> bytes:
         raise Exception(f"ElevenLabs {response.status_code}")
 
 
+
 async def _generate_openai(text: str) -> bytes:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -86,6 +87,26 @@ async def _generate_openai(text: str) -> bytes:
         model="tts-1",
         voice="shimmer",
         input=text,
-        speed=0.95
+        speed=1.05,
     )
     return response.content
+
+
+async def stream_openai_tts(text: str):
+    """Genera audio en streaming — yields chunks conforme llegan."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        raise Exception("No TTS provider available")
+
+    from openai import AsyncOpenAI
+    client = AsyncOpenAI(api_key=api_key)
+
+    async with client.audio.speech.with_streaming_response.create(
+        model="tts-1",
+        voice="shimmer",
+        input=text,
+        speed=1.05,
+        response_format="mp3",
+    ) as response:
+        async for chunk in response.iter_bytes(chunk_size=4096):
+            yield chunk

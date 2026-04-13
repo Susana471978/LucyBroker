@@ -2,17 +2,13 @@ import { useState, useCallback, useRef } from 'react';
 import apiClient from '../services/apiClient';
 import { setGlobalAudio, stopGlobalAudio } from '../voice/useVoiceEngine';
 
-export default function useBriefing({ token, ttsEnabled }) {
+export default function useBriefing({ token, ttsEnabled, pendingEmail = null, setPendingEmail = () => {} }) {
     const [showWelcome, setShowWelcome] = useState(false);
     const [welcomePhase, setWelcomePhase] = useState('idle');
     const [briefingVisible, setBriefingVisible] = useState(false);
     const [briefingText, setBriefingText] = useState('');
     const [briefingIsSpeaking, setBriefingIsSpeaking] = useState(false);
     const [sending, setSending] = useState(false);
-
-    // ── Email pendiente de confirmación ──────────────────────────────
-    // { id, to_name, to_email, subject, body, needs_confirm }
-    const [pendingEmail, setPendingEmail] = useState(null);
 
     const briefingDoneRef = useRef(false);
     const briefingInFlightRef = useRef(false);
@@ -90,23 +86,18 @@ export default function useBriefing({ token, ttsEnabled }) {
             const data = res.data?.data || res.data;
             const reply = data?.assistant_text || '';
 
-            // ── Gestionar email pendiente ────────────────────────────
-            if (data?.pending_email?.needs_confirm) {
-                // Lucy ha redactado un borrador — mostrar panel de confirmación
-                setPendingEmail(data.pending_email);
+            // ── Gestionar email pendiente — estado compartido ────────
+            if (data?.pending_email?.needs_confirm || data?.pending_email?.awaiting_body) {
+                setPendingEmail?.(data.pending_email);
             } else {
-                // Cualquier otra respuesta limpia el pending (envío confirmado, cancelado, etc.)
-                setPendingEmail(null);
+                setPendingEmail?.(null);
             }
 
             // ── Acciones de navegación / UI ──────────────────────────
             if (Array.isArray(data?.actions)) {
                 data.actions.forEach(action => {
-                    if (action.type === 'email_sent') {
-                        setPendingEmail(null);
-                    }
-                    if (action.type === 'email_cancelled') {
-                        setPendingEmail(null);
+                    if (action.type === 'email_sent' || action.type === 'email_cancelled') {
+                        setPendingEmail?.(null);
                     }
                 });
             }

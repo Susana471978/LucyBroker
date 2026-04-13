@@ -60,6 +60,8 @@ export default function OverviewPage() {
         cancel,
         voiceState,
         setUIContext,
+        pendingEmail,
+        setPendingEmail,
     } = useVoice();
 
     const { currentAlert, dismissAlert } = useAlerts(token);
@@ -79,11 +81,9 @@ export default function OverviewPage() {
         dismissBriefing,
         handleSkip,
         checkShowWelcome,
-        pendingEmail,
         confirmEmailSend,
         cancelEmailSend,
-
-    } = useBriefing({ token, ttsEnabled });
+    } = useBriefing({ token, ttsEnabled, pendingEmail, setPendingEmail });
 
     // Prefill desde CRM — botón "Enviar correo"
     const location = useLocation();
@@ -99,10 +99,11 @@ export default function OverviewPage() {
     useEffect(() => {
         if (setUIContext) {
             setUIContext({
+                navigate,
                 refreshReminders: checkReminders,
             });
         }
-    }, [setUIContext, checkReminders]);
+    }, [setUIContext, checkReminders, navigate]);
 
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);

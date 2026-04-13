@@ -440,17 +440,15 @@ Extrae la intención de enviar un email.
 Devuelve ÚNICAMENTE un JSON válido sin backticks ni texto adicional:
 {{
     "to_name": "nombre o email del destinatario",
-    "subject": "asunto del correo",
-    "body": "cuerpo del correo redactado de forma profesional en español"
+    "subject": "asunto del correo o string vacío si no se especificó",
+    "body": "cuerpo del correo o string vacío si no se especificó"
 }}
 
-Reglas:
-- Si el usuario no especificó asunto, inventa uno apropiado.
-- Si el usuario dijo "dile que..." o especificó el contenido, construye el cuerpo con ese contenido en español profesional.
-- Si el usuario NO especificó qué decir (solo mencionó el destinatario), deja body como string vacío "".
-- No incluyas saludo formal tipo "Estimado/a" a menos que el usuario lo pida — empieza directo.
-- Firma con el nombre del remitente: {user_name}.
-- Si no hay destinatario claro, usa to_name: "".
+Reglas ESTRICTAS:
+- to_name: solo el nombre/email del destinatario si se menciona explícitamente. Si no, string vacío "".
+- subject: solo si el usuario lo especificó. Si no, string vacío "".
+- body: SOLO si el usuario especificó claramente qué decir (ej: "dile que...", "que sepa que...", "escríbele que..."). Si no hay contenido explícito, DEJAR VACÍO "". NO INVENTAR NUNCA.
+- No incluyas saludo formal. No firmes. No añadas nada que el usuario no haya dicho.
 """
     try:
         raw = await generate_llm_response(prompt)
@@ -474,7 +472,6 @@ def _is_greeting_only(text: str) -> bool:
     return t in _GREETING_ONLY_WORDS or any(
         t == f"hola {g}" for g in _GREETING_ONLY_WORDS
     )
-
 
 
 
@@ -626,6 +623,79 @@ async def assistant_endpoint(
                 return AssistantResponse(
                     assistant_text="No encuentro el borrador. ¿Quieres que lo redacte de nuevo?",
                     actions=None, status="ok", timestamp=now_ts,
+                )
+
+
+            # ── awaiting_email_address: el usuario acaba de dar el email ──
+            if draft_doc.get("awaiting_email_address"):
+                email_provided = user_text.strip()
+                if "@" not in email_provided or "." not in email_provided:
+                    return AssistantResponse(
+                        assistant_text="Eso no parece una dirección de correo válida. ¿Puedes repetirla?",
+                        actions=None, status="ok", timestamp=now_ts,
+                        pending_email={
+                            "id": str(draft_doc["_id"]),
+                            "to_name": draft_doc.get("to_name", ""),
+                            "to_email": None,
+                            "subject": draft_doc.get("subject", ""),
+                            "body": "",
+                            "needs_confirm": False,
+                            "awaiting_email_address": True,
+                            "awaiting_body": False,
+                        },
+                    )
+                await db.email_drafts.update_one(
+                    {"_id": draft_doc["_id"]},
+                    {"$set": {
+                        "to": email_provided,
+                        "resolved": True,
+                        "awaiting_email_address": False,
+                        "awaiting_body": True,
+                    }},
+                )
+                to_name_disp = draft_doc.get("to_name", email_provided)
+                return AssistantResponse(
+                    assistant_text=f"Perfecto. ¿Qué quieres decirle a {to_name_disp}?",
+                    actions=None, status="ok", timestamp=now_ts,
+                    pending_email={
+                        "id": str(draft_doc["_id"]),
+                        "to_name": to_name_disp,
+                        "to_email": email_provided,
+                        "subject": draft_doc.get("subject", ""),
+                        "body": "",
+                        "needs_confirm": False,
+                        "awaiting_email_address": False,
+                        "awaiting_body": True,
+                    },
+                )
+
+            # ── awaiting_recipient: el usuario acaba de decir a quién va ──
+            if draft_doc.get("awaiting_recipient"):
+                to_name_new = user_text.strip()
+                resolved_email_new = await resolve_recipient(to_name_new, user["id"], db)
+                await db.email_drafts.update_one(
+                    {"_id": draft_doc["_id"]},
+                    {"$set": {
+                        "to": resolved_email_new or to_name_new,
+                        "to_name": to_name_new,
+                        "resolved": bool(resolved_email_new),
+                        "awaiting_recipient": False,
+                        "awaiting_body": True,
+                    }},
+                )
+                return AssistantResponse(
+                    assistant_text=f"Perfecto, le escribo a {to_name_new}. ¿Qué quieres decirle?",
+                    actions=None, status="ok", timestamp=now_ts,
+                    pending_email={
+                        "id": str(draft_doc["_id"]),
+                        "to_name": to_name_new,
+                        "to_email": resolved_email_new,
+                        "subject": draft_doc.get("subject", f"Mensaje de {user_name}"),
+                        "body": "",
+                        "needs_confirm": False,
+                        "awaiting_recipient": False,
+                        "awaiting_body": True,
+                    },
                 )
 
             # ── awaiting_body: el usuario acaba de decir el cuerpo del email ──
@@ -864,22 +934,44 @@ El usuario dice: "{user_text}"
                     actions=None, status="ok", timestamp=now_ts,
                 )
 
-
             email_data = await _extract_email_intent(user_text, user_name)
-            if not email_data:
+            to_name = email_data.get("to_name", "") if email_data else ""
+            subject = email_data.get("subject", "") if email_data else ""
+            body_text = email_data.get("body", "") if email_data else ""
+
+            # Sin destinatario claro → preguntar quién primero
+            if not to_name or len(to_name.strip()) < 2:
+                draft_doc_pre = {
+                    "user_id": user["id"],
+                    "to": "",
+                    "to_name": "",
+                    "subject": "",
+                    "body": "",
+                    "resolved": False,
+                    "awaiting_recipient": True,
+                    "awaiting_body": False,
+                    "created_at": now_ts,
+                }
+                draft_result_pre = await db.email_drafts.insert_one(draft_doc_pre)
                 return AssistantResponse(
-                    assistant_text="No he entendido bien a quién va el correo. ¿Puedes repetirlo?",
+                    assistant_text="Claro, ¿a quién va dirigido el correo?",
                     actions=None, status="ok", timestamp=now_ts,
+                    pending_email={
+                        "id": str(draft_result_pre.inserted_id),
+                        "to_name": "",
+                        "to_email": None,
+                        "subject": "",
+                        "body": "",
+                        "needs_confirm": False,
+                        "awaiting_recipient": True,
+                        "awaiting_body": False,
+                    },
                 )
 
-            to_name = email_data.get("to_name", "")
-            subject = email_data.get("subject", "")
-            body_text = email_data.get("body", "")
-
-            # Si no hay contenido claro → preguntar antes de redactar
+            # Sin cuerpo → preguntar qué decirle
             if not body_text or len(body_text.strip()) < 10:
-                # Guardar draft awaiting_body para que el siguiente turno lo encuentre
                 resolved_email_pre = await resolve_recipient(to_name, user["id"], db)
+                awaiting_email_address = not bool(resolved_email_pre)
                 draft_doc_pre = {
                     "user_id": user["id"],
                     "to": resolved_email_pre or to_name,
@@ -887,98 +979,59 @@ El usuario dice: "{user_text}"
                     "subject": subject or f"Mensaje de {user_name}",
                     "body": "",
                     "resolved": bool(resolved_email_pre),
-                    "awaiting_body": True,
+                    "awaiting_recipient": False,
+                    "awaiting_body": not awaiting_email_address,
+                    "awaiting_email_address": awaiting_email_address,
                     "created_at": now_ts,
                 }
                 draft_result_pre = await db.email_drafts.insert_one(draft_doc_pre)
-                draft_id_pre = str(draft_result_pre.inserted_id)
+                if awaiting_email_address:
+                    reply_text = f"Entendido. No tengo el email de {to_name} en mis contactos. ¿Puedes decirme su dirección de correo?"
+                else:
+                    reply_text = f"Entendido, le escribo a {to_name}. ¿Qué quieres decirle?"
                 return AssistantResponse(
-                    assistant_text=f"Entendido, le escribo a {to_name}. ¿Qué quieres decirle?",
+                    assistant_text=reply_text,
                     actions=None, status="ok", timestamp=now_ts,
                     pending_email={
-                        "id": draft_id_pre,
+                        "id": str(draft_result_pre.inserted_id),
                         "to_name": to_name,
                         "to_email": resolved_email_pre,
                         "subject": subject or f"Mensaje de {user_name}",
                         "body": "",
                         "needs_confirm": False,
-                        "awaiting_body": True,
+                        "awaiting_recipient": False,
+                        "awaiting_body": not awaiting_email_address,
+                        "awaiting_email_address": awaiting_email_address,
                     },
                 )
 
-            # Resolver email del destinatario
+            # Tenemos destinatario y cuerpo → resolver email y pedir confirmación
             resolved_email = await resolve_recipient(to_name, user["id"], db)
-
-            if not resolved_email:
-                # No tenemos email — pedimos confirmación con nombre
-                # Guardamos borrador en DB con to pendiente de resolver
-                draft_doc = {
-                    "user_id": user["id"],
-                    "to": to_name,  # será el nombre hasta que se resuelva
-                    "to_name": to_name,
-                    "subject": subject,
-                    "body": body_text,
-                    "resolved": False,
-                    "created_at": now_ts,
-                }
-                draft_result = await db.email_drafts.insert_one(draft_doc)
-                draft_id = str(draft_result.inserted_id)
-
-                # Lucy lee el borrador en voz alta para que el usuario confirme
-                preview = body_text[:200] + ("..." if len(body_text) > 200 else "")
-                confirmation_text = (
-                    f"He redactado esto para {to_name}. "
-                    f"Asunto: {subject}. "
-                    f"Mensaje: {preview}. "
-                    f"¿Lo envío?"
-                )
-                return AssistantResponse(
-                    assistant_text=confirmation_text,
-                    actions=None,
-                    status="ok",
-                    timestamp=now_ts,
-                    pending_email={
-                        "id": draft_id,
-                        "to_name": to_name,
-                        "to_email": None,
-                        "subject": subject,
-                        "body": body_text,
-                        "needs_confirm": True,
-                    },
-                )
-
-            # Tenemos email resuelto — guardar borrador y pedir confirmación
             draft_doc = {
                 "user_id": user["id"],
-                "to": resolved_email,
+                "to": resolved_email or to_name,
                 "to_name": to_name,
                 "subject": subject,
                 "body": body_text,
-                "resolved": True,
+                "resolved": bool(resolved_email),
+                "awaiting_recipient": False,
+                "awaiting_body": False,
                 "created_at": now_ts,
             }
             draft_result = await db.email_drafts.insert_one(draft_doc)
-            draft_id = str(draft_result.inserted_id)
-
             preview = body_text[:200] + ("..." if len(body_text) > 200 else "")
-            confirmation_text = (
-                f"Listo. He redactado esto para {to_name}. "
-                f"Asunto: {subject}. "
-                f"Dice: {preview}. "
-                f"¿Lo envío?"
-            )
             return AssistantResponse(
-                assistant_text=confirmation_text,
-                actions=None,
-                status="ok",
-                timestamp=now_ts,
+                assistant_text=f"Listo. Le escribo a {to_name}. Asunto: {subject}. Dice: {preview}. ¿Lo envío?",
+                actions=None, status="ok", timestamp=now_ts,
                 pending_email={
-                    "id": draft_id,
+                    "id": str(draft_result.inserted_id),
                     "to_name": to_name,
                     "to_email": resolved_email,
                     "subject": subject,
                     "body": body_text,
                     "needs_confirm": True,
+                    "awaiting_recipient": False,
+                    "awaiting_body": False,
                 },
             )
 
@@ -1064,11 +1117,12 @@ El usuario dice: "{user_text}"
                 return_exceptions=True,
             )
         else:
+            # Para comandos normales no hacer fetch pesado de Gmail
             _results = await asyncio.gather(
-                _empty_list() if not user.get("gmail_connected") else _fetch_gmail(),
+                _empty_list(),
                 _fetch_calendar(), get_memory(db, user["id"]),
                 _empty_list(), get_user_memory(db, user["id"]),
-                _fetch_tasks(), _fetch_habits(),
+                _fetch_tasks(), _empty_list(),
                 return_exceptions=True,
             )
 
@@ -1196,52 +1250,6 @@ No lo añadas si acabas de confirmar una acción o dar información completa.
             max_tokens = 200
 
 
-        if is_briefing:
-            prompt = f"""
-Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
-HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
-
-Da un briefing completo en prosa fluida. Estructura natural hablada:
-Primero saluda brevemente según la hora.
-Luego la agenda de hoy con las reuniones importantes.
-Después los correos, empezando siempre por los de empresas VIP si los hay, luego los prioritarios.
-Después las tareas urgentes.
-Después los hábitos pendientes.
-Cierra con una frase motivadora breve.
-
-DATOS:
-{calendar_context}
-{inbox_context}
-{tasks_context if tasks_context else "Sin tareas pendientes."}
-{habits_context if habits_context else "Sin hábitos registrados."}
-{contacts_context}
-{service_status}
-{memory_context}
-{user_memory_context}
-
-Máximo 10 frases. Nombra personas y asuntos reales. No inventes datos.
-El usuario dice: "{user_text}"
-"""
-            max_tokens = 500
-        else:
-            prompt = f"""
-Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
-HOY: {today_label}. Hora: {now_madrid.strftime("%H:%M")}.
-Responde en máximo 3 frases, directo y natural.
-
-DATOS:
-{calendar_context}
-{inbox_context if items else ""}
-{tasks_context}
-{habits_context}
-{service_status}
-{memory_context}
-{user_memory_context}
-
-El usuario dice: "{user_text}"
-No inventes datos. Si pide algo específico, responde directamente.
-"""
-            max_tokens = 200
 
         api_key = os.getenv("OPENAI_API_KEY")
         if not api_key:

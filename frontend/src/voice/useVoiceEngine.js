@@ -30,6 +30,11 @@ import apiClient from "../services/apiClient";
  *   - Lucy decide el cierre de cada respuesta — sin "¿Algo más?" hardcodeado
  *   - pendingEmailContextRef no se limpia antes del await (bug fix)
  *   - Saludo simple detectado antes del briefing trigger
+ *
+ * Cambios v4.3:
+ *   - speak() reescrita: AudioContext.decodeAudioData + AudioBufferSourceNode
+ *   - Elimina restricciones de autoplay en móvil
+ *   - Fallback a new Audio() si decodeAudioData falla
  */
 
 export const STATES = {
@@ -40,6 +45,15 @@ export const STATES = {
     ERROR: "ERROR",
 };
 
+// Normalizar texto — eliminar tildes para comparación
+function _normalize(text) {
+    return text
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .trim();
+}
+
 const WAKE_WORDS = [
     "hola lucy",
     "ola lucy",
@@ -47,9 +61,19 @@ const WAKE_WORDS = [
     "oye lucy",
     "hey lucy",
     "buenos días lucy",
+    "buenos dias lucy",
     "buenas lucy",
-    "buenas luci"
+    "buenas luci",
+    "buenos días",
+    "buenos dias",
 ];
+
+// Saludos simples — respuesta natural sin briefing
+const GREETING_ONLY = [
+    "buenos días", "buenos dias", "buenas tardes", "buenas noches",
+    "buenas", "hola", "qué tal", "que tal",
+];
+
 const STOP_WORDS = ["lucy para", "lucy stop", "detente lucy", "detente", "stop", "para lucy", "cállate", "silencio"];
 const GOODBYE_WORDS = [
     "no gracias", "no nada", "nada más", "nada mas", "eso es todo",
@@ -64,20 +88,13 @@ const BRIEFING_TRIGGERS = [
     "cómo está el día", "como esta el dia",
     "qué hay hoy", "que hay hoy",
 ];
-
-// Saludos simples — respuesta natural sin briefing
-const GREETING_ONLY = [
-    "buenos días", "buenos dias", "buenas tardes", "buenas noches",
-    "buenas", "hola", "qué tal", "que tal",
-];
-
 const BRIEFING_THINKING_PHRASES = [
     "Dame un segundo que me pongo al día...",
     "Un momento, estoy revisando todo...",
     "Déjame ver cómo tienes el día...",
 ];
 
-// ─── Global audio with change notification ───
+// ─── Global audio with change notification ───────────────────────────────────
 let _globalAudio = null;
 let _audioChangeListeners = [];
 
@@ -99,6 +116,11 @@ export function onGlobalAudioChange(fn) {
 
 export function stopGlobalAudio() {
     if (_globalAudio) {
+        // AudioBufferSourceNode
+        if (typeof _globalAudio?.audio?.stop === "function") {
+            try { _globalAudio.audio.stop(); } catch (_) { }
+        }
+        // HTMLMediaElement
         const audioEl = (_globalAudio?.audio instanceof HTMLMediaElement)
             ? _globalAudio.audio
             : _globalAudio;
@@ -110,6 +132,7 @@ export function stopGlobalAudio() {
 
 export function useVoiceEngine() {
     const [voiceState, setVoiceState] = useState(STATES.IDLE);
+    const [pendingEmail, setPendingEmail] = useState(null);
     const [transcript, setTranscript] = useState("");
     const [lastInteraction, setLastInteraction] = useState("");
     const [ttsEnabled, setTtsEnabled] = useState(true);
@@ -129,13 +152,14 @@ export function useVoiceEngine() {
     const pendingEmailContextRef = useRef(null);
 
     useEffect(() => { stateRef.current = voiceState; }, [voiceState]);
+    useEffect(() => { pendingEmailContextRef.current = pendingEmail; }, [pendingEmail]);
     useEffect(() => { ttsRef.current = ttsEnabled; }, [ttsEnabled]);
     useEffect(() => { handsFreeRef.current = handsFreeModeActive; }, [handsFreeModeActive]);
     useEffect(() => { wakeEnabledRef.current = wakeWordEnabled; }, [wakeWordEnabled]);
 
     const setUIContext = useCallback((ctx) => { uiContextRef.current = { ...uiContextRef.current, ...ctx }; }, []);
 
-    // ─── Audio context ─────────────────────────────────────────────
+    // ─── Audio context ────────────────────────────────────────────────────────
     const getAudioCtx = useCallback(() => {
         if (!audioCtxRef.current) {
             audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
@@ -144,7 +168,7 @@ export function useVoiceEngine() {
         return audioCtxRef.current;
     }, []);
 
-    // ─── Unlock audio on first user interaction ────────────────────
+    // ─── Unlock audio on first user interaction ───────────────────────────────
     useEffect(() => {
         const unlock = () => {
             try {
@@ -178,7 +202,7 @@ export function useVoiceEngine() {
         } catch (_) { }
     }, [getAudioCtx]);
 
-    // ─── Kill recognition ──────────────────────────────────────────
+    // ─── Kill recognition ─────────────────────────────────────────────────────
     const killRecognition = useCallback(() => {
         if (activeRecRef.current) {
             const rec = activeRecRef.current;
@@ -191,86 +215,135 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    // ─── Speak ─────────────────────────────────────────────────────
+    // ─── Speak v4.3 — AudioContext.decodeAudioData (no autoplay restrictions) ─
     const speak = useCallback(async (text, onEnd) => {
-        if (!ttsRef.current || !text) { onEnd?.(); return; }
+        console.log("[TTS] speak() llamada — ttsRef:", ttsRef.current, "| text:", text?.slice(0, 40));
+        if (!ttsRef.current || !text) {
+            console.log("[TTS] speak() abortada — ttsRef false o text vacío");
+            onEnd?.();
+            return;
+        }
 
         stopGlobalAudio();
         killRecognition();
+
         try {
             setVoiceState(STATES.SPEAKING);
 
-            const res = await apiClient.post("/tts", { text }, { responseType: "blob" });
-            const url = URL.createObjectURL(res.data);
-            const audio = new Audio(url);
+            const apiBase = apiClient.defaults.baseURL || "/api";
+            const token = localStorage.getItem("auth_token") || "";
 
-            let analyser = null;
+            console.log("[TTS] Iniciando fetch...");
+
+            const fetchRes = await fetch(`${apiBase}/tts/stream`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+                },
+                body: JSON.stringify({ text }),
+            });
+
+            console.log("[TTS] Response status:", fetchRes.status);
+
+            if (!fetchRes.ok) throw new Error(`TTS HTTP ${fetchRes.status}`);
+
+            const arrayBuffer = await fetchRes.arrayBuffer();
+            console.log("[TTS] ArrayBuffer recibido:", arrayBuffer.byteLength, "bytes");
+
+            const ctx = getAudioCtx();
+            if (ctx.state === "suspended") await ctx.resume();
+
+            console.log("[TTS] Decodificando audio...");
+
+            let audioBuffer;
             try {
-                const ctx = getAudioCtx();
-                if (ctx.state === "suspended") await ctx.resume().catch(() => { });
-
-                const source = ctx.createMediaElementSource(audio);
-                analyser = ctx.createAnalyser();
-                analyser.fftSize = 512;
-                analyser.smoothingTimeConstant = 0.55;
-
-                source.connect(analyser);
-                analyser.connect(ctx.destination);
-            } catch (analyserErr) {
-                console.warn("[Voice] AnalyserNode no pudo conectarse:", analyserErr.message);
+                audioBuffer = await ctx.decodeAudioData(arrayBuffer);
+                console.log("[TTS] Audio decodificado OK, duración:", audioBuffer.duration.toFixed(2) + "s");
+            } catch (decodeErr) {
+                console.warn("[TTS] Error en decodeAudioData:", decodeErr);
+                console.log("[TTS] Fallback a new Audio()");
+                throw { _fallback: true, originalBuffer: arrayBuffer };
             }
 
-            setGlobalAudio({ audio, analyser });
+            // ── Analyser para LucyPulseCanvas ─────────────────────────────────
+            const analyser = ctx.createAnalyser();
+            analyser.fftSize = 512;
+            analyser.smoothingTimeConstant = 0.55;
 
-            audio.onended = () => {
+            const source = ctx.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(analyser);
+            analyser.connect(ctx.destination);
+
+            setGlobalAudio({ audio: source, analyser });
+
+            console.log("[TTS] Reproduciendo via AudioContext...");
+
+            source.onended = () => {
+                console.log("[TTS] Reproducción terminada");
                 setGlobalAudio(null);
-                URL.revokeObjectURL(url);
                 setTimeout(() => {
                     onEnd?.();
                     if (stateRef.current === STATES.SPEAKING) setVoiceState(STATES.IDLE);
                 }, 600);
             };
 
-            audio.onerror = () => {
-                setGlobalAudio(null);
-                URL.revokeObjectURL(url);
-                setVoiceState(STATES.IDLE);
-                onEnd?.();
-            };
-
-            try {
-                const ctx = getAudioCtx();
-                if (ctx.state === "suspended") await ctx.resume();
-            } catch (_) { }
-
-            try {
-                await audio.play();
-            } catch (playErr) {
-                console.warn("[Voice] Autoplay bloqueado, reintentando...");
-                try {
-                    const ctx = getAudioCtx();
-                    await ctx.resume();
-                    const buf = ctx.createBuffer(1, 1, 22050);
-                    const src = ctx.createBufferSource();
-                    src.buffer = buf; src.connect(ctx.destination); src.start();
-                    await audio.play();
-                } catch (retryErr) {
-                    console.error("[Voice] TTS autoplay falló:", retryErr);
-                    setGlobalAudio(null);
-                    URL.revokeObjectURL(url);
-                    setVoiceState(STATES.IDLE);
-                    onEnd?.();
-                }
-            }
+            source.start(0);
 
         } catch (err) {
-            console.error("[Voice] TTS error:", err);
+            // ── Fallback: new Audio() si decodeAudioData falla ───────────────
+            if (err?._fallback) {
+                console.log("[TTS] Fallback a new Audio()");
+                try {
+                    const blob = new Blob([err.originalBuffer], { type: "audio/mpeg" });
+                    const url = URL.createObjectURL(blob);
+                    const audio = new Audio(url);
+
+                    let analyser = null;
+                    try {
+                        const ctx = getAudioCtx();
+                        const source = ctx.createMediaElementSource(audio);
+                        analyser = ctx.createAnalyser();
+                        analyser.fftSize = 512;
+                        analyser.smoothingTimeConstant = 0.55;
+                        source.connect(analyser);
+                        analyser.connect(ctx.destination);
+                    } catch (_) { }
+
+                    setGlobalAudio({ audio, analyser });
+
+                    audio.onended = () => {
+                        setGlobalAudio(null);
+                        URL.revokeObjectURL(url);
+                        setTimeout(() => {
+                            onEnd?.();
+                            if (stateRef.current === STATES.SPEAKING) setVoiceState(STATES.IDLE);
+                        }, 600);
+                    };
+
+                    audio.onerror = () => {
+                        setGlobalAudio(null);
+                        URL.revokeObjectURL(url);
+                        setVoiceState(STATES.IDLE);
+                        onEnd?.();
+                    };
+
+                    await audio.play();
+                    return;
+                } catch (fallbackErr) {
+                    console.error("[TTS] Error fatal:", fallbackErr);
+                }
+            } else {
+                console.error("[TTS] Error fatal:", err);
+            }
+
             setVoiceState(STATES.IDLE);
             onEnd?.();
         }
     }, [getAudioCtx, killRecognition]);
 
-    // ─── Send to assistant ─────────────────────────────────────────
+    // ─── Send to assistant ────────────────────────────────────────────────────
     const sendToAssistant = useCallback(async (text, extraPayload = {}) => {
         if (!text?.trim() || busyRef.current) return null;
         busyRef.current = true;
@@ -282,13 +355,13 @@ export function useVoiceEngine() {
             setLastInteraction(reply);
             setTranscript("");
 
-            // Actualizar contexto de email pendiente
-            if (data?.pending_email?.awaiting_body) {
-                pendingEmailContextRef.current = data.pending_email;
-            } else if (data?.pending_email?.needs_confirm) {
-                pendingEmailContextRef.current = data.pending_email;
-            } else {
+            const pe = data?.pending_email;
+            if (pe && (pe.awaiting_body || pe.needs_confirm || pe.awaiting_recipient || pe.awaiting_email_address)) {
+                pendingEmailContextRef.current = pe;
+                setPendingEmail(pe);
+            } else if (pe === undefined || pe === null || (!pe.awaiting_body && !pe.needs_confirm && !pe.awaiting_recipient && !pe.awaiting_email_address)) {
                 pendingEmailContextRef.current = null;
+                setPendingEmail(null);
             }
 
             if (Array.isArray(data.actions) && data.actions.length > 0 && uiContextRef.current) {
@@ -304,7 +377,7 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    // ─── End conversation ──────────────────────────────────────────
+    // ─── End conversation ─────────────────────────────────────────────────────
     const endConversation = useCallback((exitHandsFree = false) => {
         console.log("[Voice] Conversación terminada, exitHandsFree:", exitHandsFree);
         conversationActiveRef.current = false;
@@ -316,11 +389,11 @@ export function useVoiceEngine() {
         stateRef.current = STATES.IDLE;
     }, []);
 
-    // ─── Forward declarations ──────────────────────────────────────
+    // ─── Forward declarations ─────────────────────────────────────────────────
     const startCommandListenerRef = useRef(null);
     const startWakeListenerRef = useRef(null);
 
-    // ─── Listen for follow-up (15s timeout) ────────────────────────
+    // ─── Listen for follow-up (15s timeout) ──────────────────────────────────
     const listenForFollowUp = useCallback(() => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) return;
@@ -347,6 +420,11 @@ export function useVoiceEngine() {
 
         const afterTimeout = () => {
             killRecognition();
+            if (pendingEmailContextRef.current) {
+                console.log("[Voice] Timeout con email pendiente — reescuchando");
+                setTimeout(() => listenForFollowUp(), 500);
+                return;
+            }
             if (handsFreeRef.current) {
                 endConversation(false);
                 setTimeout(() => startCommandListenerRef.current?.(), 500);
@@ -357,9 +435,9 @@ export function useVoiceEngine() {
         };
 
         abandonTimer = setTimeout(() => {
-            console.log("[Voice] 15s sin respuesta, cerrando conversación");
+            console.log("[Voice] 30s sin respuesta, cerrando conversación");
             afterTimeout();
-        }, 15000);
+        }, 30000);
 
         rec.onresult = (event) => {
             if (abandonTimer) { clearTimeout(abandonTimer); abandonTimer = null; }
@@ -415,10 +493,10 @@ export function useVoiceEngine() {
         }
     }, [killRecognition, endConversation]);
 
-    // ─── Process command ref ────────────────────────────────────────
+    // ─── Process command ref ──────────────────────────────────────────────────
     const processCommandRef = useRef(null);
 
-    // ─── Process command ───────────────────────────────────────────
+    // ─── Process command ──────────────────────────────────────────────────────
     const processCommand = useCallback(async (text, extraPayload = {}) => {
         const cleanText = text.replace(/^[.,\s]+/, '').trim();
         console.log("[Voice] Procesando comando:", cleanText);
@@ -429,9 +507,10 @@ export function useVoiceEngine() {
         if (_noise.includes(text.trim().toLowerCase())) return;
         const textLower = text.toLowerCase();
 
-        // ── Goodbye → salir siempre ────────────────────────────────
+        // ── Goodbye → salir siempre ───────────────────────────────────────────
         if (STOP_WORDS.some(w => textLower.includes(w)) || GOODBYE_WORDS.some(w => textLower.includes(w))) {
             pendingEmailContextRef.current = null;
+            setPendingEmail(null);
             conversationActiveRef.current = false;
             handsFreeRef.current = false;
             setHandsFreeModeActive(false);
@@ -443,57 +522,83 @@ export function useVoiceEngine() {
             return;
         }
 
-        // ── Email: awaiting_body → este turno ES el cuerpo ─────────
+        // ── Email: awaiting_body → este turno ES el cuerpo ───────────────────
         const emailCtx = pendingEmailContextRef.current;
-        if (emailCtx?.awaiting_body) {
-            console.log("[Voice] Recibiendo cuerpo del email para draft:", emailCtx.id);
-            // FIX: no limpiar el contexto antes del await
-            // Solo se limpia dentro de sendToAssistant si la respuesta es exitosa
-            const result = await sendToAssistant(text, {
-                pending_email_id: emailCtx.id,
-                confirm_email: null,
-            });
-            if (!result) {
-                // Restaurar contexto si falló
-                pendingEmailContextRef.current = emailCtx;
-                speak("No he podido procesar el mensaje. ¿Puedes repetirlo?", () => {
-                    listenForFollowUp();
-                });
-                return;
-            }
-            const { reply, data } = result;
-            conversationActiveRef.current = true;
-            // Lucy habla el borrador y espera sí/no — sin "¿Algo más?"
-            speak(reply, () => {
-                playBeep(660, 0.1);
-                listenForFollowUp();
-            });
-            return;
+        console.log("[Voice] emailCtx actual:", JSON.stringify(emailCtx));
+        console.log("[Voice] pendingEmail state:", JSON.stringify(pendingEmail));
+
+        const looksLikeEmail = text.includes("@") || text.match(/\b[a-z0-9._%+-]+\s*[\.\-]\s*[a-z0-9._%+-]*\s*@/i);
+        if (!emailCtx && looksLikeEmail) {
+            console.log("[Voice] Texto parece email, buscando draft pendiente...");
         }
 
-        // ── Email: needs_confirm → este turno ES la confirmación ───
-        const confirmCtx = pendingEmailContextRef.current;
-        if (confirmCtx?.needs_confirm) {
-            console.log("[Voice] Confirmando email draft:", confirmCtx.id);
-            const result = await sendToAssistant(text, {
-                pending_email_id: confirmCtx.id,
+        if (emailCtx?.awaiting_recipient || emailCtx?.awaiting_email_address) {
+            let cleanRecipient = text;
+            WAKE_WORDS.forEach(w => {
+                cleanRecipient = cleanRecipient.replace(new RegExp(_normalize(w), 'gi'), '').trim();
             });
+            cleanRecipient = cleanRecipient
+                .replace(/^(te digo (el destinatario|a quien|que)|el destinatario es|va para|va dirigido a|es para)\s*/i, '')
+                .replace(/^(hola|oye|hey|buenas?|buenos días?)\s*/i, '')
+                .trim();
+            if (!cleanRecipient || cleanRecipient.length < 2) {
+                speak("No he entendido bien el nombre. ¿A quién va dirigido el correo?", () => listenForFollowUp());
+                return;
+            }
+            console.log("[Voice] Recibiendo destinatario/email:", cleanRecipient);
+            const result = await sendToAssistant(cleanRecipient, { pending_email_id: emailCtx.id });
             if (!result) {
                 speak("No he podido procesar eso. ¿Puedes repetirlo?", () => listenForFollowUp());
                 return;
             }
             const { reply } = result;
             conversationActiveRef.current = true;
-            // Después de enviar o cancelar — Lucy decide el cierre
-            speak(reply, () => {
-                playBeep(660, 0.1);
-                listenForFollowUp();
-            });
+            speak(reply, () => { playBeep(660, 0.1); listenForFollowUp(); });
             return;
         }
 
-        // ── Saludo simple sin comando → respuesta natural ──────────
-        // Detectar si es solo un saludo (sin pregunta ni tarea añadida)
+        if (emailCtx?.awaiting_body) {
+            let cleanBody = text;
+            WAKE_WORDS.forEach(w => {
+                cleanBody = cleanBody.replace(new RegExp(_normalize(w), 'gi'), '').trim();
+            });
+            cleanBody = cleanBody.replace(/^(dile que|que le diga|el mensaje es|el correo dice|ponle que)\s*/i, '').trim();
+            if (!cleanBody || cleanBody.length < 3) {
+                speak("No he entendido el mensaje. ¿Qué quieres decirle?", () => listenForFollowUp());
+                return;
+            }
+            console.log("[Voice] Recibiendo cuerpo del email para draft:", emailCtx.id, "body:", cleanBody);
+            const result = await sendToAssistant(cleanBody, {
+                pending_email_id: emailCtx.id,
+                confirm_email: null,
+            });
+            if (!result) {
+                pendingEmailContextRef.current = emailCtx;
+                speak("No he podido procesar el mensaje. ¿Puedes repetirlo?", () => listenForFollowUp());
+                return;
+            }
+            const { reply } = result;
+            conversationActiveRef.current = true;
+            speak(reply, () => { playBeep(660, 0.1); listenForFollowUp(); });
+            return;
+        }
+
+        // ── Email: needs_confirm → este turno ES la confirmación ─────────────
+        const confirmCtx = pendingEmailContextRef.current;
+        if (confirmCtx?.needs_confirm) {
+            console.log("[Voice] Confirmando email draft:", confirmCtx.id);
+            const result = await sendToAssistant(text, { pending_email_id: confirmCtx.id });
+            if (!result) {
+                speak("No he podido procesar eso. ¿Puedes repetirlo?", () => listenForFollowUp());
+                return;
+            }
+            const { reply } = result;
+            conversationActiveRef.current = true;
+            speak(reply, () => { playBeep(660, 0.1); listenForFollowUp(); });
+            return;
+        }
+
+        // ── Saludo simple sin comando → respuesta natural ─────────────────────
         const isGreetingOnly = GREETING_ONLY.some(g => textLower.trim() === g || textLower.trim() === g + ".")
             && !BRIEFING_TRIGGERS.some(t => textLower.includes(t));
 
@@ -502,21 +607,17 @@ export function useVoiceEngine() {
             const result = await sendToAssistant(text);
             if (result?.reply) {
                 conversationActiveRef.current = true;
-                speak(result.reply, () => {
-                    playBeep(660, 0.1);
-                    listenForFollowUp();
-                });
+                speak(result.reply, () => { playBeep(660, 0.1); listenForFollowUp(); });
             }
             return;
         }
 
-        // ── Briefing ───────────────────────────────────────────────
+        // ── Briefing ──────────────────────────────────────────────────────────
         const isBriefing = !conversationActiveRef.current && BRIEFING_TRIGGERS.some(t => textLower.includes(t));
 
         if (isBriefing) {
             const thinkingPhrase = BRIEFING_THINKING_PHRASES[Math.floor(Math.random() * BRIEFING_THINKING_PHRASES.length)];
             console.log("[Voice] Briefing detectado");
-
             speak(thinkingPhrase, async () => {
                 const result = await sendToAssistant(text);
                 const reply = result?.reply;
@@ -527,43 +628,27 @@ export function useVoiceEngine() {
                         listenForFollowUp();
                     });
                 } else {
-                    speak("No he podido preparar tu briefing. ¿Puedes repetirlo?", () => {
-                        listenForFollowUp();
-                    });
+                    speak("No he podido preparar tu briefing. ¿Puedes repetirlo?", () => listenForFollowUp());
                 }
             });
             return;
         }
 
-        // ── Comando normal ─────────────────────────────────────────
+        // ── Comando normal ────────────────────────────────────────────────────
         const result = await sendToAssistant(text, extraPayload);
         if (!result) {
-            speak("No he podido procesar eso. ¿Puedes repetirlo?", () => {
-                listenForFollowUp();
-            });
+            speak("No he podido procesar eso. ¿Puedes repetirlo?", () => listenForFollowUp());
             return;
         }
         const { reply, data } = result;
         conversationActiveRef.current = true;
+        speak(reply, () => { playBeep(660, 0.1); listenForFollowUp(); });
 
-        if (data?.pending_email?.awaiting_body || data?.pending_email?.needs_confirm) {
-            // Flujo de email activo — Lucy habla y espera, sin cierre forzado
-            speak(reply, () => {
-                playBeep(660, 0.1);
-                listenForFollowUp();
-            });
-        } else {
-            // Respuesta normal — Lucy decide si cierra o no (viene del backend)
-            speak(reply, () => {
-                playBeep(660, 0.1);
-                listenForFollowUp();
-            });
-        }
     }, [sendToAssistant, speak, playBeep, listenForFollowUp]);
 
     useEffect(() => { processCommandRef.current = processCommand; }, [processCommand]);
 
-    // ─── Command listener ──────────────────────────────────────────
+    // ─── Command listener ─────────────────────────────────────────────────────
     const startCommandListener = useCallback(() => {
         const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
         if (!SR) return;
@@ -625,7 +710,9 @@ export function useVoiceEngine() {
             clearSilence();
             console.log("[Voice] Command recognition error:", e.error);
             if (e.error === "no-speech" || e.error === "aborted") {
-                if (handsFreeRef.current) {
+                if (pendingEmailContextRef.current) {
+                    setTimeout(() => listenForFollowUp(), 500);
+                } else if (handsFreeRef.current) {
                     setTimeout(() => startCommandListenerRef.current?.(), 500);
                 } else {
                     setVoiceState(STATES.IDLE);
@@ -656,11 +743,11 @@ export function useVoiceEngine() {
             console.warn("[Voice] Failed to start command listener:", e);
             setVoiceState(STATES.IDLE);
         }
-    }, [killRecognition, speak]);
+    }, [killRecognition, speak, listenForFollowUp]);
 
     useEffect(() => { startCommandListenerRef.current = startCommandListener; }, [startCommandListener]);
 
-    // ─── Wake word listener ────────────────────────────────────────
+    // ─── Wake word listener ───────────────────────────────────────────────────
     const startWakeListener = useCallback(() => {
         if (!wakeEnabledRef.current) return;
         if (stateRef.current !== STATES.IDLE) return;
@@ -680,10 +767,10 @@ export function useVoiceEngine() {
 
         rec.onresult = (event) => {
             for (let i = event.resultIndex; i < event.results.length; i++) {
-                const text = event.results[i][0].transcript.toLowerCase().trim();
+                const text = _normalize(event.results[i][0].transcript);
 
                 if (stateRef.current === STATES.SPEAKING) {
-                    if (STOP_WORDS.some(w => text.includes(w))) {
+                    if (STOP_WORDS.some(w => text.includes(_normalize(w)))) {
                         console.log("[Wake] STOP durante habla");
                         stopGlobalAudio();
                         handsFreeRef.current = false;
@@ -697,7 +784,7 @@ export function useVoiceEngine() {
 
                 if (stateRef.current !== STATES.IDLE) continue;
 
-                const isWake = WAKE_WORDS.some(w => text.includes(w));
+                const isWake = WAKE_WORDS.some(w => text.includes(_normalize(w)));
                 if (!isWake) continue;
 
                 console.log("[Wake] Detectado:", text);
@@ -708,7 +795,7 @@ export function useVoiceEngine() {
                 playBeep(880, 0.12);
 
                 let cleanText = text;
-                WAKE_WORDS.forEach(w => { cleanText = cleanText.replace(w, ""); });
+                WAKE_WORDS.forEach(w => { cleanText = cleanText.replace(_normalize(w), ""); });
                 cleanText = cleanText.trim();
 
                 if (event.results[i].isFinal && cleanText.length > 3) {
@@ -753,7 +840,7 @@ export function useVoiceEngine() {
 
     useEffect(() => { startWakeListenerRef.current = startWakeListener; }, [startWakeListener]);
 
-    // ─── Activate hands-free ───────────────────────────────────────
+    // ─── Activate hands-free ──────────────────────────────────────────────────
     const activateHandsFreeMode = useCallback(async (wakeText) => {
         if (handsFreeRef.current) return;
 
@@ -772,7 +859,13 @@ export function useVoiceEngine() {
         console.log("[Voice] Manos libres activado. Query:", query);
 
         if (!query) {
-            setTimeout(() => startWakeListenerRef.current?.(), 300);
+            const hour = new Date().getHours();
+            const greeting = hour < 12 ? "Buenos días" : hour < 20 ? "Buenas tardes" : "Buenas noches";
+            console.log("[Voice] Saludo activado, ttsEnabled:", ttsRef.current);
+            try { getAudioCtx().resume(); } catch (_) { }
+            speak(`${greeting}. Te escucho.`, () => {
+                startCommandListenerRef.current?.();
+            });
             return;
         }
 
@@ -784,31 +877,23 @@ export function useVoiceEngine() {
                 const result = await sendToAssistant(query);
                 const reply = result?.reply;
                 if (reply) {
-                    speak(reply, () => {
-                        playBeep(660, 0.1);
-                        listenForFollowUp();
-                    });
+                    speak(reply, () => { playBeep(660, 0.1); listenForFollowUp(); });
                 } else {
-                    speak("No he podido preparar tu briefing.", () => {
-                        listenForFollowUp();
-                    });
+                    speak("No he podido preparar tu briefing.", () => listenForFollowUp());
                 }
             });
         } else {
             const result = await sendToAssistant(query);
             const reply = result?.reply;
             if (reply) {
-                speak(reply, () => {
-                    playBeep(660, 0.1);
-                    listenForFollowUp();
-                });
+                speak(reply, () => { playBeep(660, 0.1); listenForFollowUp(); });
             } else {
                 listenForFollowUp();
             }
         }
     }, [killRecognition, getAudioCtx, playBeep, sendToAssistant, speak, listenForFollowUp]);
 
-    // ─── Cancel ────────────────────────────────────────────────────
+    // ─── Cancel ───────────────────────────────────────────────────────────────
     const cancel = useCallback(() => {
         killRecognition();
         stopGlobalAudio();
@@ -834,7 +919,7 @@ export function useVoiceEngine() {
         }
     }, []);
 
-    // ─── Lifecycle ─────────────────────────────────────────────────
+    // ─── Lifecycle ────────────────────────────────────────────────────────────
     useEffect(() => {
         if (wakeWordEnabled && !handsFreeModeActive) {
             if (!activeRecRef.current && stateRef.current === STATES.IDLE) {
@@ -873,7 +958,10 @@ export function useVoiceEngine() {
         };
         document.addEventListener("click", init);
         document.addEventListener("touchstart", init);
-        return () => { document.removeEventListener("click", init); document.removeEventListener("touchstart", init); };
+        return () => {
+            document.removeEventListener("click", init);
+            document.removeEventListener("touchstart", init);
+        };
     }, [getAudioCtx]);
 
     return {
@@ -883,5 +971,6 @@ export function useVoiceEngine() {
         wakeWordActive, handsFreeModeActive,
         activateHandsFreeMode, startListening, cancel,
         setUIContext, speak, STATES,
+        pendingEmail, setPendingEmail,
     };
 }

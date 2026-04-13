@@ -49,6 +49,9 @@ export function executeVoiceActions(actions = [], context = {}) {
                 case "habit_toggled":
                     console.log("[Voice] Habit toggled");
                     break;
+                case "email_cancelled":
+                    // No warning: already handled by setPendingEmail(null)
+                    break;
                 default:
                     console.warn("[Voice] Action ignored (unknown type):", type);
             }
