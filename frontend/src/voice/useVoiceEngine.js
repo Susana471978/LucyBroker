@@ -280,13 +280,24 @@ export function useVoiceEngine() {
 
             console.log("[TTS] Reproduciendo via AudioContext...");
 
-            source.onended = () => {
+            let ended = false;
+            const handleEnd = () => {
+                if (ended) return;
+                ended = true;
                 console.log("[TTS] Reproducción terminada");
                 setGlobalAudio(null);
                 setTimeout(() => {
                     onEnd?.();
                     if (stateRef.current === STATES.SPEAKING) setVoiceState(STATES.IDLE);
                 }, 600);
+            };
+
+            // Timer de seguridad — Android Chrome a veces no dispara onended
+            const safetyTimer = setTimeout(handleEnd, (audioBuffer.duration * 1000) + 1500);
+
+            source.onended = () => {
+                clearTimeout(safetyTimer);
+                handleEnd();
             };
 
             source.start(0);
