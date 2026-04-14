@@ -39,6 +39,7 @@ class AssistantMessage(BaseModel):
     # Confirmación de email pendiente
     confirm_email: Optional[bool] = None   # True = usuario dijo "sí, envía"
     pending_email_id: Optional[str] = None # ID del borrador pendiente en DB
+    pending_contact_id: Optional[str] = None # ID del draft de contacto pendiente
 
 
 class AssistantAction(BaseModel):
@@ -335,6 +336,16 @@ _TASK_KEYWORDS = [
     "apúntame", "apuntame", "añádeme", "anademe",
 ]
 
+
+_CONTACT_KEYWORDS = [
+    "guarda contacto", "añade contacto", "nuevo contacto", "agrega contacto",
+    "guarda el contacto", "añade el contacto", "crea contacto",
+    "guarda a", "añade a", "apunta el contacto", "registra contacto",
+]
+
+def _is_contact_intent(text: str) -> bool:
+    t = text.lower().strip()
+    return any(kw in t for kw in _CONTACT_KEYWORDS)
 def _is_task_intent(text: str) -> bool:
     t = text.lower().strip()
     # No interpretar como tarea si hay contexto de email activo
@@ -613,6 +624,68 @@ async def assistant_endpoint(
         # llega confirm_email=True + pending_email con los datos.
         # ══════════════════════════════════════════════════════
 
+        # ══════════════════════════════════════════════════════
+        # CONTACTO PENDIENTE DE EMAIL
+        # ══════════════════════════════════════════════════════
+        if payload.pending_contact_id:
+            from bson import ObjectId
+            try:
+                _cdraft = await db.contact_drafts.find_one({
+                    "_id": ObjectId(payload.pending_contact_id),
+                    "user_id": user["id"],
+                })
+            except Exception:
+                _cdraft = None
+
+            if not _cdraft:
+                return AssistantResponse(
+                    assistant_text="No encuentro el contacto pendiente. ¿Puedes repetirlo?",
+                    actions=None, status="ok", timestamp=now_ts,
+                )
+
+            if _cdraft.get("awaiting_email"):
+                _cemail = user_text.strip().lower()
+                # Limpiar email dictado por voz: "ana punto garcia arroba gmail punto com"
+                _cemail = _cemail.replace(" punto ", ".").replace(" arroba ", "@").replace(" at ", "@")
+                _cemail = _cemail.replace(" ", "").strip()
+                if "@" not in _cemail or "." not in _cemail:
+                    return AssistantResponse(
+                        assistant_text="No he entendido bien el email. ¿Puedes repetirlo?",
+                        actions=None, status="ok", timestamp=now_ts,
+                        pending_email=None,
+                    )
+                _cname = _cdraft.get("contact_name", "")
+                # Verificar si ya existe
+                _existing = await db.contact_memory.find_one({
+                    "user_id": user["id"],
+                    "contact_email": _cemail,
+                })
+                if _existing:
+                    await db.contact_drafts.delete_one({"_id": _cdraft["_id"]})
+                    return AssistantResponse(
+                        assistant_text=f"{_cname} ya está en tus contactos.",
+                        actions=None, status="ok", timestamp=now_ts,
+                    )
+                await db.contact_memory.insert_one({
+                    "user_id": user["id"],
+                    "contact_email": _cemail,
+                    "contact_name": _cname,
+                    "is_vip": False,
+                    "preferred_tone": "formal",
+                    "interaction_count": 0,
+                    "has_pending_action": False,
+                    "recent_interactions": [],
+                    "topics": [],
+                    "created_at": now_ts,
+                    "updated_at": now_ts,
+                })
+                await db.contact_drafts.delete_one({"_id": _cdraft["_id"]})
+                return AssistantResponse(
+                    assistant_text=f"Perfecto. {_cname} guardado con el email {_cemail}.",
+                    actions=[AssistantAction(type="contact_created", payload={"name": _cname, "email": _cemail})],
+                    status="ok", timestamp=now_ts,
+                )
+
         if payload.pending_email_id:
             # Recuperar borrador de DB
             from bson import ObjectId
@@ -879,6 +952,51 @@ El usuario dice: "{user_text}"
                     )
             except Exception as e:
                 logger.warning("Task extraction error: %s", e)
+
+        # 4b. Create contact
+        if _is_contact_intent(user_text):
+            try:
+                _contact_prompt = f"""Extrae el nombre y email de contacto del siguiente texto.
+Devuelve ÚNICAMENTE este JSON sin backticks ni texto extra:
+{{"name": "solo el nombre propio de la persona", "email": "solo la dirección email"}}
+
+Ejemplos:
+- "guarda a María López con el email maria@lopez.com" → {{"name": "María López", "email": "maria@lopez.com"}}
+- "añade contacto Juan Pérez juan@empresa.es" → {{"name": "Juan Pérez", "email": "juan@empresa.es"}}
+
+El usuario dice: "{user_text}"
+"""
+                _raw = await generate_llm_response(_contact_prompt)
+                _clean = _raw.strip().replace("```json", "").replace("```", "").strip()
+                _contact_data = json.loads(_clean)
+                _cname = _contact_data.get("name", "").strip()
+                _cemail = _contact_data.get("email", "").strip()
+                if _cname and _cemail and "@" in _cemail:
+                    await db.contact_memory.insert_one({
+                        "user_id": user["id"],
+                        "contact_email": _cemail.lower(),
+                        "contact_name": _cname,
+                        "is_vip": False,
+                        "preferred_tone": "formal",
+                        "interaction_count": 0,
+                        "has_pending_action": False,
+                        "recent_interactions": [],
+                        "topics": [],
+                        "created_at": now_ts,
+                        "updated_at": now_ts,
+                    })
+                    return AssistantResponse(
+                        assistant_text=f"Contacto guardado. {_cname} con el email {_cemail}.",
+                        actions=[AssistantAction(type="contact_created", payload={"name": _cname, "email": _cemail})],
+                        status="ok", timestamp=now_ts,
+                    )
+                elif _cname and not _cemail:
+                    return AssistantResponse(
+                        assistant_text=f"¿Cuál es el email de {_cname}?",
+                        actions=None, status="ok", timestamp=now_ts,
+                    )
+            except Exception as e:
+                logger.warning("Contact extraction error: %s", e)
 
         # 5. Create reminder
         from backend.api.reminders import is_reminder_intent, extract_reminder_data
