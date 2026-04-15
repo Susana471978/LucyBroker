@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useVoice } from '../voice/VoiceProvider';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, Circle, Plus, Trash2, Loader2, Flag, Calendar, X } from 'lucide-react';
+import { CheckCircle2, Circle, Plus, Trash2, Loader2, Flag, Calendar, X, Bell, BellOff } from 'lucide-react';
 import Layout from '../components/Layout';
 import apiClient from '../services/apiClient';
 
@@ -23,6 +23,45 @@ const formatDue = (date) => {
         if (diff < 0) return { text: `Vencida hace ${Math.abs(diff)}d`, urgent: true };
         return { text: d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }), urgent: false };
     } catch { return null; }
+};
+
+/* ─── ReminderRow ─────────────────────────────────── */
+const ReminderRow = ({ reminder, onDelete }) => {
+    const [deleting, setDeleting] = useState(false);
+    const formatTime = (iso) => {
+        if (!iso) return null;
+        try {
+            const d = new Date(iso);
+            const today = new Date();
+            const isToday = d.toDateString() === today.toDateString();
+            const time = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+            if (isToday) return { text: `Hoy ${time}`, urgent: true };
+            return { text: d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) + ' ' + time, urgent: false };
+        } catch { return null; }
+    };
+    const timeInfo = formatTime(reminder.remind_at);
+    return (
+        <motion.div layout
+            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.25 }}
+            className="flex items-center gap-3 px-4 py-3 rounded-xl border bg-[linear-gradient(180deg,rgba(7,12,24,0.7)_0%,rgba(4,8,18,0.6)_100%)] border-[rgba(88,160,255,0.1)] hover:border-[rgba(88,160,255,0.2)] transition-all duration-200 group"
+        >
+            <Bell className="w-4 h-4 text-[rgba(201,178,124,0.5)] shrink-0" />
+            <div className="flex-1 min-w-0">
+                <p className="text-sm text-[var(--text-primary)] truncate">{reminder.text}</p>
+                {timeInfo && (
+                    <span className={`text-xs mt-0.5 inline-block ${timeInfo.urgent ? 'text-[var(--champagne)]' : 'text-[var(--text-tertiary)]'}`}>
+                        {timeInfo.text}
+                    </span>
+                )}
+            </div>
+            <button onClick={async () => { setDeleting(true); try { await onDelete(reminder.id); } finally { setDeleting(false); } }}
+                disabled={deleting}
+                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg text-[var(--text-tertiary)] hover:text-red-400 hover:bg-[rgba(255,80,80,0.08)] transition-all duration-200">
+                {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+            </button>
+        </motion.div>
+    );
 };
 
 /* ─── TaskRow ──────────────────────────────────────── */
@@ -225,6 +264,8 @@ export default function TasksPage() {
     const [loading, setLoading] = useState(true);
     const [showDone, setShowDone] = useState(false);
     const [showForm, setShowForm] = useState(false);
+    const [reminders, setReminders] = useState([]);
+    const [remindersLoading, setRemindersLoading] = useState(true);
 
     const { setUIContext } = useVoice() || {};
 
@@ -240,13 +281,25 @@ export default function TasksPage() {
             setLoading(false);
         }
     }, []);
+    const fetchReminders = useCallback(async () => {
+        setRemindersLoading(true);
+        try {
+            const res = await apiClient.get('/reminders');
+            const data = res.data?.data?.reminders || res.data?.reminders || [];
+            setReminders(data.filter(r => !r.done));
+        } catch (err) {
+            console.error('Reminders fetch error:', err);
+        } finally {
+            setRemindersLoading(false);
+        }
+    }, []);
 
-    useEffect(() => { fetchTasks(); }, [fetchTasks]);
+    useEffect(() => { fetchTasks(); fetchReminders(); }, [fetchTasks, fetchReminders]);
 
     useEffect(() => {
-        setUIContext?.({ refreshTasks: fetchTasks });
-        return () => setUIContext?.({ refreshTasks: null });
-    }, [fetchTasks, setUIContext]);
+        setUIContext?.({ refreshTasks: fetchTasks, refreshReminders: fetchReminders });
+        return () => setUIContext?.({ refreshTasks: null, refreshReminders: null });
+    }, [fetchTasks, fetchReminders, setUIContext]);
 
     const handleAdd = async (payload) => {
         try {
@@ -274,6 +327,15 @@ export default function TasksPage() {
             setTasks(prev => prev.filter(t => t.id !== id));
         } catch (err) {
             console.error('Task delete error:', err);
+        }
+    };
+
+    const handleDeleteReminder = async (id) => {
+        try {
+            await apiClient.delete(`/reminders/${id}`);
+            setReminders(prev => prev.filter(r => r.id !== id));
+        } catch (err) {
+            console.error('Reminder delete error:', err);
         }
     };
 
@@ -389,6 +451,36 @@ export default function TasksPage() {
                         )}
                     </>
                 )}
+
+                {/* Recordatorios */}
+                <div className="mt-10">
+                    <p className="text-xs text-[var(--text-tertiary)] uppercase tracking-[0.1em] font-medium mb-4 flex items-center gap-2">
+                        <Bell className="w-3.5 h-3.5" />
+                        Recordatorios
+                        {reminders.length > 0 && (
+                            <span className="text-[var(--champagne)] ml-1">{reminders.length}</span>
+                        )}
+                    </p>
+                    {remindersLoading ? (
+                        <div className="flex items-center gap-2 py-4">
+                            <Loader2 className="w-4 h-4 animate-spin text-[var(--text-tertiary)]" />
+                            <span className="text-xs text-[var(--text-tertiary)]">Cargando...</span>
+                        </div>
+                    ) : reminders.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-8 gap-2">
+                            <BellOff className="w-8 h-8 text-[rgba(201,178,124,0.15)]" />
+                            <p className="text-xs text-[var(--text-tertiary)]">Sin recordatorios pendientes</p>
+                        </div>
+                    ) : (
+                        <motion.div layout className="space-y-2">
+                            <AnimatePresence mode="popLayout">
+                                {reminders.map(r => (
+                                    <ReminderRow key={r.id} reminder={r} onDelete={handleDeleteReminder} />
+                                ))}
+                            </AnimatePresence>
+                        </motion.div>
+                    )}
+                </div>
             </div>
         </Layout>
     );

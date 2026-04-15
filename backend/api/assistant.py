@@ -381,11 +381,23 @@ _DELETE_REMINDER_KEYWORDS = [
     "borra el recordatorio", "elimina el recordatorio",
     "quita el recordatorio", "cancela el recordatorio",
     "borra recordatorio", "elimina recordatorio",
+    "borra el aviso", "elimina el aviso",
+    "cancela el aviso", "quita el aviso",
+    "borra la alarma", "elimina la alarma",
+    "borres el recordatorio", "borrar el recordatorio",
+    "borrar recordatorio", "borres recordatorio",
 ]
+
+_DELETE_REMINDER_WORDS = ["borra", "borrar", "borres", "elimina", "eliminar", "elimines", "quita", "quitar", "cancela", "cancelar"]
 
 def _is_delete_reminder_intent(text: str) -> bool:
     t = text.lower().strip()
-    return any(kw in t for kw in _DELETE_REMINDER_KEYWORDS)
+    if any(kw in t for kw in _DELETE_REMINDER_KEYWORDS):
+        return True
+    # Variante: palabra de borrado + "recordatorio"
+    has_delete = any(w in t for w in _DELETE_REMINDER_WORDS)
+    has_reminder = "recordatorio" in t or "aviso" in t or "alarma" in t
+    return has_delete and has_reminder
 
 
 _BRIEFING_KEYWORDS = [
@@ -993,7 +1005,15 @@ Devuelve SOLO el cuerpo del email, sin asunto ni saludo formal. Directo y profes
             try:
                 _prompt = f"Extrae el texto del recordatorio que el usuario quiere borrar. Devuelve UNICAMENTE el texto en texto plano. El usuario dice: \"{user_text}\""
                 _text = (await generate_llm_response(_prompt)).strip()
-                _reminder = await db.reminders.find_one({"user_id": user["id"], "done": False, "text": {"$regex": _text[:20], "$options": "i"}})
+                _words = [w for w in _text.split() if len(w) > 3]
+                _reminder = None
+                for _word in _words:
+                    _reminder = await db.reminders.find_one({"user_id": user["id"], "done": False, "text": {"$regex": _word, "$options": "i"}})
+                    if _reminder:
+                        break
+                if not _reminder:
+                    # Si no encuentra por palabras, coger el más reciente
+                    _reminder = await db.reminders.find_one({"user_id": user["id"], "done": False}, sort=[("_id", -1)])
                 if _reminder:
                     await db.reminders.delete_one({"_id": _reminder["_id"]})
                     return AssistantResponse(assistant_text=f"Recordatorio borrado: {_reminder['text']}.", actions=[AssistantAction(type="reminder_deleted", payload={"id": str(_reminder["_id"])})], status="ok", timestamp=now_ts)
@@ -1085,7 +1105,9 @@ El usuario dice: "{user_text}"
 
         # 5. Create reminder
         from backend.api.reminders import is_reminder_intent, extract_reminder_data
-        if is_reminder_intent(user_text):
+        _delete_r_words = ["borra", "borrar", "borres", "elimina", "eliminar", "quita", "quitar", "cancela", "cancelar"]
+        _is_delete_reminder = any(w in user_text.lower() for w in _delete_r_words) and ("recordatorio" in user_text.lower() or "aviso" in user_text.lower())
+        if is_reminder_intent(user_text) and not _is_delete_reminder:
             reminder_data = await extract_reminder_data(user_text)
             if reminder_data:
                 doc = {
