@@ -648,6 +648,7 @@ async def assistant_endpoint(
         if not user_text:
             raise HTTPException(status_code=400, detail="Mensaje vacío")
 
+
         now_ts = datetime.now(timezone.utc).isoformat()
         user_name = user.get("name", "")
 
@@ -970,7 +971,15 @@ Devuelve SOLO el cuerpo del email, sin asunto ni saludo formal. Directo y profes
             try:
                 _prompt = f"Extrae el titulo de la tarea que el usuario quiere borrar. Devuelve UNICAMENTE el titulo en texto plano. El usuario dice: \"{user_text}\""
                 _title = (await generate_llm_response(_prompt)).strip()
-                _task = await db.tasks.find_one({"user_id": user["id"], "title": {"$regex": _title[:20], "$options": "i"}})
+                # Buscar con palabras clave — más robusto que regex exacto
+                _words = [w for w in _title.split() if len(w) > 3]
+                _task = None
+                for _word in _words:
+                    _task = await db.tasks.find_one({"user_id": user["id"], "title": {"$regex": _word, "$options": "i"}})
+                    if _task:
+                        break
+                if not _task:
+                    _task = await db.tasks.find_one({"user_id": user["id"], "title": {"$regex": _title[:15], "$options": "i"}})
                 if _task:
                     await db.tasks.delete_one({"_id": _task["_id"]})
                     return AssistantResponse(assistant_text=f"Borrada: {_task['title']}.", actions=[AssistantAction(type="task_deleted", payload={"id": str(_task["_id"])})], status="ok", timestamp=now_ts)
