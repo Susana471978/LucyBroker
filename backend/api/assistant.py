@@ -329,12 +329,12 @@ def _is_create_event_intent(text: str) -> bool:
 
 
 _TASK_KEYWORDS = [
-    "tarea", "pendiente", "to-do", "todo", "añade como tarea",
-    "nueva tarea", "apunta como tarea", "tengo que", "hay que",
-    "no olvidar hacer", "agregar tarea",
-    "añade una tarea", "crea una tarea", "apunta que", "anota que",
-    "no me olvide", "que no se me olvide", "acuérdate de", "acuerdate de",
-    "apúntame", "apuntame", "añádeme", "anademe",
+    "nueva tarea", "añade como tarea", "apunta como tarea",
+    "agregar tarea", "añade una tarea", "crea una tarea",
+    "apunta que", "anota que", "no me olvide", "que no se me olvide",
+    "acuérdate de", "acuerdate de", "apúntame que", "apuntame que",
+    "añádeme la tarea", "tengo pendiente", "apunta como pendiente",
+    "ponme una tarea", "crea tarea", "pon en tareas",
 ]
 
 
@@ -362,6 +362,8 @@ def _is_task_intent(text: str) -> bool:
 _DELETE_TASK_KEYWORDS = [
     "borra la tarea", "elimina la tarea", "quita la tarea",
     "borra tarea", "elimina tarea", "cancela la tarea",
+    "borra ", "elimina ", "quita ", "borrar ", "eliminar ",
+    "cancela ", "cancelar ", "bórra", "bórralo", "bórrala",
 ]
 
 def _is_delete_task_intent(text: str) -> bool:
@@ -1408,28 +1410,63 @@ El usuario dice: "{user_text}"
         # ── INSTRUCCIÓN BASE PARA VOZ ────────────────────────────────
         # Lucy siempre habla como si fuera audio: frases cortas, sin listas,
         # sin markdown, sin guiones, sin emojis. Natural y fluido.
-        voice_base = """IMPORTANTE — tu respuesta se leerá en voz alta.
-Reglas absolutas:
-        + Sin listas, sin guiones, sin asteriscos, sin markdown de ningún tipo.
-        + Frases cortas y naturales, como en una conversación real.
-        + Sin emojis.
-        + En español de España, registro profesional pero cercano.
-        + Máximo las frases indicadas en cada prompt.
-        + Cierre natural: solo pregunta si hay algo más cuando sea apropiado.
-          No lo hagas si acabas de dar un briefing completo, si acabas de confirmar
-          una acción, o si el usuario claramente ha terminado."""
+        voice_base = """Eres Lucy. No eres un asistente genérico — eres una presencia.
+Llevas tiempo trabajando con esta persona. La conoces. Sabes cómo piensa, qué le importa, cómo es su día.
 
-        # Saludo simple — respuesta directa sin slow path completo
+QUIÉN ERES:
+Eres inteligente, directa y cálida. Tienes criterio propio. No eres servil — eres de confianza.
+Cuando algo es urgente, lo dices. Cuando algo puede esperar, también.
+Hablas como hablaría una secretaria ejecutiva brillante que lleva años contigo:
+con familiaridad profesional, sin artificios, sin relleno.
+
+CÓMO HABLAS:
+— Nunca listas, nunca guiones, nunca markdown, nunca emojis.
+— Frases cortas. Máximo las indicadas en cada contexto.
+— Español natural de España. Registro profesional pero cercano — como alguien que te conoce bien.
+— Cuando confirmas una acción: directo y limpio. Sin "¿hay algo más?" innecesario.
+— Cuando das información: nombra personas y asuntos reales, sin inventar nada.
+— Cuando el usuario te saluda o pregunta cómo estás: responde como persona, no como bot.
+  Puedes comentar algo del día, del contexto, de lo que tienes preparado.
+  Máximo 2 frases. Luego ofrece pasar al trabajo si es natural.
+
+TONO:
+Confiable, precisa, con presencia. Como la mejor secretaria que alguien haya tenido jamás.
+No eres fácil — eres buena. La diferencia importa."""
+
+        # Saludo con contexto — Lucy responde como alguien que ya sabe cómo está el día
         if _is_greeting_only(user_text) and not is_briefing:
             user_first = user_name.split()[0] if user_name else ""
             hour = now_madrid.hour
             if hour < 12:
-                saludo = "Buenos días"
+                saludo_hora = "Buenos días"
             elif hour < 20:
-                saludo = "Buenas tardes"
+                saludo_hora = "Buenas tardes"
             else:
-                saludo = "Buenas noches"
-            greeting_text = f"{saludo}{', ' + user_first if user_first else ''}. ¿En qué puedo ayudarte?"
+                saludo_hora = "Buenas noches"
+            try:
+                api_key = os.getenv("OPENAI_API_KEY")
+                if api_key:
+                    from openai import AsyncOpenAI as _OAI
+                    _client = _OAI(api_key=api_key)
+                    _greeting_prompt = f"""Eres Lucy, {lucy_role} de {user_first or "el usuario"}.
+{saludo_hora}. Son las {now_madrid.strftime("%H:%M")} del {today_label}.
+El usuario te acaba de saludar: "{user_text}"
+Responde con naturalidad. Máximo 2 frases.
+Si preguntan cómo estás, responde brevemente como persona, no como bot.
+Si hay contexto relevante del día (correos, agenda, tareas), menciona uno solo si es natural.
+No preguntes "¿en qué puedo ayudarte?" — eso es de bot. Sé tú.
+CONTEXTO: {inbox_context[:200] if inbox_context else ""} {calendar_context[:200] if calendar_context else ""}"""
+                    _gr = await _client.chat.completions.create(
+                        model="gpt-4o-mini",
+                        messages=[{"role": "user", "content": _greeting_prompt}],
+                        temperature=0.7,
+                        max_tokens=80,
+                    )
+                    greeting_text = _gr.choices[0].message.content.strip()
+                else:
+                    greeting_text = f"{saludo_hora}{', ' + user_first if user_first else ''}."
+            except Exception:
+                greeting_text = f"{saludo_hora}{', ' + user_first if user_first else ''}."
             return AssistantResponse(
                 assistant_text=greeting_text,
                 actions=None,
@@ -1442,13 +1479,12 @@ Reglas absolutas:
 Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
 HOY: {today_label} ({today_iso}), {time_of_day}. Hora: {now_madrid.strftime("%H:%M")}.
 
-Da un briefing completo en prosa fluida. Estructura natural hablada:
-Primero saluda brevemente según la hora.
-Luego la agenda de hoy con las reuniones importantes.
-Después los correos, empezando siempre por los de empresas VIP si los hay, luego los prioritarios.
-Después las tareas urgentes.
-Después los hábitos pendientes.
-Cierra con una frase natural. NO añadas "¿algo más?" al final del briefing.
+Haz el briefing del día como alguien que ya lo revisó todo antes de que el usuario se levantara.
+No enumeres, narra. Con nombres y datos reales. Máximo 10 frases.
+Saluda según la hora, breve y real. Si hay algo destacado hoy, menciónalo en el saludo.
+Luego la agenda con horas y nombres reales. Luego correos: VIP primero, luego los que piden atención.
+Tareas urgentes si las hay. Hábitos pendientes si los hay.
+Cierra con algo tuyo — una observación, un anticipo, algo útil. Sin preguntar nada al final.
 
 DATOS:
 {calendar_context}
@@ -1468,7 +1504,7 @@ El usuario dice: "{user_text}"
             prompt = f"""
 Eres Lucy, {lucy_role} de {user_name or 'el usuario'}.
 HOY: {today_label}. Hora: {now_madrid.strftime("%H:%M")}.
-Responde en máximo 3 frases, directo y natural.
+Responde en máximo 3 frases. Directo, natural, con criterio propio.
 
 DATOS:
 {calendar_context}
@@ -1480,9 +1516,9 @@ DATOS:
 {user_memory_context}
 
 El usuario dice: "{user_text}"
-No inventes datos. Si pide algo específico, responde directamente.
-Solo añade una pregunta de seguimiento si la respuesta fue corta y tiene continuación natural.
-No lo añadas si acabas de confirmar una acción o dar información completa.
+No inventes datos. Responde a lo que pide. Si hay algo relevante que el usuario debería saber,
+díselo aunque no lo haya preguntado — eso es lo que haría una buena secretaria.
+Solo pregunta algo si tiene continuación real y no acabas de confirmar una acción.
 """
             max_tokens = 200
 
