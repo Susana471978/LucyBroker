@@ -97,7 +97,7 @@ from backend.utils.response import build_response
 # =========================
 from backend.utils.rate_limit import RateLimitMiddleware
 from backend.utils.csrf import OAuthCSRFMiddleware
-from backend.utils.logger import logger
+from backend.utils.logger import logger, log_security_event
 
 
 
@@ -194,7 +194,7 @@ def create_token(user_id: str, email: str) -> str:
     payload = {
         "user_id": user_id,
         "email": email,
-        "exp": datetime.now(timezone.utc) + timedelta(days=7),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
     }
     return jwt.encode(
         payload,
@@ -235,8 +235,10 @@ async def get_current_user(
         return user
 
     except jwt.ExpiredSignatureError:
+        log_security_event("token_expired", {"detail": "JWT expirado"})
         raise HTTPException(status_code=401, detail="Token expirado")
     except jwt.InvalidTokenError:
+        log_security_event("token_invalid", {"detail": "JWT inválido"})
         raise HTTPException(status_code=401, detail="Token inválido")
     except HTTPException:
         raise
@@ -301,6 +303,30 @@ async def tts_endpoint(
         raise
     except Exception:
         logger.exception("TTS error")
+        raise HTTPException(status_code=502, detail="Error generando audio")
+
+
+@tts_router.post("/stream")
+async def tts_stream_endpoint(
+    request: Request,
+    payload: Dict[str, Any],
+    user: Dict[str, Any] = Depends(get_current_user),
+    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+):
+    """Streaming TTS — empieza a devolver audio antes de tener el blob completo."""
+    from fastapi.responses import StreamingResponse
+    text = (payload or {}).get("text", "")
+    text = text.strip() if isinstance(text, str) else ""
+    if not text:
+        raise HTTPException(status_code=400, detail="Texto vacío")
+    try:
+        return StreamingResponse(
+            stream_openai_tts(text),
+            media_type="audio/mpeg",
+            headers={"X-Accel-Buffering": "no"},
+        )
+    except Exception:
+        logger.exception("TTS stream error")
         raise HTTPException(status_code=502, detail="Error generando audio")
 
 
@@ -384,6 +410,7 @@ async def login(request: Request, credentials: UserLogin):
     user = await db_find_one(db.users, {"email": credentials.email}, {"_id": 0})
 
     if not user or not verify_password(credentials.password, user["password"]):
+        log_security_event("login_failed", {"email": credentials.email}, level="warning")
         raise HTTPException(status_code=401, detail="Credenciales inválidas")
 
     token = create_token(user["id"], user["email"])
@@ -570,9 +597,13 @@ app.add_middleware(
 
 # CORS — restringido a métodos y headers necesarios
 cors_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+    "https://lucy.syntexia-solutions.es",
 ]
+if settings.env == "development":
+    cors_origins += [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+    ]
 frontend_url_env = os.environ.get("FRONTEND_URL") or getattr(settings, "frontend_url", None)
 if frontend_url_env:
     cors_origins.append(frontend_url_env)

@@ -230,39 +230,3 @@ async def delete_contact_memory(
 ):
     await clear_contact_memory(db=db, user_id=user["id"], contact_email=contact_email)
     return {"status": "ok", "deleted": contact_email}
-
-class CreateContactPayload(BaseModel):
-    contact_name: str
-    contact_email: str
-    is_vip: bool = False
-    preferred_tone: str = "formal"
-
-@router.post("", response_model=Dict[str, Any])
-async def create_contact(
-    payload: CreateContactPayload,
-    user: Dict[str, Any] = Depends(get_current_user),
-):
-    now = datetime.now(timezone.utc)
-    existing = await db.contact_memory.find_one({
-        "user_id": user["id"],
-        "contact_email": payload.contact_email.lower().strip(),
-    })
-    if existing:
-        raise HTTPException(status_code=409, detail="Contacto ya existe")
-    doc = {
-        "user_id": user["id"],
-        "contact_email": payload.contact_email.lower().strip(),
-        "contact_name": payload.contact_name.strip(),
-        "is_vip": payload.is_vip,
-        "preferred_tone": payload.preferred_tone,
-        "interaction_count": 0,
-        "has_pending_action": False,
-        "recent_interactions": [],
-        "topics": [],
-        "created_at": now,
-        "updated_at": now,
-    }
-    result = await db.contact_memory.insert_one(doc)
-    doc["id"] = str(result.inserted_id)
-    doc.pop("_id", None)
-    return doc
