@@ -1,8 +1,15 @@
 import { useState, useCallback, useRef } from 'react';
 import apiClient from '../services/apiClient';
-import { setGlobalAudio, stopGlobalAudio } from '../voice/useVoiceEngine';
+import { stopGlobalAudio } from '../voice/useVoiceEngine';
 
-export default function useBriefing({ token, ttsEnabled, pendingEmail = null, setPendingEmail = () => { }, listenForFollowUp = null }) {
+export default function useBriefing({
+    token,
+    ttsEnabled,
+    pendingEmail = null,
+    setPendingEmail = () => {},
+    listenForFollowUp = null,
+    speak = null,
+}) {
     const [showWelcome, setShowWelcome] = useState(false);
     const [welcomePhase, setWelcomePhase] = useState('idle');
     const [briefingVisible, setBriefingVisible] = useState(false);
@@ -12,64 +19,30 @@ export default function useBriefing({ token, ttsEnabled, pendingEmail = null, se
 
     const briefingDoneRef = useRef(false);
     const briefingInFlightRef = useRef(false);
-    const briefingAudioRef = useRef(null);
-    const audioCtxRef = useRef(null);
 
-    // ── TTS helper reutilizable ──────────────────────────────────────
-    const speakText = useCallback(async (text) => {
-        if (!ttsEnabled || !text) return;
+    // ── speakVia — delega siempre en el engine ───────────────────────
+    const speakVia = useCallback((text, onEnd = null) => {
+        if (!ttsEnabled || !text) {
+            onEnd?.();
+            return;
+        }
         setBriefingIsSpeaking(true);
-        try {
-            const ttsRes = await apiClient.post('/tts', { text }, { responseType: 'blob' });
-            const url = URL.createObjectURL(ttsRes.data);
-            const audio = new Audio(url);
-            briefingAudioRef.current = audio;
-
-            let analyser = null;
-            try {
-                if (!audioCtxRef.current) {
-                    audioCtxRef.current = new (window.AudioContext || window.webkitAudioContext)();
-                }
-                const ctx = audioCtxRef.current;
-                if (ctx.state === 'suspended') await ctx.resume().catch(() => { });
-                const source = ctx.createMediaElementSource(audio);
-                analyser = ctx.createAnalyser();
-                analyser.fftSize = 512;
-                analyser.smoothingTimeConstant = 0.55;
-                source.connect(analyser);
-                analyser.connect(ctx.destination);
-            } catch (ae) {
-                console.warn('[Briefing] Analyser no disponible:', ae.message);
-            }
-
-            setGlobalAudio({ audio, analyser });
-
-            audio.onended = () => {
-                setGlobalAudio(null);
-                URL.revokeObjectURL(url);
+        if (speak) {
+            speak(text, () => {
                 setBriefingIsSpeaking(false);
-                briefingAudioRef.current = null;
-                // Si hay email pendiente esperando cuerpo o confirmación, activar escucha
-                if (listenForFollowUp && pendingEmail && (pendingEmail.awaiting_body || pendingEmail.needs_confirm || pendingEmail.awaiting_recipient)) {
+                if (listenForFollowUp && pendingEmail &&
+                    (pendingEmail.awaiting_body || pendingEmail.needs_confirm || pendingEmail.awaiting_recipient)) {
                     setTimeout(() => listenForFollowUp(), 300);
                 }
-            };
-            audio.onerror = () => {
-                setGlobalAudio(null);
-                URL.revokeObjectURL(url);
-                setBriefingIsSpeaking(false);
-                briefingAudioRef.current = null;
-            };
-
-            await audio.play();
-        } catch (err) {
-            console.error('[Briefing] TTS error:', err);
+                onEnd?.();
+            });
+        } else {
             setBriefingIsSpeaking(false);
+            onEnd?.();
         }
-    }, [ttsEnabled]);
+    }, [ttsEnabled, speak, listenForFollowUp, pendingEmail]);
 
-    // ── sendToLucy — envío principal al asistente ────────────────────
-    // Acepta opciones opcionales para el flujo de confirmación de email
+    // ── sendToLucy ───────────────────────────────────────────────────
     const sendToLucy = useCallback(async (text, options = {}) => {
         if (!text?.trim()) return;
         if (briefingInFlightRef.current) return;
@@ -77,27 +50,20 @@ export default function useBriefing({ token, ttsEnabled, pendingEmail = null, se
         setSending(true);
 
         try {
-            // Construir payload — incluye datos de confirmación si los hay
             const payload = { text };
-            if (options.confirm_email !== undefined) {
-                payload.confirm_email = options.confirm_email;
-            }
-            if (options.pending_email_id) {
-                payload.pending_email_id = options.pending_email_id;
-            }
+            if (options.confirm_email !== undefined) payload.confirm_email = options.confirm_email;
+            if (options.pending_email_id) payload.pending_email_id = options.pending_email_id;
 
             const res = await apiClient.post('/assistant', payload);
             const data = res.data?.data || res.data;
             const reply = data?.assistant_text || '';
 
-            // ── Gestionar email pendiente — estado compartido ────────
             if (data?.pending_email?.needs_confirm || data?.pending_email?.awaiting_body) {
                 setPendingEmail?.(data.pending_email);
             } else {
                 setPendingEmail?.(null);
             }
 
-            // ── Acciones de navegación / UI ──────────────────────────
             if (Array.isArray(data?.actions)) {
                 data.actions.forEach(action => {
                     if (action.type === 'email_sent' || action.type === 'email_cancelled') {
@@ -107,43 +73,32 @@ export default function useBriefing({ token, ttsEnabled, pendingEmail = null, se
             }
 
             if (reply) {
-                // Solo mostrar overlay de briefing si es un briefing real
-                // (no para confirmaciones de email u otras respuestas cortas)
-                const isBriefingReply = reply.length > 200 ||
-                    options.confirm_email === undefined;
-                if (isBriefingReply && options.confirm_email === undefined) {
+                const isBriefingReply = options.confirm_email === undefined;
+                if (isBriefingReply) {
                     setBriefingText(reply);
                     setBriefingVisible(true);
                 }
-                setBriefingIsSpeaking(false);
-                await speakText(reply);
+                speakVia(reply);
             }
 
             return reply;
         } catch (err) {
-            console.error('Lucy error:', err);
+            console.error('[Lucy] sendToLucy error:', err);
         } finally {
             setSending(false);
             briefingInFlightRef.current = false;
         }
-    }, [speakText]);
+    }, [speakVia, setPendingEmail]);
 
-    // ── Confirmar envío de email ─────────────────────────────────────
+    // ── Confirmar / cancelar email ───────────────────────────────────
     const confirmEmailSend = useCallback(async () => {
         if (!pendingEmail) return;
-        await sendToLucy('sí, envíalo', {
-            confirm_email: true,
-            pending_email_id: pendingEmail.id,
-        });
+        await sendToLucy('sí, envíalo', { confirm_email: true, pending_email_id: pendingEmail.id });
     }, [pendingEmail, sendToLucy]);
 
-    // ── Cancelar email pendiente ─────────────────────────────────────
     const cancelEmailSend = useCallback(async () => {
         if (!pendingEmail) return;
-        await sendToLucy('cancela', {
-            confirm_email: false,
-            pending_email_id: pendingEmail.id,
-        });
+        await sendToLucy('cancela', { confirm_email: false, pending_email_id: pendingEmail.id });
     }, [pendingEmail, sendToLucy]);
 
     // ── Briefing ─────────────────────────────────────────────────────
@@ -165,7 +120,6 @@ export default function useBriefing({ token, ttsEnabled, pendingEmail = null, se
         stopGlobalAudio();
         setBriefingVisible(false);
         setBriefingIsSpeaking(false);
-        briefingAudioRef.current = null;
         setWelcomePhase('idle');
     }, []);
 
@@ -179,7 +133,6 @@ export default function useBriefing({ token, ttsEnabled, pendingEmail = null, se
         if (!token || gmailLoading || !gmailConnected || loading) return;
         const todayKey = `lucy_briefing_${new Date().toDateString()}`;
         if (sessionStorage.getItem(todayKey)) return;
-        // Marcar inmediatamente para evitar doble disparo en re-renders
         sessionStorage.setItem(todayKey, 'pending');
         briefingDoneRef.current = true;
         const timer = setTimeout(() => setShowWelcome(true), 1200);
@@ -187,21 +140,9 @@ export default function useBriefing({ token, ttsEnabled, pendingEmail = null, se
     }, [token]);
 
     return {
-        showWelcome,
-        welcomePhase,
-        briefingVisible,
-        briefingText,
-        briefingIsSpeaking,
-        sending,
-        briefingInFlightRef,
-        briefingAudioRef,
-        pendingEmail,
-        sendToLucy,
-        confirmEmailSend,
-        cancelEmailSend,
-        runBriefing,
-        dismissBriefing,
-        handleSkip,
-        checkShowWelcome,
+        showWelcome, welcomePhase, briefingVisible, briefingText,
+        briefingIsSpeaking, sending, briefingInFlightRef,
+        pendingEmail, sendToLucy, confirmEmailSend, cancelEmailSend,
+        runBriefing, dismissBriefing, handleSkip, checkShowWelcome,
     };
 }

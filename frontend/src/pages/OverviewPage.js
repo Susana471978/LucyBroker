@@ -63,23 +63,11 @@ export default function OverviewPage() {
         pendingEmail,
         setPendingEmail,
         listenForFollowUp,
+        speak,
     } = useVoice();
 
     const { currentAlert, dismissAlert } = useAlerts(token);
 
-    // ── Alerta VIP — anuncio TTS automático ──────────────────────
-    const spokenAlertRef = useRef(null);
-    useEffect(() => {
-        if (
-            currentAlert?.type === 'vip_email' &&
-            currentAlert?.tts &&
-            ttsEnabled &&
-            currentAlert.id !== spokenAlertRef.current
-        ) {
-            spokenAlertRef.current = currentAlert.id;
-            sendToLucy(currentAlert.tts);
-        }
-    }, [currentAlert, ttsEnabled, sendToLucy]);
     const { currentReminder, dismissReminder, checkReminders } = useReminders(token, ttsEnabled);
 
     const {
@@ -98,7 +86,21 @@ export default function OverviewPage() {
         checkShowWelcome,
         confirmEmailSend,
         cancelEmailSend,
-    } = useBriefing({ token, ttsEnabled, pendingEmail, setPendingEmail, listenForFollowUp });
+    } = useBriefing({ token, ttsEnabled, pendingEmail, setPendingEmail, listenForFollowUp, speak });
+
+    // ── Alerta VIP — anuncio TTS automático ──────────────────────
+    const spokenAlertRef = useRef(null);
+    useEffect(() => {
+        if (
+            currentAlert?.type === 'vip_email' &&
+            currentAlert?.tts &&
+            ttsEnabled &&
+            currentAlert.id !== spokenAlertRef.current
+        ) {
+            spokenAlertRef.current = currentAlert.id;
+            sendToLucy(currentAlert.tts);
+        }
+    }, [currentAlert, ttsEnabled, sendToLucy]);
 
     // Prefill desde CRM — botón "Enviar correo"
     const location = useLocation();
