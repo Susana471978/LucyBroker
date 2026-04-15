@@ -271,6 +271,9 @@ export default function OverviewPage() {
                         greeting={getGreeting()}
                         onStart={() => runBriefing()}
                         onSkip={handleSkip}
+                        speak={speak}
+                        listenForFollowUp={listenForFollowUp}
+                        userName={user?.name || ''}
                     />
                 )}
                 {welcomePhase === 'thinking' && (
