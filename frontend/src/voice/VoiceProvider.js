@@ -27,8 +27,9 @@ export default function VoiceProvider({ children }) {
             clearFilters: null,
             refreshReminders: null,
             refreshTasks: null,
+            setPendingContact: voiceEngine.setPendingContact,  // ← AÑADIR
         });
-    }, [navigate, setUIContext]);
+    }, [navigate, setUIContext, voiceEngine.setPendingContact]);
 
     return (
         <VoiceContext.Provider value={voiceEngine}>

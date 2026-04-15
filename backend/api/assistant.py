@@ -352,7 +352,40 @@ def _is_task_intent(text: str) -> bool:
     email_context_words = ["email", "correo", "mail", "mensaje", "cuerpo", "asunto", "destinatario"]
     if any(w in t for w in email_context_words):
         return False
+    # No interpretar como tarea nueva si es borrar/marcar
+    delete_words = ["borra", "elimina", "quita", "cancela", "marca como", "ya hice", "ya termine", "tacha"]
+    if any(w in t for w in delete_words):
+        return False
     return any(kw in t for kw in _TASK_KEYWORDS)
+
+_DELETE_TASK_KEYWORDS = [
+    "borra la tarea", "elimina la tarea", "quita la tarea",
+    "borra tarea", "elimina tarea", "cancela la tarea",
+]
+
+def _is_delete_task_intent(text: str) -> bool:
+    t = text.lower().strip()
+    return any(kw in t for kw in _DELETE_TASK_KEYWORDS)
+
+_DONE_TASK_KEYWORDS = [
+    "marca como hecha", "marca como completada", "ya hice",
+    "ya termine", "ya terminé", "he completado",
+    "tacha", "tachame",
+]
+
+def _is_done_task_intent(text: str) -> bool:
+    t = text.lower().strip()
+    return any(kw in t for kw in _DONE_TASK_KEYWORDS)
+
+_DELETE_REMINDER_KEYWORDS = [
+    "borra el recordatorio", "elimina el recordatorio",
+    "quita el recordatorio", "cancela el recordatorio",
+    "borra recordatorio", "elimina recordatorio",
+]
+
+def _is_delete_reminder_intent(text: str) -> bool:
+    t = text.lower().strip()
+    return any(kw in t for kw in _DELETE_REMINDER_KEYWORDS)
 
 
 _BRIEFING_KEYWORDS = [
@@ -918,7 +951,49 @@ Devuelve SOLO el cuerpo del email, sin asunto ni saludo formal. Directo y profes
                 actions = [AssistantAction(type="calendar_event_created", payload={"event": created})] if created else None
                 return AssistantResponse(assistant_text=text, actions=actions, status="ok", timestamp=now_ts)
 
-        # 4. Create task
+        # 4. Marcar tarea como hecha
+        if _is_done_task_intent(user_text):
+            try:
+                _prompt = f"Extrae el titulo de la tarea que el usuario quiere marcar como hecha. Devuelve UNICAMENTE el titulo en texto plano. El usuario dice: \"{user_text}\""
+                _title = (await generate_llm_response(_prompt)).strip()
+                _task = await db.tasks.find_one({"user_id": user["id"], "done": False, "title": {"$regex": _title[:20], "$options": "i"}})
+                if _task:
+                    await db.tasks.update_one({"_id": _task["_id"]}, {"$set": {"done": True, "done_at": now_ts}})
+                    return AssistantResponse(assistant_text=f"Listo, marco como hecha: {_task['title']}.", actions=[AssistantAction(type="task_updated", payload={"id": str(_task["_id"])})], status="ok", timestamp=now_ts)
+                else:
+                    return AssistantResponse(assistant_text="No encuentro ninguna tarea pendiente que coincida.", actions=None, status="ok", timestamp=now_ts)
+            except Exception as e:
+                logger.warning("Done task error: %s", e)
+
+        # 4b. Borrar tarea
+        if _is_delete_task_intent(user_text):
+            try:
+                _prompt = f"Extrae el titulo de la tarea que el usuario quiere borrar. Devuelve UNICAMENTE el titulo en texto plano. El usuario dice: \"{user_text}\""
+                _title = (await generate_llm_response(_prompt)).strip()
+                _task = await db.tasks.find_one({"user_id": user["id"], "title": {"$regex": _title[:20], "$options": "i"}})
+                if _task:
+                    await db.tasks.delete_one({"_id": _task["_id"]})
+                    return AssistantResponse(assistant_text=f"Borrada: {_task['title']}.", actions=[AssistantAction(type="task_deleted", payload={"id": str(_task["_id"])})], status="ok", timestamp=now_ts)
+                else:
+                    return AssistantResponse(assistant_text="No encuentro ninguna tarea que coincida.", actions=None, status="ok", timestamp=now_ts)
+            except Exception as e:
+                logger.warning("Delete task error: %s", e)
+
+        # 4c. Borrar recordatorio
+        if _is_delete_reminder_intent(user_text):
+            try:
+                _prompt = f"Extrae el texto del recordatorio que el usuario quiere borrar. Devuelve UNICAMENTE el texto en texto plano. El usuario dice: \"{user_text}\""
+                _text = (await generate_llm_response(_prompt)).strip()
+                _reminder = await db.reminders.find_one({"user_id": user["id"], "done": False, "text": {"$regex": _text[:20], "$options": "i"}})
+                if _reminder:
+                    await db.reminders.delete_one({"_id": _reminder["_id"]})
+                    return AssistantResponse(assistant_text=f"Recordatorio borrado: {_reminder['text']}.", actions=[AssistantAction(type="reminder_deleted", payload={"id": str(_reminder["_id"])})], status="ok", timestamp=now_ts)
+                else:
+                    return AssistantResponse(assistant_text="No he encontrado ese recordatorio.", actions=None, status="ok", timestamp=now_ts)
+            except Exception as e:
+                logger.warning("Delete reminder error: %s", e)
+
+        # 4d. Create task
         if _is_task_intent(user_text):
             try:
                 _task_prompt = f"""Extrae la tarea del texto del usuario.
@@ -953,7 +1028,7 @@ El usuario dice: "{user_text}"
             except Exception as e:
                 logger.warning("Task extraction error: %s", e)
 
-        # 4b. Create contact
+        # 4e. Create contact
         if _is_contact_intent(user_text):
             try:
                 _contact_prompt = f"""Extrae el nombre y email de contacto del siguiente texto.
@@ -997,6 +1072,7 @@ El usuario dice: "{user_text}"
                     )
             except Exception as e:
                 logger.warning("Contact extraction error: %s", e)
+
 
         # 5. Create reminder
         from backend.api.reminders import is_reminder_intent, extract_reminder_data

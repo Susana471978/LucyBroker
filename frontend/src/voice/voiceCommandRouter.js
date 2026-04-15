@@ -14,6 +14,7 @@ export function executeVoiceActions(actions = [], context = {}) {
         clearFilters,
         refreshReminders,
         refreshTasks,
+        setPendingContact,  // ← NUEVO
     } = context;
     // Limit to maximum 3 actions
     const safeActions = actions.slice(0, 3);
@@ -22,6 +23,12 @@ export function executeVoiceActions(actions = [], context = {}) {
             if (!action || typeof action !== "object") return;
             const { type, payload } = action;
             switch (type) {
+                case "contact_awaiting_email":
+                    if (setPendingContact && payload?.id) {
+                        setPendingContact({ id: payload.id, name: payload.name });
+                        console.log("[Voice] setPendingContact llamado con:", payload);
+                    }
+                    break;
                 case "go_to":
                     handleGoTo(payload, navigate);
                     break;

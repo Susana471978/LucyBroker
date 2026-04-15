@@ -133,6 +133,7 @@ export function stopGlobalAudio() {
 export function useVoiceEngine() {
     const [voiceState, setVoiceState] = useState(STATES.IDLE);
     const [pendingEmail, setPendingEmail] = useState(null);
+    const [pendingContact, setPendingContact] = useState(null);  // ← NUEVO
     const [transcript, setTranscript] = useState("");
     const [lastInteraction, setLastInteraction] = useState("");
     const [ttsEnabled, setTtsEnabled] = useState(true);
@@ -150,9 +151,11 @@ export function useVoiceEngine() {
     const uiContextRef = useRef(null);
     const conversationActiveRef = useRef(false);
     const pendingEmailContextRef = useRef(null);
+    const pendingContactRef = useRef(null);  // ← NUEVO
 
     useEffect(() => { stateRef.current = voiceState; }, [voiceState]);
     useEffect(() => { pendingEmailContextRef.current = pendingEmail; }, [pendingEmail]);
+    useEffect(() => { pendingContactRef.current = pendingContact; }, [pendingContact]);  // ← NUEVO
     useEffect(() => { ttsRef.current = ttsEnabled; }, [ttsEnabled]);
     useEffect(() => { handsFreeRef.current = handsFreeModeActive; }, [handsFreeModeActive]);
     useEffect(() => { wakeEnabledRef.current = wakeWordEnabled; }, [wakeWordEnabled]);
@@ -289,7 +292,7 @@ export function useVoiceEngine() {
                 setTimeout(() => {
                     onEnd?.();
                     if (stateRef.current === STATES.SPEAKING) setVoiceState(STATES.IDLE);
-                }, 600);
+                }, 2500);
             };
 
             // Timer de seguridad — Android Chrome a veces no dispara onended
@@ -420,6 +423,7 @@ export function useVoiceEngine() {
         let finalText = "";
         let silenceTimer = null;
         let abandonTimer = null;
+        const echoGuardUntil = Date.now() + 2000;
 
         setVoiceState(STATES.LISTENING);
         console.log("[Voice] Esperando seguimiento (15s)...");
@@ -451,6 +455,11 @@ export function useVoiceEngine() {
         }, 30000);
 
         rec.onresult = (event) => {
+            // Ignorar eco del altavoz durante los primeros 2s
+            if (Date.now() < echoGuardUntil) {
+                console.log("[Voice] Echo guard activo, ignorando resultado");
+                return;
+            }
             if (abandonTimer) { clearTimeout(abandonTimer); abandonTimer = null; }
             if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
 
@@ -518,10 +527,13 @@ export function useVoiceEngine() {
         if (_noise.includes(text.trim().toLowerCase())) return;
         const textLower = text.toLowerCase();
 
+
         // ── Goodbye → salir siempre ───────────────────────────────────────────
         if (STOP_WORDS.some(w => textLower.includes(w)) || GOODBYE_WORDS.some(w => textLower.includes(w))) {
             pendingEmailContextRef.current = null;
             setPendingEmail(null);
+            pendingContactRef.current = null;   // ← NUEVO
+            setPendingContact(null);            // ← NUEVO
             conversationActiveRef.current = false;
             handsFreeRef.current = false;
             setHandsFreeModeActive(false);
@@ -533,12 +545,37 @@ export function useVoiceEngine() {
             return;
         }
 
+
+        // ── Contacto: awaiting_email → este turno ES el email del contacto ────────
+        const pendingContactCtx = pendingContactRef.current;
+        console.log("[Voice] pendingContactCtx al entrar:", JSON.stringify(pendingContactCtx));
+        if (pendingContactCtx?.id) {
+            let cleanEmail = text
+                .replace(/punto/gi, ".")
+                .replace(/arroba/gi, "@")
+                .replace(/\s+/g, "")
+                .toLowerCase()
+                .trim();
+            console.log("[Voice] Recibiendo email para contacto draft:", pendingContactCtx.id, "email:", cleanEmail);
+            const result = await sendToAssistant(cleanEmail, { pending_contact_id: pendingContactCtx.id });
+            if (!result) {
+                speak("No he podido guardar el email. ¿Puedes repetirlo?", () => listenForFollowUp());
+                return;
+            }
+            pendingContactRef.current = null;
+            setPendingContact(null);
+            const { reply } = result;
+            conversationActiveRef.current = true;
+            speak(reply, () => { playBeep(660, 0.1); listenForFollowUp(); });
+            return;
+        }
+
         // ── Email: awaiting_body → este turno ES el cuerpo ───────────────────
         const emailCtx = pendingEmailContextRef.current;
         console.log("[Voice] emailCtx actual:", JSON.stringify(emailCtx));
         console.log("[Voice] pendingEmail state:", JSON.stringify(pendingEmail));
 
-        const looksLikeEmail = text.includes("@") || text.match(/\b[a-z0-9._%+-]+\s*[\.\-]\s*[a-z0-9._%+-]*\s*@/i);
+        const looksLikeEmail = text.includes("@") || text.match(/\b[a-z0-9._%+-]+\s*[\.-]\s*[a-z0-9._%+-]*\s*@/i);
         if (!emailCtx && looksLikeEmail) {
             console.log("[Voice] Texto parece email, buscando draft pendiente...");
         }
@@ -624,7 +661,7 @@ export function useVoiceEngine() {
         }
 
         // ── Briefing ──────────────────────────────────────────────────────────
-        const isBriefing = !conversationActiveRef.current && BRIEFING_TRIGGERS.some(t => textLower.includes(t));
+        const isBriefing = BRIEFING_TRIGGERS.some(t => textLower === t || textLower.startsWith(t));
 
         if (isBriefing) {
             const thinkingPhrase = BRIEFING_THINKING_PHRASES[Math.floor(Math.random() * BRIEFING_THINKING_PHRASES.length)];
@@ -814,9 +851,9 @@ export function useVoiceEngine() {
                     getAudioCtx();
                     setTimeout(() => processCommandRef.current?.(cleanText), 200);
                 } else {
-                    console.log("[Wake] Esperando comando...");
+                    console.log("[Wake] Activando manos libres con saludo...");
                     getAudioCtx();
-                    setTimeout(() => startCommandListenerRef.current?.(), 400);
+                    setTimeout(() => activateHandsFreeMode(null), 400);
                 }
                 return;
             }
@@ -983,5 +1020,6 @@ export function useVoiceEngine() {
         activateHandsFreeMode, startListening, cancel,
         setUIContext, speak, STATES,
         pendingEmail, setPendingEmail,
+        pendingContact, setPendingContact,  // ← NUEVO
     };
 }

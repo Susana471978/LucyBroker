@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import apiClient from '../services/apiClient';
 import { setGlobalAudio, stopGlobalAudio } from '../voice/useVoiceEngine';
 
-export default function useBriefing({ token, ttsEnabled, pendingEmail = null, setPendingEmail = () => {} }) {
+export default function useBriefing({ token, ttsEnabled, pendingEmail = null, setPendingEmail = () => { } }) {
     const [showWelcome, setShowWelcome] = useState(false);
     const [welcomePhase, setWelcomePhase] = useState('idle');
     const [briefingVisible, setBriefingVisible] = useState(false);
@@ -105,7 +105,7 @@ export default function useBriefing({ token, ttsEnabled, pendingEmail = null, se
             if (reply) {
                 // Solo mostrar overlay de briefing si es un briefing real
                 // (no para confirmaciones de email u otras respuestas cortas)
-                const isBriefingReply = reply.length > 200 || 
+                const isBriefingReply = reply.length > 200 ||
                     options.confirm_email === undefined;
                 if (isBriefingReply && options.confirm_email === undefined) {
                     setBriefingText(reply);
