@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from 'react';
 import apiClient from '../services/apiClient';
 import { setGlobalAudio, stopGlobalAudio } from '../voice/useVoiceEngine';
 
-export default function useBriefing({ token, ttsEnabled, pendingEmail = null, setPendingEmail = () => { } }) {
+export default function useBriefing({ token, ttsEnabled, pendingEmail = null, setPendingEmail = () => { }, listenForFollowUp = null }) {
     const [showWelcome, setShowWelcome] = useState(false);
     const [welcomePhase, setWelcomePhase] = useState('idle');
     const [briefingVisible, setBriefingVisible] = useState(false);
@@ -49,6 +49,10 @@ export default function useBriefing({ token, ttsEnabled, pendingEmail = null, se
                 URL.revokeObjectURL(url);
                 setBriefingIsSpeaking(false);
                 briefingAudioRef.current = null;
+                // Si hay email pendiente esperando cuerpo o confirmación, activar escucha
+                if (listenForFollowUp && pendingEmail && (pendingEmail.awaiting_body || pendingEmail.needs_confirm || pendingEmail.awaiting_recipient)) {
+                    setTimeout(() => listenForFollowUp(), 300);
+                }
             };
             audio.onerror = () => {
                 setGlobalAudio(null);

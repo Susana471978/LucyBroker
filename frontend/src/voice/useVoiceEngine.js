@@ -1021,5 +1021,6 @@ export function useVoiceEngine() {
         setUIContext, speak, STATES,
         pendingEmail, setPendingEmail,
         pendingContact, setPendingContact,  // ← NUEVO
+        listenForFollowUp,
     };
 }

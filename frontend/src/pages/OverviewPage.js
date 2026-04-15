@@ -62,6 +62,7 @@ export default function OverviewPage() {
         setUIContext,
         pendingEmail,
         setPendingEmail,
+        listenForFollowUp,
     } = useVoice();
 
     const { currentAlert, dismissAlert } = useAlerts(token);
@@ -83,7 +84,7 @@ export default function OverviewPage() {
         checkShowWelcome,
         confirmEmailSend,
         cancelEmailSend,
-    } = useBriefing({ token, ttsEnabled, pendingEmail, setPendingEmail });
+    } = useBriefing({ token, ttsEnabled, pendingEmail, setPendingEmail, listenForFollowUp });
 
     // Prefill desde CRM — botón "Enviar correo"
     const location = useLocation();
