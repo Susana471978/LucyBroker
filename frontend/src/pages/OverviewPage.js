@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useVoice } from '../voice/VoiceProvider';
@@ -66,6 +66,20 @@ export default function OverviewPage() {
     } = useVoice();
 
     const { currentAlert, dismissAlert } = useAlerts(token);
+
+    // ── Alerta VIP — anuncio TTS automático ──────────────────────
+    const spokenAlertRef = useRef(null);
+    useEffect(() => {
+        if (
+            currentAlert?.type === 'vip_email' &&
+            currentAlert?.tts &&
+            ttsEnabled &&
+            currentAlert.id !== spokenAlertRef.current
+        ) {
+            spokenAlertRef.current = currentAlert.id;
+            sendToLucy(currentAlert.tts);
+        }
+    }, [currentAlert, ttsEnabled, sendToLucy]);
     const { currentReminder, dismissReminder, checkReminders } = useReminders(token, ttsEnabled);
 
     const {

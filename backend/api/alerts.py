@@ -188,6 +188,33 @@ async def check_alerts(
                 "action": "briefing",
             })
 
+    # ── 7. Emails de empresas VIP no leídos ──
+    try:
+        from backend.api.gmail import fetch_enriched_messages_light
+        vip_docs = await db.vip_companies.find({"user_id": user_id}, {"domain": 1, "name": 1}).to_list(50)
+        if vip_docs:
+            vip_domains = {doc["domain"].lower(): doc["name"] for doc in vip_docs}
+            emails = await fetch_enriched_messages_light(user, db, max_results=20)
+            vip_emails = [e for e in emails if e.get("is_vip") and not e.get("is_read")]
+            for email in vip_emails[:3]:
+                alert_id = f"vip_email_{email.get('id', '')}"
+                if alert_id not in dismissed_ids:
+                    company = email.get("vip_company_name", "empresa VIP")
+                    subject = email.get("subject", "Sin asunto")
+                    alerts.append({
+                        "id": alert_id,
+                        "type": "vip_email",
+                        "icon": "⭐",
+                        "title": f"Mensaje de {company}",
+                        "message": f"Te ha llegado un nuevo mensaje de {company}: {subject}. ¿Quieres que te lo lea primero?",
+                        "priority": "high",
+                        "action": "/app/messages",
+                        "tts": f"Te ha llegado un nuevo mensaje de {company}. ¿Quieres que te lo lea primero?",
+                        "company": company,
+                    })
+    except Exception:
+        pass
+
     # Sort by priority
     priority_order = {"high": 0, "medium": 1, "low": 2}
     alerts.sort(key=lambda a: priority_order.get(a.get("priority", "low"), 2))
