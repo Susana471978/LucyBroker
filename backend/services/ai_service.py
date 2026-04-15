@@ -10,6 +10,7 @@ from backend.utils.logger import get_logger
 from backend.services.executive_client import update_executive_session
 
 from openai import AsyncOpenAI
+from backend.utils.guards import openai_breaker
 
 
 class AIService:
@@ -283,13 +284,20 @@ async def generate_llm_response(prompt: str) -> str:
     if not api_key:
         return "LLM no disponible (OPENAI_API_KEY no configurada)."
 
+    if not openai_breaker.is_available():
+        return "Servicio de IA temporalmente no disponible. Intenta en unos segundos."
+
     client = AsyncOpenAI(api_key=api_key)
 
-    response = await client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[{"role": "user", "content": prompt}],
-        temperature=0.4,
-        max_tokens=300,
-    )
-
-    return response.choices[0].message.content.strip()
+    try:
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.4,
+            max_tokens=300,
+        )
+        openai_breaker.record_success()
+        return response.choices[0].message.content.strip()
+    except Exception as exc:
+        openai_breaker.record_failure()
+        raise exc

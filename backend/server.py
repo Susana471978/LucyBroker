@@ -98,6 +98,7 @@ from backend.utils.response import build_response
 from backend.utils.rate_limit import RateLimitMiddleware
 from backend.utils.csrf import OAuthCSRFMiddleware
 from backend.utils.logger import logger, log_security_event
+from backend.utils.guards import validate_tts_input, check_daily_quota, openai_breaker
 
 
 
@@ -297,6 +298,8 @@ async def tts_endpoint(
         raise HTTPException(status_code=400, detail="Texto vacío")
 
     try:
+        text = validate_tts_input(text, user)
+        await check_daily_quota(db, user, "tts")
         audio_bytes = await generate_tts_audio(text)
         return Response(content=audio_bytes, media_type="audio/mpeg")
     except HTTPException:
@@ -320,6 +323,8 @@ async def tts_stream_endpoint(
     if not text:
         raise HTTPException(status_code=400, detail="Texto vacío")
     try:
+        text = validate_tts_input(text, user)
+        await check_daily_quota(db, user, "tts")
         return StreamingResponse(
             stream_openai_tts(text),
             media_type="audio/mpeg",
@@ -331,28 +336,6 @@ async def tts_stream_endpoint(
 
 
 api_router.include_router(tts_router)
-@tts_router.post("/stream")
-async def tts_stream_endpoint(
-    request: Request,
-    payload: Dict[str, Any],
-    user: Dict[str, Any] = Depends(get_current_user),
-    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
-):
-    """Streaming TTS — empieza a devolver audio antes de tener el blob completo."""
-    from fastapi.responses import StreamingResponse
-    text = (payload or {}).get("text", "")
-    text = text.strip() if isinstance(text, str) else ""
-    if not text:
-        raise HTTPException(status_code=400, detail="Texto vacío")
-    try:
-        return StreamingResponse(
-            stream_openai_tts(text),
-            media_type="audio/mpeg",
-            headers={"X-Accel-Buffering": "no"},
-        )
-    except Exception:
-        logger.exception("TTS stream error")
-        raise HTTPException(status_code=502, detail="Error generando audio")
 
 
 # ======================================================

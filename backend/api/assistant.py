@@ -21,6 +21,7 @@ from backend.services.contact_memory import get_all_contacts, build_contact_insi
 from backend.services.user_memory import get_user_memory, build_user_memory_context
 from backend.services.ai_service import AIService, generate_llm_response
 from backend.utils.logger import logger
+from backend.utils.guards import sanitize_input, check_daily_quota, openai_breaker
 
 async def _empty_list():
     return []
@@ -659,6 +660,12 @@ async def assistant_endpoint(
         user_text = payload.text or payload.message
         if not user_text:
             raise HTTPException(status_code=400, detail="Mensaje vacío")
+
+        # ── Guards de protección ──────────────────────────────
+        user_text = sanitize_input(user_text)
+        await check_daily_quota(db, user, "assistant")
+        if not openai_breaker.is_available():
+            raise HTTPException(status_code=503, detail="Servicio temporalmente no disponible. Intenta en unos segundos.")
 
 
         now_ts = datetime.now(timezone.utc).isoformat()
