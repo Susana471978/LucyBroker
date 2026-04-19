@@ -47,7 +47,7 @@ const TAG_STYLE = {
 };
 
 export default function OverviewPage() {
-    const { language, token } = useAuth();
+    const { user, language, token } = useAuth();
     const navigate = useNavigate();
     const {
         ttsEnabled,
