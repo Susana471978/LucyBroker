@@ -30,9 +30,9 @@ export default function useBriefing({
         if (speak) {
             speak(text, () => {
                 setBriefingIsSpeaking(false);
-                if (listenForFollowUp && pendingEmail &&
-                    (pendingEmail.awaiting_body || pendingEmail.needs_confirm || pendingEmail.awaiting_recipient)) {
-                    setTimeout(() => listenForFollowUp(), 300);
+                // Siempre volver a escuchar — bucle conversacional continuo
+                if (listenForFollowUp) {
+                    setTimeout(() => listenForFollowUp(), 400);
                 }
                 onEnd?.();
             });
@@ -140,7 +140,7 @@ export default function useBriefing({
     }, [token]);
 
     return {
-        showWelcome, welcomePhase, briefingVisible, briefingText,
+        showWelcome, setShowWelcome, welcomePhase, briefingVisible, briefingText,
         briefingIsSpeaking, sending, briefingInFlightRef,
         pendingEmail, sendToLucy, confirmEmailSend, cancelEmailSend,
         runBriefing, dismissBriefing, handleSkip, checkShowWelcome,

@@ -907,10 +907,24 @@ export function useVoiceEngine() {
         console.log("[Voice] Manos libres activado. Query:", query);
 
         if (!query) {
+            console.log("[Voice] Wake word sin comando — intentando WelcomeOverlay");
+            try { getAudioCtx().resume(); } catch (_) { }
+
+            // Intentar mostrar WelcomeOverlay (si no se ha hecho briefing hoy)
+            const triggered = uiContextRef.current?.triggerWelcome?.();
+            if (triggered) {
+                // El overlay se encarga del saludo y la escucha
+                handsFreeRef.current = false;
+                setHandsFreeModeActive(false);
+                conversationActiveRef.current = false;
+                setVoiceState(STATES.IDLE);
+                return;
+            }
+
+            // Ya hizo briefing hoy — saludo directo
             const hour = new Date().getHours();
             const greeting = hour < 12 ? "Buenos días" : hour < 20 ? "Buenas tardes" : "Buenas noches";
-            console.log("[Voice] Saludo activado, ttsEnabled:", ttsRef.current);
-            try { getAudioCtx().resume(); } catch (_) { }
+            console.log("[Voice] Saludo directo (briefing ya hecho)");
             speak(`${greeting}. Te escucho.`, () => {
                 setTimeout(() => startCommandListenerRef.current?.(), 500);
             });

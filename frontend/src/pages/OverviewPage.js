@@ -47,7 +47,7 @@ const TAG_STYLE = {
 };
 
 export default function OverviewPage() {
-    const { user, language, token } = useAuth();
+    const { language, token, user } = useAuth();
     const navigate = useNavigate();
     const {
         ttsEnabled,
@@ -71,7 +71,7 @@ export default function OverviewPage() {
     const { currentReminder, dismissReminder, checkReminders } = useReminders(token, ttsEnabled);
 
     const {
-        showWelcome,
+        showWelcome, setShowWelcome,
         welcomePhase,
         briefingVisible,
         briefingText,
@@ -113,14 +113,27 @@ export default function OverviewPage() {
     }, [location.state, sendToLucy]);
 
     // Inyectar refresh de recordatorios al contexto de voz
+    // Función para que el wake word active el WelcomeOverlay
+    const triggerWelcome = useCallback(() => {
+        const todayKey = `lucy_briefing_${new Date().toDateString()}`;
+        const already = sessionStorage.getItem(todayKey);
+        if (already === '1') {
+            // Ya hizo briefing hoy — saludo directo sin overlay
+            return false;
+        }
+        setShowWelcome(true);
+        return true;
+    }, []);
+
     useEffect(() => {
         if (setUIContext) {
             setUIContext({
                 navigate,
                 refreshReminders: checkReminders,
+                triggerWelcome,
             });
         }
-    }, [setUIContext, checkReminders, navigate]);
+    }, [setUIContext, checkReminders, navigate, triggerWelcome]);
 
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -212,9 +225,8 @@ export default function OverviewPage() {
         if (token) fetchData();
     }, [fetchData, token]);
 
-    useEffect(() => {
-        return checkShowWelcome({ gmailLoading, gmailConnected, loading });
-    }, [checkShowWelcome, gmailLoading, gmailConnected, loading]);
+    // WelcomeOverlay ya no se muestra automáticamente
+    // Se activa solo cuando el usuario dice "Hola Lucy" (wake word)
 
     const handleGmailConnect = async () => {
         try {
@@ -270,10 +282,22 @@ export default function OverviewPage() {
                         key="welcome"
                         greeting={getGreeting()}
                         onStart={() => runBriefing()}
-                        onSkip={handleSkip}
+                        onSkip={() => {
+                            handleSkip();
+                            // Activar wake listener para que Lucy siga disponible por voz
+                            if (wakeWordEnabled) {
+                                setTimeout(() => {
+                                    cancel();  // Reset limpio del engine
+                                }, 300);
+                            }
+                        }}
                         speak={speak}
-                        listenForFollowUp={listenForFollowUp}
                         userName={user?.name || ''}
+                        onVoiceCommand={(text) => {
+                            // Cerrar overlay y enviar comando al engine
+                            handleSkip();
+                            setTimeout(() => sendToLucy(text), 200);
+                        }}
                     />
                 )}
                 {welcomePhase === 'thinking' && (
