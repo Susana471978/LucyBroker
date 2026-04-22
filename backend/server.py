@@ -9,7 +9,27 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# ---------------------------------------------------------------------------
+# Environment Loading
+# ---------------------------------------------------------------------------
+# Load the .env file matching APP_ENV (default: "development").
+# Expected files next to this module:
+#   - .env.development  (local development, uses email_control_system_dev DB)
+#   - .env.production   (VPS, uses email_control_system DB)
+# The .env.example file documents all required variables.
+# ---------------------------------------------------------------------------
+APP_ENV = os.environ.get("APP_ENV", "development").lower()
+_env_file = Path(__file__).parent / f".env.{APP_ENV}"
+
+if not _env_file.exists():
+    raise RuntimeError(
+        f"Environment file not found: {_env_file}. "
+        f"Set APP_ENV to 'development' or 'production', "
+        f"and ensure the corresponding .env.{APP_ENV} file exists."
+    )
+
+load_dotenv(dotenv_path=_env_file)
+print(f"[config] Loaded environment: {APP_ENV} from {_env_file.name}")
 
 from fastapi import (
     FastAPI,

@@ -6,15 +6,22 @@ from pathlib import Path
 from typing import Optional, List
 
 from pydantic import BaseModel, Field, AliasChoices
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 # ======================================================
 # PATHS
 # ======================================================
+# BACKEND_DIR points to the backend/ folder (where .env.* files live).
+# ROOT_DIR is the repo root (one level above backend/).
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+ROOT_DIR = BACKEND_DIR.parent
 
-ROOT_DIR = Path(__file__).resolve().parents[2]
-ENV_FILE = ROOT_DIR / ".env"
+# Select .env file based on APP_ENV (default: development).
+# Matches the loading strategy in backend/server.py - single source of truth.
+APP_ENV = os.environ.get("APP_ENV", "development").lower()
+ENV_FILE = BACKEND_DIR / f".env.{APP_ENV}"
 
 
 # ======================================================
