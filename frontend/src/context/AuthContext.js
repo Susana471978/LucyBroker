@@ -33,12 +33,18 @@ export const AuthProvider = ({ children }) => {
   const tabId = useRef(`tab_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`);
 
   // ---------- Logout ----------
-  const logout = useCallback(() => {
+  // Accepts an optional navigate callback (from react-router) to redirect after
+  // clearing state. Callers should pass navigate to avoid depending on a 401
+  // interceptor or a full page reload.
+  const logout = useCallback((navigateFn) => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(HEARTBEAT_LOCK_KEY);
     setToken(null);
     setUser(null);
     setTrial(null);
+    if (typeof navigateFn === 'function') {
+      navigateFn('/', { replace: true });
+    }
   }, []);
 
   // ---------- Fetch Trial Status ----------

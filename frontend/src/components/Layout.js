@@ -241,7 +241,7 @@ const Layout = ({ children }) => {
                   Configuración
                 </DropdownItem>
 
-                <DropdownItem onClick={logout} data-testid="logout-btn">
+                <DropdownItem onClick={() => logout(navigate)} data-testid="logout-btn">
                   <LogOut className="w-3.5 h-3.5" strokeWidth={1.5} />
                   {t(language, 'logout')}
                 </DropdownItem>

@@ -31,9 +31,9 @@ api.interceptors.response.use(
             localStorage.removeItem('trial_start');
             sessionStorage.removeItem('briefing_done');
 
-            // Redirect to login — only if not already there
-            if (!window.location.pathname.startsWith('/auth')) {
-                window.location.href = '/auth';
+            // Redirect to landing — only if not already there
+            if (window.location.pathname !== '/') {
+                window.location.href = '/';
             }
 
             // Reset flag after redirect completes
