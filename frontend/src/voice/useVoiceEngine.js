@@ -1,4 +1,5 @@
 import { useState, useRef, useCallback, useEffect } from "react";
+import useWhisperRecorder from "./useWhisperRecorder";
 import { executeVoiceActions } from "./voiceCommandRouter";
 import apiClient from "../services/apiClient";
 
@@ -131,6 +132,11 @@ export function stopGlobalAudio() {
 }
 
 export function useVoiceEngine() {
+    // ── Whisper recorder (Modelo C: graba en paralelo a Web Speech) ──────────
+    const whisper = useWhisperRecorder();
+    const whisperRef = useRef(null);
+    useEffect(() => { whisperRef.current = whisper; }, [whisper]);
+
     const [voiceState, setVoiceState] = useState(STATES.IDLE);
     const [pendingEmail, setPendingEmail] = useState(null);
     const [pendingContact, setPendingContact] = useState(null);  // ← NUEVO
@@ -426,6 +432,7 @@ export function useVoiceEngine() {
         const echoGuardUntil = Date.now() + 2000;
 
         setVoiceState(STATES.LISTENING);
+        whisperRef.current?.startRecording();
         console.log("[Voice] Esperando seguimiento (15s)...");
 
         const clearTimers = () => {
@@ -482,7 +489,7 @@ export function useVoiceEngine() {
                 killRecognition();
                 if (cmd.length > 0) {
                     // eslint-disable-next-line no-use-before-define
-                    processCommandRef.current?.(cmd);
+                    processWithWhisper(cmd);
                 } else {
                     afterTimeout();
                 }
@@ -514,6 +521,34 @@ export function useVoiceEngine() {
     }, [killRecognition, endConversation]);
 
     // ─── Process command ref ──────────────────────────────────────────────────
+    // ── processWithWhisper — Modelo C ────────────────────────────────────────
+    // Intercepta el texto de Web Speech, intenta mejorar con Whisper,
+    // y llama a processCommand con el mejor texto disponible.
+    // Si Whisper falla o no hay grabacion, usa el texto de Web Speech (fallback).
+    const processWithWhisper = useCallback(async (webSpeechText) => {
+        const wr = whisperRef.current;
+        if (!wr || !wr.isSupported) {
+            console.log("[Whisper] No soportado, usando Web Speech:", webSpeechText);
+            processCommandRef.current?.(webSpeechText);
+            return;
+        }
+        try {
+            const blob = await wr.stopRecording();
+            if (blob && blob.size > 1000) {
+                const whisperText = await wr.transcribe(blob);
+                if (whisperText && whisperText.trim().length > 0) {
+                    console.log("[Whisper] Usando Whisper:", whisperText);
+                    processCommandRef.current?.(whisperText);
+                    return;
+                }
+            }
+        } catch (err) {
+            console.warn("[Whisper] Error, fallback a Web Speech:", err.message);
+        }
+        console.log("[Whisper] Fallback a Web Speech:", webSpeechText);
+        processCommandRef.current?.(webSpeechText);
+    }, []);
+
     const processCommandRef = useRef(null);
 
     // ─── Process command ──────────────────────────────────────────────────────
@@ -713,6 +748,7 @@ export function useVoiceEngine() {
         let silenceTimer = null;
 
         setVoiceState(STATES.LISTENING);
+        whisperRef.current?.startRecording();
         console.log("[Voice] Escuchando comando...");
 
         const clearSilence = () => { if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; } };
@@ -743,7 +779,7 @@ export function useVoiceEngine() {
                         speak("Te escucho", () => { startCommandListenerRef.current?.(); });
                         return;
                     }
-                    processCommandRef.current?.(cleanCmd);
+                    processWithWhisper(cleanCmd);
                 } else if (handsFreeRef.current) {
                     startCommandListenerRef.current?.();
                 } else {
