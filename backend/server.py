@@ -356,6 +356,51 @@ async def tts_stream_endpoint(
 
 
 api_router.include_router(tts_router)
+# ======================================================
+# VOICE TRANSCRIPTION (WHISPER)
+# ======================================================
+voice_router = APIRouter(prefix="/voice", tags=["Voice"])
+
+@voice_router.post("/transcribe")
+async def voice_transcribe(
+    request: Request,
+    user: Dict[str, Any] = Depends(get_current_user),
+    _credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+):
+    """
+    Transcribe audio a texto usando OpenAI gpt-4o-transcribe.
+    Espera multipart/form-data con:
+        - audio: archivo de audio (webm, mp3, wav, m4a, ogg, flac)
+        - language: codigo de idioma opcional (default: "es")
+        - prompt: contexto opcional para mejorar transcripcion
+    Devuelve: { "data": { "text": "...", "language": "es", "model": "..." } }
+    """
+    form = await request.form()
+    audio_field = form.get("audio")
+    if not audio_field:
+        raise HTTPException(status_code=400, detail="Campo audio requerido")
+
+    audio_bytes = await audio_field.read()
+    filename = getattr(audio_field, "filename", "audio.webm") or "audio.webm"
+    language = form.get("language", "es")
+    prompt = form.get("prompt", "")
+
+    try:
+        from backend.services.whisper_service import transcribe_audio
+        result = await transcribe_audio(
+            audio_bytes=audio_bytes,
+            filename=filename,
+            language=language,
+            prompt=prompt,
+        )
+        return {"data": result}
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except RuntimeError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
+api_router.include_router(voice_router)
+
 
 
 # ======================================================
