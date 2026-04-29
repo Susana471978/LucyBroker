@@ -61,6 +61,7 @@ from backend.api.tasks import router as tasks_router
 from backend.api.memory import router as memory_router
 
 from backend.api.billing import router as billing_router
+from backend.api.activation_codes import router as activation_router
 
 from backend.api.contacts import router as contacts_router
 
@@ -195,8 +196,8 @@ app.include_router(contacts_router, prefix="/api")
 api_router.include_router(assistant_router)
 
 api_router.include_router(habits_router)
-
 api_router.include_router(billing_router)
+api_router.include_router(activation_router)
 
 
 # ======================================================
