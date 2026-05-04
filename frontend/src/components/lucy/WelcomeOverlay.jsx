@@ -179,9 +179,13 @@ export default function WelcomeOverlay({
             }, timeout);
         };
 
-        rec.onerror = () => {
+        rec.onerror = (e) => {
             if (silenceTimer) clearTimeout(silenceTimer);
             if (retryRef.current) clearTimeout(retryRef.current);
+            if (e.error !== 'aborted' && e.error !== 'no-speech') {
+                console.warn('[WelcomeOverlay] startListeningFinal error:', e.error);
+                if (mountedRef.current) setPhase(PHASE.FALLBACK);
+            }
         };
         rec.onend = () => {
             if (rec._killed) return;
@@ -249,6 +253,7 @@ export default function WelcomeOverlay({
             if (retryRef.current) clearTimeout(retryRef.current);
             if (e.error !== 'aborted' && e.error !== 'no-speech') {
                 console.warn('[WelcomeOverlay] rec error:', e.error);
+                if (mountedRef.current) setPhase(PHASE.FALLBACK);
             }
         };
         rec.onend = () => {

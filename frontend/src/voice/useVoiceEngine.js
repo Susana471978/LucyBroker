@@ -950,6 +950,9 @@ export function useVoiceEngine() {
             const triggered = uiContextRef.current?.triggerWelcome?.();
             if (triggered) {
                 // El overlay se encarga del saludo y la escucha
+                // Desactivar wake word para que no mate el recognition del overlay
+                wakeEnabledRef.current = false;
+                killRecognition();
                 handsFreeRef.current = false;
                 setHandsFreeModeActive(false);
                 conversationActiveRef.current = false;
