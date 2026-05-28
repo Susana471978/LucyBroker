@@ -13,11 +13,10 @@ import HabitsPage from "./pages/HabitsPage";
 import PricingPage from "./pages/PricingPage";
 import { BillingSuccessPage, BillingCancelPage } from "./pages/BillingResultPage";
 import ContactsPage from "./pages/ContactsPage";
+import BrokerDashboard from "./pages/BrokerDashboard";
 
-// Smart Landing — redirects authenticated users to /app
 const SmartLanding = () => {
   const { isAuthenticated, loading } = useAuth();
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -29,18 +28,12 @@ const SmartLanding = () => {
       </div>
     );
   }
-
-  if (isAuthenticated) {
-    return <Navigate to="/app" replace />;
-  }
-
+  if (isAuthenticated) return <Navigate to="/broker" replace />;
   return <LandingPage />;
 };
 
-// Protected Route Component
 const ProtectedRoute = ({ children }) => {
   const { isAuthenticated, loading } = useAuth();
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -52,107 +45,28 @@ const ProtectedRoute = ({ children }) => {
       </div>
     );
   }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/auth" replace />;
-  }
-
-  return <VoiceProvider>{children}</VoiceProvider>;
+  if (!isAuthenticated) return <Navigate to="/auth" replace />;
+  return children;
 };
 
-// App Routes
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<SmartLanding />} />
       <Route path="/auth" element={<AuthPage />} />
-
-      <Route
-        path="/app"
-        element={
-          <ProtectedRoute>
-            <OverviewPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/app/habits"
-        element={
-          <ProtectedRoute>
-            <HabitsPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/app/messages"
-        element={
-          <ProtectedRoute>
-            <MessagesPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/app/tasks"
-        element={
-          <ProtectedRoute>
-            <TasksPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/app/settings"
-        element={
-          <ProtectedRoute>
-            <SettingsPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/app/pricing"
-        element={
-          <ProtectedRoute>
-            <PricingPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/app/billing/success"
-        element={
-          <ProtectedRoute>
-            <BillingSuccessPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/app/billing/cancel"
-        element={
-          <ProtectedRoute>
-            <BillingCancelPage />
-          </ProtectedRoute>
-        }
-      />
-
-      <Route
-        path="/app/contacts"
-        element={
-          <ProtectedRoute>
-            <ContactsPage />
-          </ProtectedRoute>
-        }
-      />
-
-      {/* Redirects */}
+      <Route path="/broker" element={<ProtectedRoute><BrokerDashboard /></ProtectedRoute>} />
+      <Route path="/app" element={<ProtectedRoute><VoiceProvider><OverviewPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/messages" element={<ProtectedRoute><VoiceProvider><MessagesPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/tasks" element={<ProtectedRoute><VoiceProvider><TasksPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/settings" element={<ProtectedRoute><VoiceProvider><SettingsPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/habits" element={<ProtectedRoute><VoiceProvider><HabitsPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/pricing" element={<ProtectedRoute><VoiceProvider><PricingPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/contacts" element={<ProtectedRoute><VoiceProvider><ContactsPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/billing/success" element={<ProtectedRoute><VoiceProvider><BillingSuccessPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/billing/cancel" element={<ProtectedRoute><VoiceProvider><BillingCancelPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/landing" element={<Navigate to="/" replace />} />
       <Route path="/messages" element={<Navigate to="/app/messages" replace />} />
       <Route path="/pricing" element={<PricingPage />} />
-      <Route path="/broker" element={<ProtectedRoute><BrokerDashboard /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
