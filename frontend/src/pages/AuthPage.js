@@ -122,7 +122,7 @@ export default function AuthPage() {
       if (isAuthenticated) logout();
       if (isRegister) { await register(email, password, name); }
       else { await login(email, password); }
-      navigate('/');
+      navigate('/broker');
     } catch (err) {
       setError(err.response?.data?.detail || (isRegister ? 'Error al registrarse' : 'Error al iniciar sesión'));
     } finally { setLoading(false); }

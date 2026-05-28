@@ -152,6 +152,7 @@ const AppRoutes = () => {
       <Route path="/landing" element={<Navigate to="/" replace />} />
       <Route path="/messages" element={<Navigate to="/app/messages" replace />} />
       <Route path="/pricing" element={<PricingPage />} />
+      <Route path="/broker" element={<ProtectedRoute><BrokerDashboard /></ProtectedRoute>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
