@@ -31,20 +31,23 @@
     "@radix-ui/react-toggle": "^1.1.6",
     "@radix-ui/react-toggle-group": "^1.1.7",
     "@radix-ui/react-tooltip": "^1.2.4",
+    "ajv": "^6.12.6",
+    "ajv-keywords": "^3.5.2",
     "axios": "^1.8.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "cra-template": "1.2.0",
     "date-fns": "^4.1.0",
+    "dompurify": "^3.3.3",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.31.0",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.507.0",
     "next-themes": "^0.4.6",
     "react": "18.2.0",
-    "react-dom": "18.2.0",
     "react-day-picker": "8.10.1",
+    "react-dom": "18.2.0",
     "react-hook-form": "^7.56.2",
     "react-resizable-panels": "^3.0.1",
     "react-router-dom": "6.22.3",
@@ -53,6 +56,7 @@
     "sonner": "^2.0.3",
     "tailwind-merge": "^3.2.0",
     "tailwindcss-animate": "^1.0.7",
+    "three": "^0.183.1",
     "vaul": "^1.1.2",
     "zod": "^3.24.4"
   },
@@ -86,5 +90,6 @@
     "globals": "15.15.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17"
-  }
+  },
+  "proxy": "http://127.0.0.1:8000"
 }

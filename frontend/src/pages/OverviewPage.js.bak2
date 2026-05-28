@@ -1,0 +1,414 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { useVoice } from '../voice/VoiceProvider';
+import { STATES } from '../voice/useVoiceEngine';
+import { t } from '../i18n';
+import apiClient from '../services/apiClient';
+
+import { Inbox, Calendar, Brain, FileText } from 'lucide-react';
+
+import useAudioLevelFromTTS from '../hooks/useAudioLevelFromTTS';
+import useMicrophoneLevel from '../hooks/useMicrophoneLevel';
+import useBriefing from '../hooks/useBriefing';
+
+import { motion, AnimatePresence } from 'framer-motion';
+import Layout from '../components/Layout';
+import ReminderToast from '../components/ReminderToast';
+import { useReminders } from '../hooks/useReminders';
+import AlertToast from '../components/AlertToast';
+import { useAlerts } from '../hooks/useAlerts';
+import { disconnectGmail } from '../services/mailService';
+import { getCalendarStatus, connectCalendar, disconnectCalendar, getTodayEvents } from '../services/calendarService';
+
+import ThinkingParticle from '../components/lucy/ThinkingParticle';
+import WelcomeOverlay from '../components/lucy/WelcomeOverlay';
+import BriefingOverlay from '../components/lucy/BriefingOverlay';
+import ActionCard from '../components/lucy/ActionCard';
+import EventRow from '../components/lucy/EventRow';
+import DailySummaryCard from '../components/lucy/DailySummaryCard';
+import LucyConversationCard from '../components/lucy/LucyConversationCard';
+
+export default function OverviewPage() {
+    const { language, token } = useAuth();
+    const navigate = useNavigate();
+    const {
+        ttsEnabled,
+        setTtsEnabled,
+        wakeWordEnabled,
+        wakeWordActive,
+        handsFreeModeActive,
+        activateHandsFreeMode,
+        lastInteraction,
+        cancel,
+        voiceState,
+        setUIContext,
+    } = useVoice();
+
+    const { currentAlert, dismissAlert } = useAlerts(token);
+    const { currentReminder, dismissReminder, checkReminders } = useReminders(token, ttsEnabled);
+
+    const {
+        showWelcome,
+        welcomePhase,
+        briefingVisible,
+        briefingText,
+        briefingIsSpeaking,
+        sending,
+        briefingInFlightRef,
+        briefingAudioRef,
+        sendToLucy,
+        runBriefing,
+        dismissBriefing,
+        handleSkip,
+        checkShowWelcome,
+    } = useBriefing({ token, ttsEnabled });
+
+    // Inyectar refresh de recordatorios al contexto de voz
+    useEffect(() => {
+        if (setUIContext) {
+            setUIContext({
+                refreshReminders: checkReminders,
+            });
+        }
+    }, [setUIContext, checkReminders]);
+
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [gmailConnected, setGmailConnected] = useState(false);
+    const [gmailEmail, setGmailEmail] = useState('');
+    const [gmailLoading, setGmailLoading] = useState(true);
+
+    const [calendarConnected, setCalendarConnected] = useState(false);
+    const [calendarLoading, setCalendarLoading] = useState(true);
+    const [todayEvents, setTodayEvents] = useState([]);
+    const [calendarExpanded, setCalendarExpanded] = useState(false);
+
+    // Derived voice state booleans
+    const isSpeaking = voiceState === STATES.SPEAKING || briefingIsSpeaking;
+    const isListening = voiceState === STATES.LISTENING;
+    const isProcessing = voiceState === STATES.PROCESSING || sending;
+
+    // Hook TTS: activo siempre (escucha el elemento <audio> global)
+    const { level: ttsLevel, waveform } = useAudioLevelFromTTS();
+
+    // Hook micrófono: sólo activo cuando Lucy está escuchando
+    const micLevel = useMicrophoneLevel(isListening);
+
+    // Nivel unificado que se pasa al canvas:
+    //   speaking  → usa el nivel del TTS
+    //   listening → usa el nivel del micrófono
+    //   el resto  → 0 (el canvas genera su animación autónoma)
+    const canvasLevel = isSpeaking
+        ? ttsLevel
+        : isListening
+            ? micLevel
+            : 0;
+
+    // Estado del canvas derivado del estado de voz
+    const canvasState = isSpeaking
+        ? 'speaking'
+        : isListening
+            ? 'listening'
+            : isProcessing
+                ? 'processing'
+                : 'idle';
+
+    const fetchData = useCallback(async () => {
+        if (!token) return;
+        try {
+            const emailsRes = await apiClient.get('/gmail/messages');
+            const emailsData = emailsRes.data?.data || emailsRes.data || [];
+            const list = Array.isArray(emailsData) ? emailsData : [];
+            setStats({
+                total: list.length,
+                prioritarios: list.filter(e => e.priority?.priority_label === 'PRIORITARIO').length,
+                seguimiento: list.filter(e => e.priority?.priority_label === 'SEGUIMIENTO').length,
+                with_attachments: list.filter(e => e.email?.has_attachments).length
+            });
+        } catch {
+            setStats(null);
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
+    useEffect(() => {
+        if (!token) return;
+        apiClient.get('/gmail/status')
+            .then(res => {
+                const d = res.data?.data || res.data;
+                setGmailConnected(!!d.gmail_connected);
+                setGmailEmail(d.gmail_email || '');
+            })
+            .catch(console.error)
+            .finally(() => setGmailLoading(false));
+    }, [token]);
+
+    useEffect(() => {
+        if (!token) return;
+        const checkCalendar = async () => {
+            try {
+                const status = await getCalendarStatus();
+                setCalendarConnected(!!status.calendar_connected);
+                if (status.calendar_connected) {
+                    const events = await getTodayEvents();
+                    setTodayEvents(Array.isArray(events) ? events : []);
+                }
+            } catch (err) {
+                console.error('Calendar:', err);
+            } finally {
+                setCalendarLoading(false);
+            }
+        };
+        checkCalendar();
+    }, [token]);
+
+    useEffect(() => {
+        if (token) fetchData();
+    }, [fetchData, token]);
+
+    useEffect(() => {
+        return checkShowWelcome({ gmailLoading, gmailConnected, loading });
+    }, [checkShowWelcome, gmailLoading, gmailConnected, loading]);
+
+    const handleGmailConnect = async () => {
+        try {
+            const res = await apiClient.get('/gmail/auth');
+            const url = res.data?.data?.auth_url || res.data?.auth_url;
+            if (url) window.location.href = url;
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleDisconnect = async () => {
+        try {
+            await disconnectGmail();
+            setGmailConnected(false);
+            setGmailEmail('');
+            setStats({ total: 0, prioritarios: 0, seguimiento: 0, with_attachments: 0 });
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleCalendarConnect = async () => {
+        try {
+            await connectCalendar();
+        } catch (err) {
+            console.error('Calendar connect:', err);
+        }
+    };
+
+    const handleCalendarDisconnect = async () => {
+        try {
+            await disconnectCalendar();
+            setCalendarConnected(false);
+            setTodayEvents([]);
+        } catch (err) {
+            console.error('Calendar disconnect:', err);
+        }
+    };
+
+    const getGreeting = () => {
+        const h = new Date().getHours();
+        if (h < 12) return 'Buenos días';
+        if (h < 20) return 'Buenas tardes';
+        return 'Buenas noches';
+    };
+
+    return (
+        <Layout>
+            <AnimatePresence mode="wait">
+                {showWelcome && welcomePhase === 'idle' && (
+                    <WelcomeOverlay
+                        key="welcome"
+                        greeting={getGreeting()}
+                        onStart={() => runBriefing()}
+                        onSkip={handleSkip}
+                    />
+                )}
+                {welcomePhase === 'thinking' && (
+                    <ThinkingParticle key="thinking" />
+                )}
+                {briefingVisible && welcomePhase === 'briefing' && (
+                    <BriefingOverlay
+                        key="briefing"
+                        text={briefingText}
+                        isSpeaking={briefingIsSpeaking}
+                        onDismiss={dismissBriefing}
+                        canvasState={canvasState}
+                        canvasLevel={canvasLevel}
+                        waveform={waveform}
+                        audioRef={briefingAudioRef}
+                    />
+                )}
+            </AnimatePresence>
+
+            <div className="max-w-5xl mx-auto px-6 py-14 space-y-10">
+                <button
+                    onClick={() => window.history.back()}
+                    className="flex items-center gap-1.5 text-caption text-[rgba(255,255,255,0.25)] hover:text-[rgba(255,255,255,0.5)] -mb-6 transition-colors duration-200"
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                    Volver
+                </button>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                >
+                    <p className="text-caption text-[rgba(255,255,255,0.2)] uppercase tracking-[0.1em] font-medium mb-3">
+                        {getGreeting()}
+                    </p>
+                    <h1 className="font-light tracking-tight text-white mb-3"
+                        style={{ fontFamily: "'Cormorant Garamond', serif", fontSize: '2.2rem' }}>
+                        {t(language, 'welcomeTitle')}
+                    </h1>
+                    <p className="text-body-sm text-[rgba(255,255,255,0.35)] max-w-xl leading-relaxed">
+                        {t(language, 'welcomeSubtitle')}
+                    </p>
+                </motion.div>
+
+                <LucyConversationCard
+                    handsFreeModeActive={handsFreeModeActive}
+                    activateHandsFreeMode={activateHandsFreeMode}
+                    cancel={cancel}
+                    lastInteraction={lastInteraction}
+                    briefingText={briefingText}
+                    sending={sending}
+                    sendToLucy={sendToLucy}
+                    runBriefing={runBriefing}
+                    briefingInFlightRef={briefingInFlightRef}
+                    ttsEnabled={ttsEnabled}
+                    setTtsEnabled={setTtsEnabled}
+                    wakeWordEnabled={wakeWordEnabled}
+                    wakeWordActive={wakeWordActive}
+                    isSpeaking={isSpeaking}
+                    isListening={isListening}
+                    isProcessing={isProcessing}
+                    canvasState={canvasState}
+                    canvasLevel={canvasLevel}
+                    waveform={waveform}
+                />
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <ActionCard
+                        icon={<Inbox className="w-5 h-5" />}
+                        title="Correo"
+                        description="Conecta tu Gmail y Lucy priorizará tu bandeja cada mañana."
+                        actionLabel="Conectar correo"
+                        onAction={handleGmailConnect}
+                        connected={gmailConnected}
+                        connectedLabel={gmailEmail || 'Gmail sincronizado'}
+                        onDisconnect={handleDisconnect}
+                        delay={0.1}
+                    />
+
+                    <ActionCard
+                        icon={<Calendar className="w-5 h-5" />}
+                        title="Agenda"
+                        description="Conecta Google Calendar para incluir eventos en tu briefing."
+                        actionLabel="Conectar agenda"
+                        onAction={handleCalendarConnect}
+                        connected={calendarConnected}
+                        connectedLabel={todayEvents.length === 0 ? 'Sin eventos hoy' : `${todayEvents.length} evento${todayEvents.length !== 1 ? 's' : ''} hoy`}
+                        onDisconnect={handleCalendarDisconnect}
+                        delay={0.15}
+                    />
+
+                    <ActionCard
+                        icon={<Brain className="w-5 h-5" />}
+                        title="Memoria de Lucy"
+                        description="Enséñale tus preferencias: horarios, contactos clave, prioridades."
+                        actionLabel="Configurar"
+                        onAction={() => navigate('/app/settings')}
+                        connected={false}
+                        delay={0.2}
+                    />
+
+                    <ActionCard
+                        icon={<FileText className="w-5 h-5" />}
+                        title="Resumen de correos"
+                        description="Lucy analiza tu bandeja y te prepara un briefing ejecutivo."
+                        actionLabel="Generar briefing"
+                        onAction={() => {
+                            if (!briefingInFlightRef.current) runBriefing();
+                        }}
+                        connected={gmailConnected && stats?.total > 0}
+                        connectedLabel={stats ? `${stats.total} emails · ${stats.prioritarios} prioritarios` : 'Listo'}
+                        delay={0.25}
+                    />
+                </div>
+
+                {!calendarLoading && calendarConnected && todayEvents.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                        className="rounded-2xl border backdrop-blur-sm transition-all duration-300 bg-[rgba(255,255,255,0.025)] border-[rgba(255,255,255,0.07)] hover:border-[rgba(255,255,255,0.1)] overflow-hidden"
+                    >
+                        <button
+                            onClick={() => setCalendarExpanded(p => !p)}
+                            className="w-full px-5 py-4 flex items-center justify-between text-left"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Calendar className="w-3.5 h-3.5 text-[rgba(201,178,124,0.5)]" />
+                                <span className="text-body-sm text-[rgba(255,255,255,0.5)]">
+                                    Agenda de hoy — <span className="text-[rgba(255,255,255,0.7)]">{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</span>
+                                </span>
+                            </div>
+
+                            <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="rgba(255,255,255,0.3)"
+                                strokeWidth="2"
+                                className={`transition-transform duration-300 ${calendarExpanded ? 'rotate-180' : ''}`}
+                            >
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </button>
+
+                        <AnimatePresence>
+                            {calendarExpanded && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="px-5 pb-4 border-t border-[rgba(255,255,255,0.04)] pt-3">
+                                        {todayEvents.map((event, i) => (
+                                            <EventRow key={event.id || i} event={event} delay={i * 0.05} />
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
+                )}
+
+                {!loading && stats && gmailConnected && (
+                    <DailySummaryCard
+                        stats={stats}
+                        onViewEmails={() => navigate('/app/messages')}
+                        onSummarize={() => { if (!briefingInFlightRef.current) runBriefing(); }}
+                        onOrganize={() => navigate('/app/tasks')}
+                        summarizeDisabled={briefingInFlightRef.current || sending}
+                    />
+                )}
+            </div>
+
+            <ReminderToast reminder={currentReminder} onDismiss={dismissReminder} />
+            <AlertToast alert={currentAlert} onDismiss={dismissAlert} />
+        </Layout>
+    );
+}

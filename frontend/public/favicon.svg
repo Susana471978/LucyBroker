@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <defs>
+    <!-- Fondo degradado muy oscuro -->
+    <radialGradient id="bgGrad" cx="50%" cy="40%" r="60%">
+      <stop offset="0%" stop-color="#1a1608"/>
+      <stop offset="100%" stop-color="#060608"/>
+    </radialGradient>
+    <!-- Glow dorado para la estrella -->
+    <radialGradient id="starGlow" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#F5E6B8" stop-opacity="1"/>
+      <stop offset="40%" stop-color="#C9B27C" stop-opacity="1"/>
+      <stop offset="100%" stop-color="#8B6914" stop-opacity="1"/>
+    </radialGradient>
+    <!-- Filtro glow exterior -->
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <!-- Filtro glow suave para anillos -->
+    <filter id="ringGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="0.8" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Fondo redondeado luxury -->
+  <rect width="64" height="64" rx="16" fill="url(#bgGrad)"/>
+
+  <!-- Anillo exterior muy sutil -->
+  <circle cx="32" cy="32" r="28" fill="none" stroke="#C9B27C" stroke-width="0.4" opacity="0.2" filter="url(#ringGlow)"/>
+
+  <!-- Anillo medio -->
+  <circle cx="32" cy="32" r="22" fill="none" stroke="#C9B27C" stroke-width="0.5" opacity="0.35" filter="url(#ringGlow)"/>
+
+  <!-- Anillo interior -->
+  <circle cx="32" cy="32" r="16" fill="none" stroke="#E8D49A" stroke-width="0.4" opacity="0.25"/>
+
+  <!-- Estrella de 5 puntas con glow -->
+  <polygon
+    points="32,11 35.8,23.2 48.5,23.2 38.4,30.8 42.2,43 32,35.4 21.8,43 25.6,30.8 15.5,23.2 28.2,23.2"
+    fill="url(#starGlow)"
+    filter="url(#glow)"
+  />
+
+  <!-- Brillo superior de la estrella (highlight) -->
+  <polygon
+    points="32,11 35.8,23.2 48.5,23.2 38.4,30.8 42.2,43 32,35.4 21.8,43 25.6,30.8 15.5,23.2 28.2,23.2"
+    fill="white"
+    opacity="0.08"
+  />
+
+  <!-- Punto de luz central -->
+  <circle cx="32" cy="27" r="2.5" fill="white" opacity="0.35"/>
+  <circle cx="32" cy="27" r="1.2" fill="white" opacity="0.6"/>
+</svg>

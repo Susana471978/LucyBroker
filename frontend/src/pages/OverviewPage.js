@@ -1,186 +1,883 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { useVoice } from '../voice/VoiceProvider';
+import { STATES } from '../voice/useVoiceEngine';
 import { t } from '../i18n';
-import axios from 'axios';
-import { Mail, Inbox, CheckCircle, Clock, Paperclip, ArrowRight, Sparkles, Send, Loader2 } from 'lucide-react';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { motion } from 'framer-motion';
+import apiClient from '../services/apiClient';
+
+import { Inbox, Calendar, Brain, FileText } from 'lucide-react';
+
+import useAudioLevelFromTTS from '../hooks/useAudioLevelFromTTS';
+import useMicrophoneLevel from '../hooks/useMicrophoneLevel';
+import useBriefing from '../hooks/useBriefing';
+
+import { motion, AnimatePresence } from 'framer-motion';
 import Layout from '../components/Layout';
+import ReminderToast from '../components/ReminderToast';
+import { useReminders } from '../hooks/useReminders';
+import AlertToast from '../components/AlertToast';
+import { useAlerts } from '../hooks/useAlerts';
+import { disconnectGmail } from '../services/mailService';
+import { getCalendarStatus, connectCalendar, disconnectCalendar, getTodayEvents } from '../services/calendarService';
 
-const API = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
+import ThinkingParticle from '../components/lucy/ThinkingParticle';
+import WelcomeOverlay from '../components/lucy/WelcomeOverlay';
+import BriefingOverlay from '../components/lucy/BriefingOverlay';
+import EventRow from '../components/lucy/EventRow';
+import LucyConversationCard from '../components/lucy/LucyConversationCard';
 
-const StatCard = ({ icon, label, value, highlight, onClick, testId }) => {
-  let baseClass = 'glass-subtle rounded-xl p-4 text-left w-full ';
-  if (highlight) baseClass += 'border-blue-500/30 halo-active';
-  let iconClass = 'w-10 h-10 rounded-lg flex items-center justify-center mb-3 ';
-  iconClass += highlight ? 'bg-blue-500/20' : 'bg-slate-700/50';
-  return (
-    <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }} onClick={onClick} className={baseClass} data-testid={testId}>
-      <div className={iconClass}>
-        <span className={highlight ? 'text-blue-400' : 'text-slate-400'}>{icon}</span>
-      </div>
-      <p className="text-2xl font-bold text-slate-100">{value}</p>
-      <p className="text-sm text-slate-400">{label}</p>
-    </motion.button>
-  );
+/* ─── Design system constants ─── */
+const CARD_STYLE = {
+    borderRadius: '1px',
+    background: 'var(--surface-glass)',
+    border: '1px solid var(--border-subtle)',
+};
+const CARD_HOVER_STYLE = {
+    borderColor: 'var(--glow-champagne-md)',
+    background: 'var(--surface-glass-hover)',
+};
+const TAG_STYLE = {
+    fontSize: '9px',
+    letterSpacing: '0.12em',
+    padding: '2px 7px',
+    borderRadius: '1px',
+    textTransform: 'uppercase',
+    fontWeight: 500,
 };
 
 export default function OverviewPage() {
-  const { language } = useAuth();
-  const navigate = useNavigate();
-  const [emails, setEmails] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [aiInput, setAiInput] = useState('');
-  const [aiResponse, setAiResponse] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
+    const { language, token, user } = useAuth();
+    const navigate = useNavigate();
+    const {
+        ttsEnabled,
+        setTtsEnabled,
+        wakeWordEnabled,
+        wakeWordActive,
+        handsFreeModeActive,
+        activateHandsFreeMode,
+        lastInteraction,
+        cancel,
+        voiceState,
+        setUIContext,
+        pendingEmail,
+        setPendingEmail,
+        listenForFollowUp,
+        speak,
+    } = useVoice();
 
-  const fetchData = useCallback(async () => {
-    try {
-      const emailsRes = await axios.get(`${API}/emails`);
-      const statsRes = await axios.get(`${API}/emails/stats/summary`);
+    const { currentAlert, dismissAlert } = useAlerts(token);
 
-      const emailsPayload = emailsRes.data?.data || emailsRes.data?.legacy || emailsRes.data;
-      const statsPayload = statsRes.data?.data || statsRes.data?.legacy || statsRes.data;
+    const { currentReminder, dismissReminder, checkReminders } = useReminders(token, ttsEnabled);
 
-      setEmails(emailsPayload);
-      setStats(statsPayload);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    const {
+        showWelcome, setShowWelcome,
+        welcomePhase,
+        briefingVisible,
+        briefingText,
+        briefingIsSpeaking,
+        sending,
+        briefingInFlightRef,
+        briefingAudioRef,
+        sendToLucy,
+        runBriefing,
+        dismissBriefing,
+        handleSkip,
+        checkShowWelcome,
+        confirmEmailSend,
+        cancelEmailSend,
+    } = useBriefing({ token, ttsEnabled, pendingEmail, setPendingEmail, listenForFollowUp, speak });
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+    // ── Alerta VIP — anuncio TTS automático ──────────────────────
+    const spokenAlertRef = useRef(null);
+    useEffect(() => {
+        if (
+            currentAlert?.type === 'vip_email' &&
+            currentAlert?.tts &&
+            ttsEnabled &&
+            currentAlert.id !== spokenAlertRef.current
+        ) {
+            spokenAlertRef.current = currentAlert.id;
+            sendToLucy(currentAlert.tts);
+        }
+    }, [currentAlert, ttsEnabled, sendToLucy]);
 
-  const handleAiSubmit = async (e) => {
-    e.preventDefault();
-    if (!aiInput.trim()) return;
-    setAiLoading(true);
-    try {
-      const response = await axios.post(`${API}/ai/chat`, { message: aiInput });
-      const payload = response.data?.data || response.data;
-      setAiResponse(payload);
-      if (payload.action && payload.action.type === 'filter') {
-        const params = new URLSearchParams();
-        if (payload.action.payload.label) params.set('label', payload.action.payload.label);
-        if (payload.action.payload.has_attachments) params.set('attachments', 'true');
-        navigate('/messages?' + params.toString());
-      }
-    } catch (error) {
-      console.error('AI chat error:', error);
-    } finally {
-      setAiLoading(false);
-      setAiInput('');
-    }
-  };
+    // Prefill desde CRM — botón "Enviar correo"
+    const location = useLocation();
+    useEffect(() => {
+        if (location.state?.lucyPrefill && sendToLucy) {
+            const msg = location.state.lucyPrefill;
+            window.history.replaceState({}, document.title); // limpiar state
+            setTimeout(() => sendToLucy(msg), 800); // esperar a que Lucy esté lista
+        }
+    }, [location.state, sendToLucy]);
 
-  const priorityEmails = emails.filter(e => e.priority.priority_label === 'PRIORITARIO').slice(0, 3);
-  const hasPriorityItems = priorityEmails.length > 0;
+    // Inyectar refresh de recordatorios al contexto de voz
+    // Función para que el wake word active el WelcomeOverlay
+    const triggerWelcome = useCallback(() => {
+        const todayKey = `lucy_briefing_${new Date().toDateString()}`;
+        const already = sessionStorage.getItem(todayKey);
+        if (already === '1') {
+            // Ya hizo briefing hoy — saludo directo sin overlay
+            return false;
+        }
+        setShowWelcome(true);
+        return true;
+    }, []);
 
-  const getPriorityLabel = (label) => {
-    if (label === 'PRIORITARIO') return t(language, 'prioritario');
-    if (label === 'SEGUIMIENTO') return t(language, 'seguimiento');
-    return t(language, 'informativo');
-  };
+    useEffect(() => {
+        if (setUIContext) {
+            setUIContext({
+                navigate,
+                refreshReminders: checkReminders,
+                triggerWelcome,
+            });
+        }
+    }, [setUIContext, checkReminders, navigate, triggerWelcome]);
 
-  const getPriorityClass = (label) => {
-    if (label === 'PRIORITARIO') return 'priority-high';
-    if (label === 'SEGUIMIENTO') return 'priority-medium';
-    return 'priority-low';
-  };
+    const [stats, setStats] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [gmailConnected, setGmailConnected] = useState(false);
+    const [gmailEmail, setGmailEmail] = useState('');
+    const [gmailLoading, setGmailLoading] = useState(true);
 
-  return (
-    <Layout>
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-12">
-          <h1 className="text-4xl sm:text-5xl font-bold text-slate-100 mb-4 tracking-tight">{t(language, 'welcomeTitle')}</h1>
-          <p className="text-lg text-slate-400 max-w-2xl">{t(language, 'welcomeSubtitle')}</p>
-        </motion.div>
+    const [calendarConnected, setCalendarConnected] = useState(false);
+    const [calendarLoading, setCalendarLoading] = useState(true);
+    const [todayEvents, setTodayEvents] = useState([]);
+    const [calendarExpanded, setCalendarExpanded] = useState(false);
 
-        {stats && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <StatCard icon={<Inbox className="w-5 h-5" strokeWidth={1.5} />} label={t(language, 'allEmails')} value={stats.total} onClick={() => navigate('/messages')} testId="stat-total" />
-            <StatCard icon={<Mail className="w-5 h-5" strokeWidth={1.5} />} label={t(language, 'priority')} value={stats.prioritarios} highlight onClick={() => navigate('/messages?label=PRIORITARIO')} testId="stat-priority" />
-            <StatCard icon={<Clock className="w-5 h-5" strokeWidth={1.5} />} label={t(language, 'followUp')} value={stats.seguimiento} onClick={() => navigate('/messages?label=SEGUIMIENTO')} testId="stat-followup" />
-            <StatCard icon={<Paperclip className="w-5 h-5" strokeWidth={1.5} />} label={t(language, 'attachments')} value={stats.with_attachments} onClick={() => navigate('/messages?attachments=true')} testId="stat-attachments" />
-          </motion.div>
-        )}
+    // Derived voice state booleans
+    const isSpeaking = voiceState === STATES.SPEAKING || briefingIsSpeaking;
+    const isListening = voiceState === STATES.LISTENING;
+    const isProcessing = voiceState === STATES.PROCESSING || sending;
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="glass-premium rounded-2xl p-6 mb-8 halo-card-ia ai-card" data-testid="overview-ai-card">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-blue-400" strokeWidth={1.5} />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold text-slate-100">Asistente IA</h3>
-              <p className="text-sm text-slate-400">¿Qué correos quieres ver?</p>
-            </div>
-          </div>
-          <form onSubmit={handleAiSubmit} className="flex gap-3">
-            <Input value={aiInput} onChange={(e) => setAiInput(e.target.value)} placeholder={t(language, 'aiPlaceholder')} className="flex-1 bg-slate-800/50 border-slate-700 text-slate-100 placeholder:text-slate-500" data-testid="overview-ai-input" />
-            <Button type="submit" disabled={aiLoading} className="bg-blue-600 hover:bg-blue-500 text-white px-4" data-testid="overview-ai-submit">
-              {aiLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" strokeWidth={1.5} />}
-            </Button>
-          </form>
-          {aiResponse && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-4 p-4 rounded-xl bg-slate-800/50 border border-slate-700" data-testid="overview-ai-response">
-              <p className="text-slate-300">{aiResponse.assistant_text}</p>
-            </motion.div>
-          )}
-        </motion.div>
+    // Hook TTS: activo siempre (escucha el elemento <audio> global)
+    const { level: ttsLevel, waveform } = useAudioLevelFromTTS();
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          {loading ? (
-            <div className="glass-subtle rounded-2xl p-8 text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-400 mx-auto" />
-              <p className="mt-4 text-slate-400">{t(language, 'loading')}</p>
-            </div>
-          ) : hasPriorityItems ? (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-semibold text-slate-100">{t(language, 'priorityItems')}</h2>
-                <Button variant="ghost" onClick={() => navigate('/messages?label=PRIORITARIO')} className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10" data-testid="view-all-priority">
-                  Ver todos <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
-              <div className="space-y-4">
-                {priorityEmails.map((item, index) => (
-                  <motion.div key={item.email.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.1 * index }} className="glass-subtle rounded-xl p-4 hover:bg-slate-800/60 cursor-pointer email-card" onClick={() => navigate('/messages?selected=' + item.email.id)} data-testid={'priority-item-' + index}>
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className={'px-2 py-0.5 rounded text-xs font-medium ' + getPriorityClass(item.priority.priority_label)}>{getPriorityLabel(item.priority.priority_label)}</span>
-                          {item.email.has_attachments && <Paperclip className="w-4 h-4 text-slate-500" strokeWidth={1.5} />}
-                        </div>
-                        <h3 className="text-slate-100 font-medium truncate mb-1">{item.email.subject}</h3>
-                        <p className="text-sm text-slate-400">{item.email.from_name} • {new Date(item.email.date).toLocaleDateString()}</p>
-                        <p className="text-sm text-slate-500 mt-2 line-clamp-2">{item.email.snippet}</p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center">
-                          <span className="text-lg font-bold text-blue-400">{item.priority.priority_score}</span>
-                        </div>
-                      </div>
+    // Hook micrófono: sólo activo cuando Lucy está escuchando
+    const micLevel = useMicrophoneLevel(isListening);
+
+    const canvasLevel = isSpeaking
+        ? ttsLevel
+        : isListening
+            ? micLevel
+            : 0;
+
+    const canvasState = isSpeaking
+        ? 'speaking'
+        : isListening
+            ? 'listening'
+            : isProcessing
+                ? 'processing'
+                : 'idle';
+
+    const fetchData = useCallback(async () => {
+        if (!token) return;
+        try {
+            const emailsRes = await apiClient.get('/gmail/messages');
+            const emailsData = emailsRes.data?.data || emailsRes.data || [];
+            const list = Array.isArray(emailsData) ? emailsData : [];
+            setStats({
+                total: list.length,
+                prioritarios: list.filter(e => e.priority?.priority_label === 'PRIORITARIO').length,
+                seguimiento: list.filter(e => e.priority?.priority_label === 'SEGUIMIENTO').length,
+                with_attachments: list.filter(e => e.email?.has_attachments).length
+            });
+        } catch {
+            setStats(null);
+        } finally {
+            setLoading(false);
+        }
+    }, [token]);
+
+    useEffect(() => {
+        if (!token) return;
+        apiClient.get('/gmail/status')
+            .then(res => {
+                const d = res.data?.data || res.data;
+                setGmailConnected(!!d.gmail_connected);
+                setGmailEmail(d.gmail_email || '');
+            })
+            .catch(console.error)
+            .finally(() => setGmailLoading(false));
+    }, [token]);
+
+    useEffect(() => {
+        if (!token) return;
+        const checkCalendar = async () => {
+            try {
+                const status = await getCalendarStatus();
+                setCalendarConnected(!!status.calendar_connected);
+                if (status.calendar_connected) {
+                    const events = await getTodayEvents();
+                    setTodayEvents(Array.isArray(events) ? events : []);
+                }
+            } catch (err) {
+                console.error('Calendar:', err);
+            } finally {
+                setCalendarLoading(false);
+            }
+        };
+        checkCalendar();
+    }, [token]);
+
+    useEffect(() => {
+        if (token) fetchData();
+    }, [fetchData, token]);
+
+    // WelcomeOverlay ya no se muestra automáticamente
+    // Se activa solo cuando el usuario dice "Hola Lucy" (wake word)
+
+    const handleGmailConnect = async () => {
+        try {
+            const res = await apiClient.get('/gmail/auth');
+            const url = res.data?.data?.auth_url || res.data?.auth_url;
+            if (url) window.location.href = url;
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleDisconnect = async () => {
+        try {
+            await disconnectGmail();
+            setGmailConnected(false);
+            setGmailEmail('');
+            setStats({ total: 0, prioritarios: 0, seguimiento: 0, with_attachments: 0 });
+        } catch (err) {
+            console.error(err);
+        }
+    };
+
+    const handleCalendarConnect = async () => {
+        try {
+            await connectCalendar();
+        } catch (err) {
+            console.error('Calendar connect:', err);
+        }
+    };
+
+    const handleCalendarDisconnect = async () => {
+        try {
+            await disconnectCalendar();
+            setCalendarConnected(false);
+            setTodayEvents([]);
+        } catch (err) {
+            console.error('Calendar disconnect:', err);
+        }
+    };
+
+    const getGreeting = () => {
+        const h = new Date().getHours();
+        if (h < 12) return 'Buenos días';
+        if (h < 20) return 'Buenas tardes';
+        return 'Buenas noches';
+    };
+
+    return (
+        <Layout>
+            <AnimatePresence mode="wait">
+                {showWelcome && welcomePhase === 'idle' && (
+                    <WelcomeOverlay
+                        key="welcome"
+                        greeting={getGreeting()}
+                        onStart={() => runBriefing()}
+                        onSkip={() => {
+                            handleSkip();
+                            // Activar wake listener para que Lucy siga disponible por voz
+                            if (wakeWordEnabled) {
+                                setTimeout(() => {
+                                    cancel();  // Reset limpio del engine
+                                }, 300);
+                            }
+                        }}
+                        speak={speak}
+                        userName={user?.name || ''}
+                        onVoiceCommand={(text) => {
+                            // Cerrar overlay y enviar comando al engine
+                            handleSkip();
+                            setTimeout(() => sendToLucy(text), 200);
+                        }}
+                    />
+                )}
+                {welcomePhase === 'thinking' && (
+                    <ThinkingParticle key="thinking" />
+                )}
+                {briefingVisible && welcomePhase === 'briefing' && (
+                    <BriefingOverlay
+                        key="briefing"
+                        text={briefingText}
+                        isSpeaking={briefingIsSpeaking}
+                        onDismiss={dismissBriefing}
+                        canvasState={canvasState}
+                        canvasLevel={canvasLevel}
+                        waveform={waveform}
+                        audioRef={briefingAudioRef}
+                    />
+                )}
+            </AnimatePresence>
+
+            <div className="max-w-5xl mx-auto px-6 py-10" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+
+                {/* ── Volver ── */}
+                <button
+                    onClick={() => window.history.back()}
+                    className="flex items-center gap-1.5 transition-colors duration-200"
+                    style={{ color: 'var(--text-tertiary)', fontSize: '11px', letterSpacing: '0.05em' }}
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                    Volver
+                </button>
+
+                <motion.div
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                >
+                    <p style={{ fontSize: '9px', letterSpacing: '0.18em', color: 'var(--text-tertiary)', textTransform: 'uppercase', marginBottom: '10px' }}>
+                        {getGreeting()}
+                    </p>
+                    <h1 style={{
+                        fontFamily: "'Cormorant Garamond', serif",
+                        fontSize: 'clamp(2rem, 5vw, 3rem)',
+                        fontWeight: 300,
+                        color: 'var(--text-primary)',
+                        lineHeight: 1.1,
+                        marginBottom: '8px',
+                    }}>
+                        {t(language, 'welcomeTitle')}
+                    </h1>
+                    <p style={{
+                        fontSize: '13px',
+                        color: 'var(--text-secondary)',
+                        maxWidth: '36rem',
+                        lineHeight: '1.6',
+                    }}>
+                        {t(language, 'welcomeSubtitle')}
+                    </p>
+                </motion.div>
+
+                {/* ── Lucy hero ── */}
+                <LucyConversationCard
+                    handsFreeModeActive={handsFreeModeActive}
+                    activateHandsFreeMode={activateHandsFreeMode}
+                    cancel={cancel}
+                    lastInteraction={lastInteraction}
+                    briefingText={briefingText}
+                    sending={sending}
+                    sendToLucy={sendToLucy}
+                    runBriefing={runBriefing}
+                    briefingInFlightRef={briefingInFlightRef}
+                    ttsEnabled={ttsEnabled}
+                    setTtsEnabled={setTtsEnabled}
+                    wakeWordEnabled={wakeWordEnabled}
+                    wakeWordActive={wakeWordActive}
+                    isSpeaking={isSpeaking}
+                    isListening={isListening}
+                    isProcessing={isProcessing}
+                    canvasState={canvasState}
+                    canvasLevel={canvasLevel}
+                    waveform={waveform}
+                    pendingEmail={pendingEmail}
+                    onConfirmEmail={confirmEmailSend}
+                    onCancelEmail={cancelEmailSend}
+                />
+
+                {/* ── Context grid: TU CONTEXTO ── */}
+                <div>
+                    <p style={{
+                        fontSize: '9px',
+                        color: 'var(--text-tertiary)',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.18em',
+                        fontWeight: 500,
+                        marginBottom: '10px',
+                    }}>
+                        Tu contexto
+                    </p>
+
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: '1fr 1fr',
+                        gridTemplateRows: 'auto auto',
+                        gap: '8px',
+                    }}>
+                        {/* Correo — spans 2 rows */}
+                        <motion.button
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.1, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                            onClick={gmailConnected ? () => navigate('/app/messages') : handleGmailConnect}
+                            className="ctx-card text-left flex flex-col justify-between transition-all duration-300"
+                            style={{
+                                ...CARD_STYLE,
+                                gridColumn: '1',
+                                gridRow: '1 / 3',
+                                padding: '14px 16px',
+                            }}
+                        >
+                            <div>
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Inbox style={{ width: 14, height: 14, color: 'var(--text-tertiary)' }} />
+                                    <span style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Correo</span>
+                                    {gmailConnected && (
+                                        <span className="ctx-dot" style={{
+                                            width: 5, height: 5,
+                                            borderRadius: '50%',
+                                            background: 'rgba(201,178,124,0.5)',
+                                            animation: 'ctxPulse 2s ease-in-out infinite',
+                                            flexShrink: 0,
+                                        }} />
+                                    )}
+                                </div>
+
+                                <p style={{
+                                    fontFamily: "'Cormorant Garamond', serif",
+                                    fontSize: '52px',
+                                    fontWeight: 300,
+                                    color: 'var(--text-primary)',
+                                    lineHeight: 1,
+                                    marginBottom: '4px',
+                                }}>
+                                    {gmailConnected && stats ? stats.total : '—'}
+                                </p>
+                                <p style={{
+                                    fontSize: '11px',
+                                    color: 'var(--text-tertiary)',
+                                }}>
+                                    {gmailConnected ? (gmailEmail || 'Gmail sincronizado') : 'Sin conectar'}
+                                </p>
+                            </div>
+
+                            {/* Últimas empresas */}
+                            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', marginTop: '12px' }}>
+                                <p style={{
+                                    fontSize: '9px',
+                                    letterSpacing: '0.15em',
+                                    color: 'var(--text-tertiary)',
+                                    textTransform: 'uppercase',
+                                    marginBottom: '4px',
+                                }}>
+                                    Últimas empresas
+                                </p>
+                                <p style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>—</p>
+                            </div>
+                        </motion.button>
+
+                        {/* Agenda — top right */}
+                        <motion.button
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                            onClick={calendarConnected ? () => setCalendarExpanded(p => !p) : handleCalendarConnect}
+                            className="ctx-card text-left transition-all duration-300"
+                            style={{
+                                ...CARD_STYLE,
+                                padding: '14px 16px',
+                            }}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <Calendar style={{ width: 14, height: 14, color: 'var(--text-tertiary)' }} />
+                                <span style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Agenda</span>
+                                {calendarConnected && (
+                                    <span style={{
+                                        width: 5, height: 5,
+                                        borderRadius: '50%',
+                                        background: 'rgba(201,178,124,0.5)',
+                                        animation: 'ctxPulse 2s ease-in-out infinite',
+                                        flexShrink: 0,
+                                    }} />
+                                )}
+                            </div>
+                            <p style={{
+                                fontFamily: "'Cormorant Garamond', serif",
+                                fontSize: '38px',
+                                fontWeight: 300,
+                                color: 'var(--text-primary)',
+                                lineHeight: 1,
+                                marginBottom: '2px',
+                            }}>
+                                {calendarConnected ? todayEvents.length : '—'}
+                            </p>
+                            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                {calendarConnected
+                                    ? (todayEvents.length === 0 ? 'Sin eventos hoy' : `evento${todayEvents.length !== 1 ? 's' : ''} hoy`)
+                                    : 'Sin conectar'}
+                            </p>
+                        </motion.button>
+
+                        {/* Resumen de correos — bottom right */}
+                        <motion.button
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: 0.2, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                            onClick={() => { if (!briefingInFlightRef.current) runBriefing(); }}
+                            disabled={briefingInFlightRef.current}
+                            className="ctx-card text-left transition-all duration-300 disabled:opacity-40"
+                            style={{
+                                ...CARD_STYLE,
+                                padding: '14px 16px',
+                            }}
+                        >
+                            <div className="flex items-center gap-2 mb-2">
+                                <FileText style={{ width: 14, height: 14, color: 'var(--text-tertiary)' }} />
+                                <span style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Resumen</span>
+                                {gmailConnected && stats?.total > 0 && (
+                                    <span style={{
+                                        width: 5, height: 5,
+                                        borderRadius: '50%',
+                                        background: 'rgba(201,178,124,0.5)',
+                                        animation: 'ctxPulse 2s ease-in-out infinite',
+                                        flexShrink: 0,
+                                    }} />
+                                )}
+                            </div>
+                            <p style={{
+                                fontFamily: "'Cormorant Garamond', serif",
+                                fontSize: '38px',
+                                fontWeight: 300,
+                                color: 'var(--text-primary)',
+                                lineHeight: 1,
+                                marginBottom: '2px',
+                            }}>
+                                {gmailConnected && stats ? stats.prioritarios : '—'}
+                            </p>
+                            <p style={{ fontSize: '11px', color: 'var(--text-tertiary)' }}>
+                                {gmailConnected && stats ? `prioritarios de ${stats.total}` : 'Sin datos'}
+                            </p>
+                        </motion.button>
                     </div>
-                  </motion.div>
-                ))}
-              </div>
+
+                    {/* Memoria — subordinated below */}
+                    <motion.button
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.25, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        onClick={() => navigate('/app/settings')}
+                        className="ctx-card w-full text-left transition-all duration-300"
+                        style={{
+                            ...CARD_STYLE,
+                            padding: '10px 16px',
+                            marginTop: '8px',
+                            opacity: 0.6,
+                        }}
+                    >
+                        <div className="flex items-center gap-3">
+                            <Brain style={{ width: 13, height: 13, color: 'var(--text-tertiary)' }} />
+                            <span style={{ fontSize: '10px', letterSpacing: '0.12em', color: 'var(--text-secondary)', textTransform: 'uppercase' }}>Memoria de Lucy</span>
+                            <span style={{
+                                fontFamily: "'Cormorant Garamond', serif",
+                                fontSize: '28px',
+                                fontWeight: 300,
+                                color: 'var(--text-secondary)',
+                                lineHeight: 1,
+                                marginLeft: 'auto',
+                            }}>
+                                —
+                            </span>
+                        </div>
+                    </motion.button>
+                </div>
+
+                {/* Gmail connect/disconnect actions (only when not connected) */}
+                {!gmailLoading && !gmailConnected && (
+                    <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                        className="flex items-center gap-4"
+                    >
+                        <button
+                            onClick={handleGmailConnect}
+                            style={{
+                                fontSize: '10px',
+                                letterSpacing: '0.1em',
+                                color: 'var(--champagne-dim)',
+                                textTransform: 'uppercase',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Conectar correo
+                        </button>
+                        <button
+                            onClick={handleCalendarConnect}
+                            style={{
+                                fontSize: '10px',
+                                letterSpacing: '0.1em',
+                                color: 'var(--text-secondary)',
+                                textTransform: 'uppercase',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Conectar agenda
+                        </button>
+                    </motion.div>
+                )}
+
+                {/* Disconnect links (when connected) */}
+                {gmailConnected && (
+                    <div className="flex items-center gap-4">
+                        <button
+                            onClick={handleDisconnect}
+                            style={{
+                                fontSize: '10px',
+                                letterSpacing: '0.08em',
+                                color: 'var(--text-tertiary)',
+                                background: 'none',
+                                border: 'none',
+                                cursor: 'pointer',
+                            }}
+                        >
+                            Desconectar correo
+                        </button>
+                        {calendarConnected && (
+                            <button
+                                onClick={handleCalendarDisconnect}
+                                style={{
+                                    fontSize: '10px',
+                                    letterSpacing: '0.08em',
+                                    color: 'var(--text-tertiary)',
+                                    background: 'none',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Desconectar agenda
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Calendar events ── */}
+                {!calendarLoading && calendarConnected && todayEvents.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                        className="overflow-hidden transition-all duration-300"
+                        style={{
+                            ...CARD_STYLE,
+                        }}
+                    >
+                        <button
+                            onClick={() => setCalendarExpanded(p => !p)}
+                            className="w-full px-4 py-3 flex items-center justify-between text-left"
+                        >
+                            <div className="flex items-center gap-3">
+                                <Calendar style={{ width: 12, height: 12, color: 'rgba(201,178,124,0.4)' }} />
+                                <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>
+                                    Agenda de hoy — <span style={{ color: 'var(--text-primary)' }}>{todayEvents.length} evento{todayEvents.length !== 1 ? 's' : ''}</span>
+                                </span>
+                            </div>
+
+                            <svg
+                                width="12"
+                                height="12"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="rgba(255,255,255,0.25)"
+                                strokeWidth="2"
+                                style={{ transition: 'transform 0.3s ease', transform: calendarExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}
+                            >
+                                <polyline points="6 9 12 15 18 9" />
+                            </svg>
+                        </button>
+
+                        <AnimatePresence>
+                            {calendarExpanded && (
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="px-4 pb-3" style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px' }}>
+                                        {todayEvents.map((event, i) => (
+                                            <EventRow key={event.id || i} event={event} delay={i * 0.05} />
+                                        ))}
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </motion.div>
+                )}
+
+                {/* ── Briefing summary: LUCY HA PREPARADO TU DÍA ── */}
+                {!loading && stats && gmailConnected && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+                        style={CARD_STYLE}
+                    >
+                        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <p style={{
+                                fontSize: '9px',
+                                letterSpacing: '0.15em',
+                                color: 'var(--text-tertiary)',
+                                textTransform: 'uppercase',
+                                fontWeight: 500,
+                            }}>
+                                Lucy ha preparado tu día
+                            </p>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                {stats.total > 0 && (
+                                    <div className="flex items-start gap-3">
+                                        <span style={{
+                                            ...TAG_STYLE,
+                                            color: 'rgba(201,178,124,0.5)',
+                                            border: '0.5px solid var(--border-champagne)',
+                                            flexShrink: 0,
+                                            marginTop: '2px',
+                                        }}>HOY</span>
+                                        <p style={{
+                                            fontFamily: "'Cormorant Garamond', serif",
+                                            fontStyle: 'italic',
+                                            fontSize: '14px',
+                                            color: 'var(--text-primary)',
+                                            lineHeight: '1.6',
+                                        }}>
+                                            Tu bandeja tiene {stats.total} correo{stats.total !== 1 ? 's' : ''}
+                                        </p>
+                                    </div>
+                                )}
+                                {stats.prioritarios > 0 && (
+                                    <div className="flex items-start gap-3">
+                                        <span style={{
+                                            ...TAG_STYLE,
+                                            color: 'rgba(220,120,100,0.7)',
+                                            border: '0.5px solid rgba(220,120,100,0.25)',
+                                            flexShrink: 0,
+                                            marginTop: '2px',
+                                        }}>URGENTE</span>
+                                        <p style={{
+                                            fontFamily: "'Cormorant Garamond', serif",
+                                            fontStyle: 'italic',
+                                            fontSize: '14px',
+                                            color: 'var(--text-primary)',
+                                            lineHeight: '1.6',
+                                        }}>
+                                            {stats.prioritarios} email{stats.prioritarios !== 1 ? 's' : ''} prioritario{stats.prioritarios !== 1 ? 's' : ''}
+                                        </p>
+                                    </div>
+                                )}
+                                {stats.seguimiento > 0 && (
+                                    <div className="flex items-start gap-3">
+                                        <span style={{
+                                            ...TAG_STYLE,
+                                            color: 'rgba(201,178,124,0.5)',
+                                            border: '0.5px solid var(--border-champagne)',
+                                            flexShrink: 0,
+                                            marginTop: '2px',
+                                        }}>PENDIENTE</span>
+                                        <p style={{
+                                            fontFamily: "'Cormorant Garamond', serif",
+                                            fontStyle: 'italic',
+                                            fontSize: '14px',
+                                            color: 'var(--text-primary)',
+                                            lineHeight: '1.6',
+                                        }}>
+                                            {stats.seguimiento} conversacion{stats.seguimiento !== 1 ? 'es' : ''} en seguimiento
+                                        </p>
+                                    </div>
+                                )}
+                                {stats.with_attachments > 0 && (
+                                    <div className="flex items-start gap-3">
+                                        <span style={{
+                                            ...TAG_STYLE,
+                                            color: 'rgba(201,178,124,0.5)',
+                                            border: '0.5px solid var(--border-champagne)',
+                                            flexShrink: 0,
+                                            marginTop: '2px',
+                                        }}>HOY</span>
+                                        <p style={{
+                                            fontFamily: "'Cormorant Garamond', serif",
+                                            fontStyle: 'italic',
+                                            fontSize: '14px',
+                                            color: 'var(--text-primary)',
+                                            lineHeight: '1.6',
+                                        }}>
+                                            {stats.with_attachments} correo{stats.with_attachments !== 1 ? 's' : ''} con adjuntos
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div style={{ borderTop: '1px solid var(--border-subtle)', paddingTop: '10px', display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+                                <button
+                                    onClick={() => navigate('/app/messages')}
+                                    style={{
+                                        fontSize: '10px',
+                                        letterSpacing: '0.1em',
+                                        color: 'var(--champagne-dim)',
+                                        textTransform: 'uppercase',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'color 0.2s ease',
+                                    }}
+                                >
+                                    Ver correos
+                                </button>
+                                <button
+                                    onClick={() => { if (!briefingInFlightRef.current) runBriefing(); }}
+                                    disabled={briefingInFlightRef.current || sending}
+                                    style={{
+                                        fontSize: '10px',
+                                        letterSpacing: '0.1em',
+                                        color: 'var(--text-secondary)',
+                                        textTransform: 'uppercase',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'color 0.2s ease',
+                                    }}
+                                    className="disabled:opacity-30"
+                                >
+                                    Resumir bandeja
+                                </button>
+                                <button
+                                    onClick={() => navigate('/app/tasks')}
+                                    style={{
+                                        fontSize: '10px',
+                                        letterSpacing: '0.1em',
+                                        color: 'var(--text-secondary)',
+                                        textTransform: 'uppercase',
+                                        background: 'none',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        transition: 'color 0.2s ease',
+                                    }}
+                                >
+                                    Organizar mi día
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
             </div>
-          ) : (
-            <div className="glass-subtle rounded-2xl p-12 text-center silence-mode" data-testid="silence-mode">
-              <div className="w-16 h-16 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center mx-auto mb-4">
-                <CheckCircle className="w-8 h-8 text-emerald-400" strokeWidth={1.5} />
-              </div>
-              <h3 className="text-xl font-semibold text-slate-100 mb-2">{t(language, 'silenceMode')}</h3>
-              <p className="text-slate-400">{t(language, 'silenceModeDesc')}</p>
-            </div>
-          )}
-        </motion.div>
-      </div>
-    </Layout>
-  );
+
+            <ReminderToast reminder={currentReminder} onDismiss={dismissReminder} />
+            <AlertToast alert={currentAlert} onDismiss={dismissAlert} />
+
+            <style>{`
+                .ctx-card:hover {
+                    border-color: var(--glow-champagne-md) !important;
+                    background: var(--surface-glass-hover) !important;
+                }
+                @keyframes ctxPulse {
+                    0%, 100% { opacity: 0.5; }
+                    50% { opacity: 0.2; }
+                }
+            `}</style>
+        </Layout>
+    );
 }

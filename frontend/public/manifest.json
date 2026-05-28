@@ -1,0 +1,56 @@
+{
+    "short_name": "Lucy",
+    "name": "Lucy · Secretaria Virtual Inteligente",
+    "description": "Tu secretaria virtual inteligente. Inteligencia al servicio de tu tiempo.",
+    "start_url": "/",
+    "display": "standalone",
+    "orientation": "portrait-primary",
+    "theme_color": "#0B0E14",
+    "background_color": "#0B0E14",
+    "lang": "es",
+    "scope": "/",
+    "icons": [
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "shortcuts": [
+        {
+            "name": "Mensajes",
+            "short_name": "Mensajes",
+            "description": "Ver bandeja de correo",
+            "url": "/messages",
+            "icons": [
+                {
+                    "src": "/icons/icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        },
+        {
+            "name": "Resumen",
+            "short_name": "Resumen",
+            "description": "Panel de resumen",
+            "url": "/",
+            "icons": [
+                {
+                    "src": "/icons/icon-192.png",
+                    "sizes": "192x192"
+                }
+            ]
+        }
+    ],
+    "categories": [
+        "productivity",
+        "business"
+    ]
+}
