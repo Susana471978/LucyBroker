@@ -54,6 +54,7 @@ class Settings(BaseModel):
     imap_port: int = Field(default=993, alias="IMAP_PORT")
     imap_user: str | None = Field(default=None, alias="IMAP_USER")
     imap_password: str | None = Field(default=None, alias="IMAP_PASSWORD")
+    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
 
     cors_origins: List[str] = Field(
         default_factory=lambda: os.environ.get("CORS_ORIGINS", "*").split(",")
