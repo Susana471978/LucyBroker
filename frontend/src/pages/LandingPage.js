@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import HeroImage from '../assets/Objetiva.png';
+import HeroImage from '../assets/Lucy.png';
 
 /* ─── Golden particles canvas ────────────────────────── */
 function GoldParticles() {
