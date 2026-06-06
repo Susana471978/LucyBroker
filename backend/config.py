@@ -50,6 +50,10 @@ class Settings(BaseModel):
 
     emergent_llm_key: str | None = Field(default=None, alias="EMERGENT_LLM_KEY")
     encryption_key: str | None = Field(default=None, alias="ENCRYPTION_KEY")
+    imap_host: str = Field(default="imap.gmail.com", alias="IMAP_HOST")
+    imap_port: int = Field(default=993, alias="IMAP_PORT")
+    imap_user: str | None = Field(default=None, alias="IMAP_USER")
+    imap_password: str | None = Field(default=None, alias="IMAP_PASSWORD")
 
     cors_origins: List[str] = Field(
         default_factory=lambda: os.environ.get("CORS_ORIGINS", "*").split(",")
