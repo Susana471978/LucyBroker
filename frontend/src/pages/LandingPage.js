@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import HeroImage from '../assets/Lucy.png';
+import HeroImage from '../assets/Objetiva.png';
 
 /* ─── Golden particles canvas ────────────────────────── */
 function GoldParticles() {
@@ -651,7 +651,7 @@ export default function LandingPage() {
         {/* NAV */}
         <nav className="lp-nav">
           <div onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
-            <div className="lp-logo">LUCY<span>.</span></div>
+            <div className="lp-logo">OBJETIVA<span>.</span></div>
             <span className="lp-logo-sub">Correduría de Seguros</span>
           </div>
 
@@ -677,7 +677,7 @@ export default function LandingPage() {
             </h1>
 
             <p className="hero-subtext">
-              Lucy clasifica, prioriza y redacta respuestas a los correos de tu equipo. Los siniestros siempre primero. El resto, en orden.
+              Objetiva clasifica, prioriza y redacta respuestas a los correos de tu equipo. Los siniestros siempre primero. El resto, en orden.
             </p>
 
             <button type="button" className="btn-main" onClick={() => navigate('/auth')}>
@@ -686,7 +686,7 @@ export default function LandingPage() {
           </div>
 
           <div className="hero-img-container">
-            <img src={HeroImage} alt="Lucy Broker" className="hero-img" />
+            <img src={HeroImage} alt="Objetiva" className="hero-img" />
           </div>
         </section>
 
@@ -728,14 +728,14 @@ export default function LandingPage() {
                 num: '01',
                 tag: 'Prioridad máxima',
                 title: 'Siniestros primero',
-                desc: 'Lucy detecta y escala automáticamente cualquier comunicación relacionada con siniestros. Nunca más un siniestro urgente enterrado en la bandeja.',
+                desc: 'Objetiva detecta y escala automáticamente cualquier comunicación relacionada con siniestros. Nunca más un siniestro urgente enterrado en la bandeja.',
                 priority: true,
               },
               {
                 num: '02',
                 tag: 'Prioridad alta',
                 title: 'Solicitudes de clientes',
-                desc: 'Las peticiones de clientes se clasifican y priorizan por urgencia. Lucy extrae el nombre, número de póliza y tipo de consulta de cada correo.',
+                desc: 'Las peticiones de clientes se clasifican y priorizan por urgencia. Objetiva extrae el nombre, número de póliza y tipo de consulta de cada correo.',
                 priority: true,
               },
               {
@@ -749,14 +749,14 @@ export default function LandingPage() {
                 num: '04',
                 tag: 'IA generativa',
                 title: 'Borradores automáticos',
-                desc: 'Lucy redacta dos opciones de respuesta para cada correo, adaptadas al tono de tu correduría. Tu equipo edita y envía en segundos.',
+                desc: 'Objetiva redacta dos opciones de respuesta para cada correo, adaptadas al tono de tu correduría. Tu equipo edita y envía en segundos.',
                 priority: false,
               },
               {
                 num: '05',
                 tag: 'Alertas inteligentes',
                 title: 'Recordatorios de seguimiento',
-                desc: 'Si un correo tiene fecha límite o requiere respuesta urgente, Lucy crea un recordatorio automático para que nada quede sin atender.',
+                desc: 'Si un correo tiene fecha límite o requiere respuesta urgente, Objetiva crea un recordatorio automático para que nada quede sin atender.',
                 priority: false,
               },
               {
@@ -782,7 +782,7 @@ export default function LandingPage() {
           <span className="lp-quote-mark">"</span>
           <blockquote>
             En una correduría, cada minuto que se pierde en clasificar correos es un minuto que no se dedica al cliente.
-            Lucy devuelve ese tiempo.
+            Objetiva devuelve ese tiempo.
           </blockquote>
         </section>
 
@@ -793,7 +793,7 @@ export default function LandingPage() {
             trabajar con <em>claridad.</em>
           </h2>
           <p className="lp-cta-sub">
-            Lucy Broker está diseñada para corredurías que quieren responder más rápido, cometer menos errores y dedicar su tiempo a lo que importa.
+            Objetiva está diseñada para corredurías que quieren responder más rápido, cometer menos errores y dedicar su tiempo a lo que importa.
           </p>
           <button type="button" className="btn-main" onClick={() => navigate('/auth')}>
             Solicitar acceso
@@ -803,11 +803,11 @@ export default function LandingPage() {
         {/* FOOTER */}
         <footer className="lp-footer">
           <div>
-            <div className="lp-logo" style={{ fontSize: '1.4rem' }}>LUCY<span>.</span></div>
+            <div className="lp-logo" style={{ fontSize: '1.4rem' }}>OBJETIVA<span>.</span></div>
             <span className="lp-logo-sub">Correduría de Seguros</span>
           </div>
           <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)' }}>
-            © 2026 Syntexia Solutions · Lucy Broker · España
+            © 2026 Syntexia Solutions · Objetiva · España
           </p>
         </footer>
       </div>
