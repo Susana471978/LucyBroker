@@ -57,6 +57,10 @@ class EnrichedEmail(BaseModel):
 
     email: EmailEvent
     priority: PriorityResult
+    categoria: str = "OTRO"
+    datos_clave: dict = {}
+    resumen: str = ""
+    borrador: str = ""
 
 
 # ==================== AUTH MODELS ====================
