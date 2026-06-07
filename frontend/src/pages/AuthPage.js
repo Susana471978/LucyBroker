@@ -4,10 +4,7 @@ import { Lock, ArrowRight, Loader2, Eye, EyeOff, Mail } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 import HeroImage from '../assets/Lucy.png';
-
 import { useAuth } from '../context/AuthContext';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
 
 function ParticleCanvas() {
   const canvasRef = useRef(null);
@@ -22,7 +19,7 @@ function ParticleCanvas() {
     resize();
     window.addEventListener('resize', resize);
 
-    const GOLD = ['rgba(201,178,124,', 'rgba(230,210,160,', 'rgba(180,155,100,', 'rgba(215,195,140,'];
+    const GOLD = ['rgba(201,169,110,', 'rgba(230,210,160,', 'rgba(180,155,100,', 'rgba(215,195,140,'];
     const particles = Array.from({ length: 60 }, () => ({
       x: Math.random() * 800, y: Math.random() * 900,
       r: Math.random() * 1.6 + 0.3,
@@ -46,12 +43,10 @@ function ParticleCanvas() {
         if (p.y < -5) { p.y = canvas.height + 5; p.x = Math.random() * canvas.width; }
         if (p.x < -5) p.x = canvas.width + 5;
         if (p.x > canvas.width + 5) p.x = -5;
-
         ctx.beginPath();
         ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
         ctx.fillStyle = `${p.color}${p.alpha.toFixed(2)})`;
         ctx.fill();
-
         if (p.r > 1.0) {
           const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 3.5);
           g.addColorStop(0, `${p.color}${(p.alpha * 0.35).toFixed(2)})`);
@@ -76,15 +71,12 @@ function ImageSide() {
   return (
     <div className="auth-left-col">
       <div className="auth-img-wrapper">
-        <img
-          className="auth-hero-img"
-          src={HeroImage}
-          alt="Objetiva — Correduría de Seguros"
-        />
+        <img className="auth-hero-img" src={HeroImage} alt="Objetiva — Correduría de Seguros" />
         <div className="auth-img-overlay" />
         <ParticleCanvas />
         <div className="auth-label">
-          <h1 className="auth-brand">Objetiva<span>.</span></h1>
+          {/* OBJETIVA. — exactamente igual que la landing: Cormorant, uppercase, tracking 0.35em, sin italic */}
+          <h1 className="auth-brand-name">OBJETIVA<span>.</span></h1>
           <p className="auth-tagline">
             Correduría de Seguros.<br />
             Inteligencia al servicio de tu equipo.
@@ -123,7 +115,7 @@ export default function AuthPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Plus+Jakarta+Sans:wght@200;300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jura:wght@300;400;500&display=swap');
 
         .auth-root {
           min-height: 100vh;
@@ -131,25 +123,24 @@ export default function AuthPage() {
           display: flex;
           align-items: stretch;
           overflow: hidden;
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          font-family: 'Jura', sans-serif;
         }
 
         .auth-top-line {
           position: fixed;
           top: 0; left: 0; right: 0;
           height: 1px;
-          background: linear-gradient(to right, transparent, rgba(201,178,124,0.3) 30%, rgba(232,213,163,0.3) 70%, transparent);
+          background: linear-gradient(to right, transparent, rgba(201,169,110,0.35) 30%, rgba(201,169,110,0.35) 70%, transparent);
           z-index: 20;
         }
 
-        /* ── LADO IZQUIERDO ── */
+        /* ── IZQUIERDA ── */
         .auth-left-col {
           flex: 1.2;
           display: flex;
           flex-direction: column;
           min-height: 100vh;
         }
-
         .auth-img-wrapper {
           flex: 1;
           position: relative;
@@ -158,7 +149,6 @@ export default function AuthPage() {
           flex-direction: column;
           justify-content: flex-end;
         }
-
         .auth-hero-img {
           position: absolute;
           inset: 0;
@@ -170,7 +160,6 @@ export default function AuthPage() {
           z-index: 1;
           filter: sepia(0.5) saturate(0.5) hue-rotate(5deg) brightness(0.75);
         }
-
         .auth-img-overlay {
           position: absolute;
           inset: 0;
@@ -180,40 +169,44 @@ export default function AuthPage() {
           z-index: 2;
           pointer-events: none;
         }
-
         .auth-label {
           position: relative;
           z-index: 4;
           bottom: 18%;
-          padding: 0 1rem;
+          padding: 0 2.5rem;
         }
 
-        .auth-brand {
-          font-family: 'Cormorant Garamond', serif;
-          font-size: 4rem;
-          font-weight: 300;
-          color: #C9B27C;
-          letter-spacing: 0.05em;
-          line-height: 1;
-          margin: 0 0 0.55rem;
+        /* ── OBJETIVA. — idéntico a la landing ── */
+        .auth-brand-name {
+          font-family: 'Cormorant Garamond', serif !important;
+          font-size: 2.2rem !important;
+          font-weight: 300 !important;
+          font-style: normal !important;
+          color: #C9A96E !important;
+          letter-spacing: 0.35em !important;
+          text-transform: uppercase !important;
+          line-height: 1 !important;
+          margin: 0 0 0.6rem !important;
           text-shadow:
-            0 0 30px rgba(201,178,124,0.6),
-            0 0 60px rgba(201,178,124,0.25),
-            0 2px 8px rgba(0,0,0,0.7);
+            0 0 40px rgba(201,169,110,0.7),
+            0 0 80px rgba(201,169,110,0.3),
+            0 2px 8px rgba(0,0,0,0.8) !important;
         }
-
-        .auth-brand span {
-          color: #E8D5A3;
+        .auth-brand-name span {
+          color: #F2EFE9 !important;
         }
 
         .auth-tagline {
-          font-size: 0.62rem;
-          color: rgba(255,255,255,0.45);
-          text-transform: uppercase;
-          letter-spacing: 0.2em;
-          line-height: 1.9;
-          margin: 0;
-          text-shadow: 0 1px 10px rgba(0,0,0,0.9);
+          font-family: 'Jura', sans-serif !important;
+          font-size: 0.58rem !important;
+          font-weight: 400 !important;
+          font-style: normal !important;
+          color: rgba(242,239,233,0.55) !important;
+          text-transform: uppercase !important;
+          letter-spacing: 0.22em !important;
+          line-height: 2 !important;
+          margin: 0 !important;
+          text-shadow: 0 1px 10px rgba(0,0,0,0.9) !important;
         }
 
         /* ── DIVISOR ── */
@@ -223,16 +216,16 @@ export default function AuthPage() {
           background: linear-gradient(
             to bottom,
             transparent,
-            rgba(201,178,124,0.08) 20%,
-            rgba(201,178,124,0.18) 50%,
-            rgba(201,178,124,0.08) 80%,
+            rgba(201,169,110,0.25) 20%,
+            rgba(201,169,110,0.35) 50%,
+            rgba(201,169,110,0.25) 80%,
             transparent
           );
           flex-shrink: 0;
           z-index: 10;
         }
 
-        /* ── FORMULARIO ── */
+        /* ── PANEL DERECHO ── */
         .auth-form-side {
           flex: 0.8;
           display: flex;
@@ -244,92 +237,158 @@ export default function AuthPage() {
           min-width: 340px;
         }
 
+        /* "ACCEDER" eyebrow */
         .auth-form-title {
+          font-family: 'Jura', sans-serif;
           font-size: 0.6rem;
-          color: rgba(201,178,124,0.5);
+          font-weight: 500;
+          color: #C9A96E;
           text-transform: uppercase;
-          letter-spacing: 0.22em;
+          letter-spacing: 0.35em;
           margin-bottom: 2rem;
         }
 
         .auth-field { margin-bottom: 1.2rem; }
 
+        /* Labels */
         .auth-field-label {
           display: block;
+          font-family: 'Jura', sans-serif;
           font-size: 0.6rem;
+          font-weight: 500;
           text-transform: uppercase;
-          letter-spacing: 0.18em;
-          color: rgba(255,255,255,0.45);
+          letter-spacing: 0.25em;
+          color: rgba(242,239,233,0.65);
           margin-bottom: 0.5rem;
         }
 
         .auth-input-wrapper { position: relative; }
 
         .auth-input-icon {
-          position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
-          width: 13px; height: 13px; color: rgba(201,178,124,0.25);
+          position: absolute;
+          left: 1rem; top: 50%; transform: translateY(-50%);
+          width: 13px; height: 13px;
+          color: rgba(201,169,110,0.5);
           pointer-events: none; z-index: 1;
         }
 
-        .auth-input {
-          background: rgba(8,8,12,0.9) !important;
-          border: 1px solid rgba(201,178,124,0.15) !important;
-          color: rgba(255,255,255,0.8) !important;
-          padding-left: 2.75rem !important;
-          transition: border-color .28s, box-shadow .28s !important;
-          font-size: 0.85rem !important;
-          font-family: 'Plus Jakarta Sans', sans-serif !important;
-          border-radius: 2px !important;
-          box-shadow: none !important;
-        }
-        .auth-input::placeholder { color: rgba(255,255,255,0.20) !important; }
-        .auth-input:focus {
-          border-color: rgba(201,178,124,0.5) !important;
-          box-shadow: 0 0 0 1px rgba(201,178,124,0.08) inset, 0 0 14px rgba(201,178,124,0.10) !important;
-          outline: none !important;
-        }
-
-        .auth-submit {
+        /* ── INPUTS nativos — sin shadcn ── */
+        .auth-native-input {
+          display: block;
           width: 100%;
-          background: rgba(8,8,12,0.9) !important;
-          border: 1px solid rgba(201,178,124,0.4) !important;
-          color: #E8D5A3 !important;
-          font-size: 0.65rem !important;
-          font-family: 'Plus Jakarta Sans', sans-serif !important;
-          text-transform: uppercase !important;
-          letter-spacing: 0.18em !important;
-          transition: all .28s ease !important;
-          border-radius: 2px !important;
-          box-shadow: none !important;
+          height: 3.2rem;
+          padding: 0 3rem 0 2.75rem;
+          background: #08080c;
+          border: 1px solid rgba(201,169,110,0.30);
+          color: #F2EFE9;
+          font-family: 'Jura', sans-serif;
+          font-size: 0.82rem;
+          font-weight: 400;
+          letter-spacing: 0.05em;
+          border-radius: 2px;
+          outline: none;
+          transition: border-color 0.28s, box-shadow 0.28s;
+          -webkit-appearance: none;
+          appearance: none;
         }
-        .auth-submit:hover:not(:disabled) {
-          background: rgba(201,178,124,0.08) !important;
-          border-color: rgba(201,178,124,0.8) !important;
-          box-shadow: 0 0 20px rgba(201,178,124,0.15), 0 0 40px rgba(201,178,124,0.08) !important;
-          transform: translateY(-1px) !important;
+        .auth-native-input::placeholder {
+          color: rgba(242,239,233,0.25);
+          font-family: 'Jura', sans-serif;
         }
-        .auth-submit:active:not(:disabled) { transform: translateY(0) !important; }
-        .auth-submit:disabled { opacity: 0.35 !important; }
+        .auth-native-input:focus {
+          border-color: rgba(201,169,110,0.75);
+          box-shadow: 0 0 0 1px rgba(201,169,110,0.12) inset, 0 0 20px rgba(201,169,110,0.12);
+        }
+        .auth-native-input.no-icon { padding-left: 1rem; }
 
+        /* Autofill */
+        .auth-native-input:-webkit-autofill,
+        .auth-native-input:-webkit-autofill:hover,
+        .auth-native-input:-webkit-autofill:focus {
+          -webkit-box-shadow: 0 0 0 1000px #08080c inset !important;
+          -webkit-text-fill-color: #F2EFE9 !important;
+          border-color: rgba(201,169,110,0.30) !important;
+          transition: background-color 9999s ease-in-out 0s !important;
+        }
+
+        /* toggle password */
+        .auth-pw-toggle {
+          position: absolute;
+          right: 1rem; top: 50%; transform: translateY(-50%);
+          background: none; border: none; cursor: pointer;
+          color: rgba(201,169,110,0.45);
+          display: flex; align-items: center;
+          padding: 0; z-index: 2;
+          transition: color 0.2s;
+        }
+        .auth-pw-toggle:hover { color: rgba(201,169,110,0.9); }
+
+        /* ── BOTÓN — igual que "SOLICITAR ACCESO" / "ACCEDER" de la landing ── */
+        .auth-native-btn {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          width: 100%;
+          height: 3.2rem;
+          margin-top: 0.5rem;
+          background: transparent;
+          border: 1px solid #F2EFE9;
+          color: #F2EFE9;
+          font-family: 'Jura', sans-serif;
+          font-size: 0.65rem;
+          font-weight: 500;
+          text-transform: uppercase;
+          letter-spacing: 0.3em;
+          border-radius: 2px;
+          cursor: pointer;
+          transition: background 0.28s ease, color 0.28s ease, border-color 0.28s ease;
+        }
+        .auth-native-btn:hover:not(:disabled) {
+          background: #F2EFE9;
+          color: #030305;
+        }
+        .auth-native-btn:active:not(:disabled) {
+          background: #C9A96E;
+          border-color: #C9A96E;
+          color: #030305;
+        }
+        .auth-native-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+        /* Error */
         .auth-error {
-          font-size: 0.72rem; color: rgba(239,100,100,0.8);
-          background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.1);
-          border-radius: 2px; padding: 0.6rem 0.875rem; margin-bottom: 1rem;
+          font-family: 'Jura', sans-serif;
+          font-size: 0.68rem;
+          letter-spacing: 0.05em;
+          color: rgba(239,120,120,0.9);
+          background: rgba(60,0,0,0.25);
+          border: 1px solid rgba(239,68,68,0.18);
+          border-radius: 2px;
+          padding: 0.6rem 0.875rem;
+          margin-bottom: 1rem;
         }
 
+        /* Toggle login/register */
         .auth-toggle {
-          margin-top: 1.25rem; font-size: 0.68rem;
-          color: rgba(255,255,255,0.30); text-align: center;
+          margin-top: 1.25rem;
+          font-family: 'Jura', sans-serif;
+          font-size: 0.62rem;
+          letter-spacing: 0.15em;
+          color: rgba(242,239,233,0.35);
+          text-align: center;
+          text-transform: uppercase;
         }
         .auth-toggle span {
-          color: rgba(201,178,124,0.6); cursor: pointer; transition: color 0.15s;
+          color: rgba(201,169,110,0.8);
+          cursor: pointer;
+          transition: color 0.15s;
         }
-        .auth-toggle span:hover { color: rgba(201,178,124,1); }
+        .auth-toggle span:hover { color: #C9A96E; }
 
         @media (max-width: 768px) {
           .auth-root { flex-direction: column; }
           .auth-left-col { min-height: 55vh; flex: none; }
-          .auth-brand { font-size: 2.8rem; }
+          .auth-brand-name { font-size: 2.6rem !important; }
           .auth-divider { display: none; }
           .auth-form-side { flex: none; padding: 2rem 1.5rem; min-width: unset; }
         }
@@ -364,10 +423,8 @@ export default function AuthPage() {
                   <div className="auth-field">
                     <label className="auth-field-label">Nombre</label>
                     <div className="auth-input-wrapper">
-                      <Input type="text" value={name} onChange={(e) => setName(e.target.value)}
-                        placeholder="Tu nombre" required
-                        className="auth-input !h-[3.2rem] focus-visible:ring-0 focus-visible:ring-offset-0"
-                        style={{ paddingLeft: '1rem' }} />
+                      <input type="text" value={name} onChange={e => setName(e.target.value)}
+                        placeholder="Tu nombre" required className="auth-native-input no-icon" />
                     </div>
                   </div>
                 )}
@@ -376,9 +433,9 @@ export default function AuthPage() {
                   <label className="auth-field-label">Correo electrónico</label>
                   <div className="auth-input-wrapper">
                     <Mail className="auth-input-icon" strokeWidth={1.3} />
-                    <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                    <input type="email" value={email} onChange={e => setEmail(e.target.value)}
                       placeholder="hola@tuempresa.com" autoComplete="email" required
-                      className="auth-input !h-[3.2rem] focus-visible:ring-0 focus-visible:ring-offset-0" />
+                      className="auth-native-input" />
                   </div>
                 </div>
 
@@ -386,15 +443,11 @@ export default function AuthPage() {
                   <label className="auth-field-label">Contraseña</label>
                   <div className="auth-input-wrapper">
                     <Lock className="auth-input-icon" strokeWidth={1.3} />
-                    <Input type={showPassword ? 'text' : 'password'} value={password}
-                      onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                    <input type={showPassword ? 'text' : 'password'} value={password}
+                      onChange={e => setPassword(e.target.value)} placeholder="••••••••"
                       autoComplete={isRegister ? 'new-password' : 'current-password'} required
-                      className="auth-input !h-[3.2rem] !pr-12 focus-visible:ring-0 focus-visible:ring-offset-0" />
-                    <button type="button" onClick={() => setShowPassword(p => !p)}
-                      style={{
-                        position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)',
-                        color: 'rgba(201,178,124,0.3)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer'
-                      }}>
+                      className="auth-native-input" />
+                    <button type="button" className="auth-pw-toggle" onClick={() => setShowPassword(p => !p)}>
                       {showPassword ? <EyeOff className="w-4 h-4" strokeWidth={1.3} /> : <Eye className="w-4 h-4" strokeWidth={1.3} />}
                     </button>
                   </div>
@@ -406,13 +459,12 @@ export default function AuthPage() {
                   </motion.div>
                 )}
 
-                <Button type="submit" disabled={loading}
-                  className="auth-submit !h-[3.2rem] focus-visible:ring-0 focus-visible:ring-offset-0"
-                  style={{ marginTop: '0.5rem' }}>
-                  {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : (
-                    <>{isRegister ? 'Crear cuenta' : 'Entrar'}<ArrowRight className="w-4 h-4 ml-2" style={{ opacity: 0.5 }} /></>
-                  )}
-                </Button>
+                <button type="submit" disabled={loading} className="auth-native-btn">
+                  {loading
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <>{isRegister ? 'Crear cuenta' : 'Entrar'}<ArrowRight className="w-4 h-4" style={{ opacity: 0.6 }} /></>
+                  }
+                </button>
               </form>
 
               <p className="auth-toggle">
