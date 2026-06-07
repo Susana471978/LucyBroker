@@ -190,10 +190,11 @@ export default function AuthPage() {
 
         .auth-brand {
           font-family: 'Cormorant Garamond', serif;
-          font-size: 4rem;
+          font-size: 2rem;
           font-weight: 300;
           color: #C9B27C;
-          letter-spacing: 0.05em;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
           line-height: 1;
           margin: 0 0 0.55rem;
           text-shadow:
