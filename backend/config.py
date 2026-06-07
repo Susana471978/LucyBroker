@@ -50,10 +50,10 @@ class Settings(BaseModel):
 
     emergent_llm_key: str | None = Field(default=None, alias="EMERGENT_LLM_KEY")
     encryption_key: str | None = Field(default=None, alias="ENCRYPTION_KEY")
-    imap_host: str = Field(default="imap.gmail.com", alias="IMAP_HOST")
-    imap_port: int = Field(default=993, alias="IMAP_PORT")
-    imap_user: str | None = Field(default=None, alias="IMAP_USER")
-    imap_password: str | None = Field(default=None, alias="IMAP_PASSWORD")
+    imap_host: str = Field(default_factory=lambda: __import__("os").environ.get("IMAP_HOST", "imap.gmail.com"))
+    imap_port: int = Field(default_factory=lambda: int(__import__("os").environ.get("IMAP_PORT", "993")))
+    imap_user: str | None = Field(default_factory=lambda: __import__("os").environ.get("IMAP_USER"))
+    imap_password: str | None = Field(default_factory=lambda: __import__("os").environ.get("IMAP_PASSWORD"))
     groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
 
     cors_origins: List[str] = Field(
