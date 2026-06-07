@@ -1,12 +1,5 @@
 import { createContext, useContext, useState } from 'react';
-
-const mockUser = {
-  id: "demo-001",
-  name: "Carmen Rodríguez",
-  email: "carmen@objjetiva.es",
-  language: "es",
-  plan: "profesional"
-};
+import api from '../services/apiClient';
 
 const AuthContext = createContext(null);
 
@@ -18,25 +11,50 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('auth_token'));
+  const [user, setUser] = useState(() => {
+    const u = localStorage.getItem('user');
+    return u ? JSON.parse(u) : null;
+  });
 
   const login = async (email, password) => {
-    localStorage.setItem('auth_token', 'demo-token-broker');
-    setToken('demo-token-broker');
-    return mockUser;
+    const res = await api.post('/auth/login', { email, password });
+    const data = res.data?.data || res.data;
+    const t = data.token;
+    const u = data.user;
+    localStorage.setItem('auth_token', t);
+    localStorage.setItem('user', JSON.stringify(u));
+    setToken(t);
+    setUser(u);
+    return u;
+  };
+
+  const register = async (email, password, name) => {
+    const res = await api.post('/auth/register', { email, password, name });
+    const data = res.data?.data || res.data;
+    const t = data.token;
+    const u = data.user;
+    localStorage.setItem('auth_token', t);
+    localStorage.setItem('user', JSON.stringify(u));
+    setToken(t);
+    setUser(u);
+    return u;
   };
 
   const logout = () => {
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('user');
     setToken(null);
+    setUser(null);
   };
 
   return (
     <AuthContext.Provider value={{
-      user: token ? mockUser : null,
+      user,
       token,
       loading: false,
-      language: 'es',
+      language: user?.language || 'es',
       login,
+      register,
       logout,
       updateLanguage: () => {},
       isAuthenticated: !!token,
