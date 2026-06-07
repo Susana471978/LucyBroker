@@ -22,7 +22,7 @@ function ParticleCanvas() {
     resize();
     window.addEventListener('resize', resize);
 
-    const GOLD = ['rgba(201,178,124,', 'rgba(230,210,160,', 'rgba(180,155,100,', 'rgba(215,195,140,'];
+    const GOLD = ['rgba(201,169,110,', 'rgba(230,210,160,', 'rgba(180,155,100,', 'rgba(215,195,140,'];
     const particles = Array.from({ length: 60 }, () => ({
       x: Math.random() * 800, y: Math.random() * 900,
       r: Math.random() * 1.6 + 0.3,
@@ -123,22 +123,33 @@ export default function AuthPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Plus+Jakarta+Sans:wght@200;300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jura:wght@300;400;500&display=swap');
+
+        /* ── VARIABLES (mismas que la landing) ── */
+        :root {
+          --gold:       #C9A96E;
+          --gold-dim:   rgba(201,169,110,0.5);
+          --gold-faint: rgba(201,169,110,0.15);
+          --white:      #F2EFE9;
+          --white-dim:  rgba(242,239,233,0.45);
+          --black:      #030305;
+        }
 
         .auth-root {
           min-height: 100vh;
-          background: #030305;
+          background: var(--black);
           display: flex;
           align-items: stretch;
           overflow: hidden;
-          font-family: 'Plus Jakarta Sans', sans-serif;
+          /* Jura como fuente base — igual que la landing */
+          font-family: 'Jura', sans-serif;
         }
 
         .auth-top-line {
           position: fixed;
           top: 0; left: 0; right: 0;
           height: 1px;
-          background: linear-gradient(to right, transparent, rgba(201,178,124,0.3) 30%, rgba(232,213,163,0.3) 70%, transparent);
+          background: linear-gradient(to right, transparent, var(--gold-faint) 30%, rgba(201,169,110,0.25) 70%, transparent);
           z-index: 20;
         }
 
@@ -175,8 +186,8 @@ export default function AuthPage() {
           position: absolute;
           inset: 0;
           background:
-            linear-gradient(to right, #030305 0%, transparent 20%, transparent 80%, #030305 100%),
-            linear-gradient(to bottom, #030305 0%, transparent 15%, transparent 60%, #030305 95%);
+            linear-gradient(to right, var(--black) 0%, transparent 20%, transparent 80%, var(--black) 100%),
+            linear-gradient(to bottom, var(--black) 0%, transparent 15%, transparent 60%, var(--black) 95%);
           z-index: 2;
           pointer-events: none;
         }
@@ -188,30 +199,35 @@ export default function AuthPage() {
           padding: 0 1rem;
         }
 
+        /* OBJETIVA. — mismo tratamiento que la landing */
         .auth-brand {
           font-family: 'Cormorant Garamond', serif;
-          font-size: 4rem;
+          font-size: 2rem;
           font-weight: 300;
-          color: #C9B27C;
-          letter-spacing: 0.05em;
+          color: var(--gold);
+          letter-spacing: 0.35em;       /* igual que la landing */
+          text-transform: uppercase;
           line-height: 1;
           margin: 0 0 0.55rem;
           text-shadow:
-            0 0 30px rgba(201,178,124,0.6),
-            0 0 60px rgba(201,178,124,0.25),
+            0 0 30px rgba(201,169,110,0.6),
+            0 0 60px rgba(201,169,110,0.25),
             0 2px 8px rgba(0,0,0,0.7);
         }
 
         .auth-brand span {
-          color: #E8D5A3;
+          color: var(--white);           /* el punto en blanco, como la landing */
         }
 
+        /* Frase debajo — misma tipografía y tracking que nav items de la landing */
         .auth-tagline {
-          font-size: 0.62rem;
-          color: rgba(255,255,255,0.45);
+          font-family: 'Jura', sans-serif;
+          font-size: 0.58rem;
+          font-weight: 400;
+          color: var(--white-dim);
           text-transform: uppercase;
-          letter-spacing: 0.2em;
-          line-height: 1.9;
+          letter-spacing: 0.22em;
+          line-height: 2;
           margin: 0;
           text-shadow: 0 1px 10px rgba(0,0,0,0.9);
         }
@@ -223,9 +239,9 @@ export default function AuthPage() {
           background: linear-gradient(
             to bottom,
             transparent,
-            rgba(201,178,124,0.08) 20%,
-            rgba(201,178,124,0.18) 50%,
-            rgba(201,178,124,0.08) 80%,
+            var(--gold-faint) 20%,
+            rgba(201,169,110,0.18) 50%,
+            var(--gold-faint) 80%,
             transparent
           );
           flex-shrink: 0;
@@ -244,22 +260,28 @@ export default function AuthPage() {
           min-width: 340px;
         }
 
+        /* "ACCEDER" / "CREAR CUENTA" — mismo estilo que el eyebrow de la landing */
         .auth-form-title {
-          font-size: 0.6rem;
-          color: rgba(201,178,124,0.5);
+          font-family: 'Jura', sans-serif;
+          font-size: 0.58rem;
+          font-weight: 400;
+          color: var(--gold-dim);
           text-transform: uppercase;
-          letter-spacing: 0.22em;
+          letter-spacing: 0.3em;
           margin-bottom: 2rem;
         }
 
         .auth-field { margin-bottom: 1.2rem; }
 
+        /* Labels — mismo tracking que nav items */
         .auth-field-label {
           display: block;
-          font-size: 0.6rem;
+          font-family: 'Jura', sans-serif;
+          font-size: 0.58rem;
+          font-weight: 400;
           text-transform: uppercase;
-          letter-spacing: 0.18em;
-          color: rgba(255,255,255,0.45);
+          letter-spacing: 0.22em;
+          color: var(--white-dim);
           margin-bottom: 0.5rem;
         }
 
@@ -267,64 +289,85 @@ export default function AuthPage() {
 
         .auth-input-icon {
           position: absolute; left: 1rem; top: 50%; transform: translateY(-50%);
-          width: 13px; height: 13px; color: rgba(201,178,124,0.25);
+          width: 13px; height: 13px; color: var(--gold-faint);
           pointer-events: none; z-index: 1;
         }
 
         .auth-input {
           background: rgba(8,8,12,0.9) !important;
-          border: 1px solid rgba(201,178,124,0.15) !important;
-          color: rgba(255,255,255,0.8) !important;
+          border: 1px solid rgba(201,169,110,0.15) !important;
+          color: var(--white) !important;
           padding-left: 2.75rem !important;
           transition: border-color .28s, box-shadow .28s !important;
-          font-size: 0.85rem !important;
-          font-family: 'Plus Jakarta Sans', sans-serif !important;
+          font-size: 0.82rem !important;
+          font-family: 'Jura', sans-serif !important;
+          letter-spacing: 0.05em !important;
           border-radius: 2px !important;
           box-shadow: none !important;
         }
-        .auth-input::placeholder { color: rgba(255,255,255,0.20) !important; }
+        .auth-input::placeholder { color: rgba(242,239,233,0.20) !important; }
         .auth-input:focus {
-          border-color: rgba(201,178,124,0.5) !important;
-          box-shadow: 0 0 0 1px rgba(201,178,124,0.08) inset, 0 0 14px rgba(201,178,124,0.10) !important;
+          border-color: var(--gold-dim) !important;
+          box-shadow: 0 0 0 1px rgba(201,169,110,0.08) inset, 0 0 14px rgba(201,169,110,0.10) !important;
           outline: none !important;
         }
 
+        /* Botón — mismo estilo borde blanco que "SOLICITAR ACCESO" / "ACCEDER" de la landing */
         .auth-submit {
           width: 100%;
-          background: rgba(8,8,12,0.9) !important;
-          border: 1px solid rgba(201,178,124,0.4) !important;
-          color: #E8D5A3 !important;
+          background: transparent !important;
+          border: 1px solid var(--white) !important;
+          color: var(--white) !important;
           font-size: 0.65rem !important;
-          font-family: 'Plus Jakarta Sans', sans-serif !important;
+          font-family: 'Jura', sans-serif !important;
+          font-weight: 400 !important;
           text-transform: uppercase !important;
-          letter-spacing: 0.18em !important;
-          transition: all .28s ease !important;
+          letter-spacing: 0.28em !important;
+          transition: background .28s ease, color .28s ease, border-color .28s ease, box-shadow .28s ease !important;
           border-radius: 2px !important;
           box-shadow: none !important;
         }
         .auth-submit:hover:not(:disabled) {
-          background: rgba(201,178,124,0.08) !important;
-          border-color: rgba(201,178,124,0.8) !important;
-          box-shadow: 0 0 20px rgba(201,178,124,0.15), 0 0 40px rgba(201,178,124,0.08) !important;
-          transform: translateY(-1px) !important;
+          background: var(--white) !important;
+          color: var(--black) !important;
+          border-color: var(--white) !important;
+          box-shadow: none !important;
+          transform: none !important;
         }
-        .auth-submit:active:not(:disabled) { transform: translateY(0) !important; }
+        .auth-submit:active:not(:disabled) {
+          background: var(--gold) !important;
+          border-color: var(--gold) !important;
+          color: var(--black) !important;
+        }
         .auth-submit:disabled { opacity: 0.35 !important; }
 
         .auth-error {
-          font-size: 0.72rem; color: rgba(239,100,100,0.8);
-          background: rgba(239,68,68,0.05); border: 1px solid rgba(239,68,68,0.1);
-          border-radius: 2px; padding: 0.6rem 0.875rem; margin-bottom: 1rem;
+          font-family: 'Jura', sans-serif;
+          font-size: 0.68rem;
+          letter-spacing: 0.05em;
+          color: rgba(239,100,100,0.8);
+          background: rgba(239,68,68,0.05);
+          border: 1px solid rgba(239,68,68,0.1);
+          border-radius: 2px;
+          padding: 0.6rem 0.875rem;
+          margin-bottom: 1rem;
         }
 
         .auth-toggle {
-          margin-top: 1.25rem; font-size: 0.68rem;
-          color: rgba(255,255,255,0.30); text-align: center;
+          margin-top: 1.25rem;
+          font-family: 'Jura', sans-serif;
+          font-size: 0.62rem;
+          letter-spacing: 0.12em;
+          color: var(--white-dim);
+          text-align: center;
+          text-transform: uppercase;
         }
         .auth-toggle span {
-          color: rgba(201,178,124,0.6); cursor: pointer; transition: color 0.15s;
+          color: var(--gold-dim);
+          cursor: pointer;
+          transition: color 0.15s;
         }
-        .auth-toggle span:hover { color: rgba(201,178,124,1); }
+        .auth-toggle span:hover { color: var(--gold); }
 
         @media (max-width: 768px) {
           .auth-root { flex-direction: column; }
@@ -393,7 +436,7 @@ export default function AuthPage() {
                     <button type="button" onClick={() => setShowPassword(p => !p)}
                       style={{
                         position: 'absolute', right: '1rem', top: '50%', transform: 'translateY(-50%)',
-                        color: 'rgba(201,178,124,0.3)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer'
+                        color: 'rgba(201,169,110,0.3)', zIndex: 10, background: 'none', border: 'none', cursor: 'pointer'
                       }}>
                       {showPassword ? <EyeOff className="w-4 h-4" strokeWidth={1.3} /> : <Eye className="w-4 h-4" strokeWidth={1.3} />}
                     </button>
