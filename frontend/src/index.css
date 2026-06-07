@@ -10,7 +10,6 @@
 /* ============================= */
 
 :root {
-  /* ── Core Blacks ── */
   --background-base:      #030305;
   --background-deep:      #070709;
   --surface-primary:      #0d0d10;
@@ -18,78 +17,69 @@
   --surface-glass:        rgba(201,169,110,0.04);
   --surface-glass-hover:  rgba(201,169,110,0.07);
 
-  /* ── Gold (antes: ocean blue) ── */
   --ocean:                #C9A96E;
   --ocean-dim:            rgba(201,169,110,0.6);
   --ocean-faint:          rgba(201,169,110,0.10);
   --ocean-subtle:         rgba(201,169,110,0.05);
 
-  /* ── Gold Accent (champagne) ── */
   --champagne:            #C9A96E;
   --champagne-dim:        rgba(201,169,110,0.6);
   --champagne-faint:      rgba(201,169,110,0.10);
 
-  /* ── Text ── */
   --silver:               #F2EFE9;
   --text-primary:         #F2EFE9;
   --text-secondary:       rgba(242,239,233,0.65);
   --text-tertiary:        rgba(242,239,233,0.40);
 
-  /* ── Transitions ── */
   --transition:           #1a1a1e;
   --transition-glass:     rgba(201,169,110,0.08);
 
-  /* ── Borders ── */
   --border-subtle:        rgba(201,169,110,0.12);
   --border-input:         rgba(201,169,110,0.15);
   --border-champagne:     rgba(201,169,110,0.25);
   --border-ocean:         rgba(201,169,110,0.20);
   --border-input-focus:   rgba(201,169,110,0.50);
 
-  /* ── Inputs ── */
   --input-bg:             #08080c;
   --input-bg-focus:       rgba(201,169,110,0.04);
 
-  /* ── Glows ── */
   --glow-champagne:       rgba(201,169,110,0.06);
   --glow-champagne-md:    rgba(201,169,110,0.12);
   --glow-ocean:           rgba(201,169,110,0.06);
   --glow-ocean-md:        rgba(201,169,110,0.12);
 
-  /* ── Typography — Objetiva ── */
   --font-display:         'Cormorant Garamond', serif;
   --font-body:            'Jura', sans-serif;
-  --font-family-base:     'Jura', sans-serif;
+  --font-family-base:     'Plus Jakarta Sans', sans-serif; /* landing usa Plus Jakarta Sans */
 
   --font-size-display:    clamp(2rem, 3.2vw, 3rem);
   --font-size-h1:         1.6rem;
   --font-size-h2:         1.25rem;
   --font-size-h3:         1.05rem;
   --font-size-body-lg:    1rem;
-  --font-size-body:       0.88rem;
-  --font-size-body-sm:    0.80rem;
-  --font-size-caption:    0.70rem;
+  --font-size-body:       0.92rem;
+  --font-size-body-sm:    0.84rem;
+  --font-size-caption:    0.76rem;
 
   --line-height-tight:    1.12;
   --line-height-heading:  1.22;
-  --line-height-body:     1.65;
+  --line-height-body:     1.58;
 
-  --letter-spacing-tight:   -0.01em;
-  --letter-spacing-heading:  0.28em;
-  --letter-spacing-body:     0.04em;
-  --letter-spacing-wide:     0.22em;
+  /* SIN letter-spacing global — cada página gestiona el suyo */
+  --letter-spacing-heading: -0.02em;
+  --letter-spacing-body:    -0.01em;
+  --letter-spacing-wide:     0.04em;
 
-  /* ── Cards ── */
-  --card-radius-sm:   4px;
-  --card-radius-md:   4px;
-  --card-radius-lg:   4px;
+  --card-radius-sm:   14px;
+  --card-radius-md:   16px;
+  --card-radius-lg:   20px;
 
   --card-padding-compact: 14px;
   --card-padding-default: 18px;
   --card-padding-comfy:   22px;
 
-  --card-shadow-soft: 0 8px 24px rgba(0,0,0,0.35);
-  --card-shadow-deep: 0 20px 48px rgba(0,0,0,0.55);
+  --card-shadow-soft: 0 10px 24px rgba(0,0,0,0.22);
+  --card-shadow-deep: 0 24px 48px rgba(0,0,0,0.42);
 }
 
 /* ============================= */
@@ -107,41 +97,24 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
-  font-family: var(--font-body);
+  /* fuente base neutral — la landing y la auth sobreescriben con su propia */
+  font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
   background-color: var(--background-base);
   color: var(--text-primary);
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
-  letter-spacing: var(--letter-spacing-body);
+  /* SIN letter-spacing global para no romper la landing */
 }
 
-/* ============================= */
-/* Typography                    */
-/* ============================= */
-
+/* h1-h6 sin font-family global — cada página gestiona el suyo */
 h1, h2, h3, h4, h5, h6 {
   margin: 0;
-  font-family: var(--font-display);
-  font-weight: 300;
+  font-weight: 500;
   color: var(--text-primary);
-  letter-spacing: var(--letter-spacing-heading);
 }
 
-h1 { font-size: var(--font-size-h1); line-height: var(--line-height-tight); }
-h2 { font-size: var(--font-size-h2); line-height: var(--line-height-heading); }
-h3 { font-size: var(--font-size-h3); line-height: 1.3; }
-
-p {
-  margin: 0;
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
-}
-
+p { margin: 0; }
 small { font-size: var(--font-size-caption); }
-
-button, input, select, textarea, label, span, a {
-  font-family: var(--font-body);
-}
 
 /* ============================= */
 /* Scrollbar                     */
@@ -151,7 +124,7 @@ button, input, select, textarea, label, span, a {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb {
   background: rgba(201,169,110,0.12);
-  border-radius: 2px;
+  border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover { background: rgba(201,169,110,0.25); }
 
@@ -206,7 +179,7 @@ button, input, select, textarea, label, span, a {
 }
 
 .auth-brand h1 {
-  font-family: var(--font-display);
+  font-family: 'Cormorant Garamond', serif;
   font-size: clamp(2rem, 4vw, 2.4rem);
   font-weight: 300;
   letter-spacing: 0.35em;
@@ -218,7 +191,6 @@ button, input, select, textarea, label, span, a {
   font-size: var(--font-size-body-sm);
   color: var(--text-secondary);
   line-height: 1.6;
-  letter-spacing: var(--letter-spacing-wide);
 }
 
 /* ============================= */
@@ -228,7 +200,7 @@ button, input, select, textarea, label, span, a {
 .auth-card {
   width: 100%;
   padding: 2rem 1.75rem;
-  border-radius: var(--card-radius-lg);
+  border-radius: 20px;
   background: rgba(8,8,12,0.7);
   border: 1px solid rgba(201,169,110,0.10);
   box-shadow:
@@ -240,11 +212,10 @@ button, input, select, textarea, label, span, a {
 }
 
 .auth-card h2 {
-  font-family: var(--font-body);
-  font-size: var(--font-size-caption);
+  font-family: 'Jura', sans-serif;
+  font-size: 0.6rem;
   font-weight: 400;
-  font-style: normal;
-  letter-spacing: var(--letter-spacing-wide);
+  letter-spacing: 0.22em;
   text-transform: uppercase;
   margin-bottom: 1.35rem;
   color: var(--text-secondary);
@@ -254,24 +225,15 @@ button, input, select, textarea, label, span, a {
 /* Auth — Form                   */
 /* ============================= */
 
-.auth-form {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.auth-field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.45rem;
-}
+.auth-form { display: flex; flex-direction: column; gap: 1rem; }
+.auth-field { display: flex; flex-direction: column; gap: 0.45rem; }
 
 .auth-field-label {
-  font-family: var(--font-body);
-  font-size: var(--font-size-caption);
+  font-family: 'Jura', sans-serif;
+  font-size: 0.6rem;
   color: var(--text-tertiary);
   text-transform: uppercase;
-  letter-spacing: var(--letter-spacing-wide);
+  letter-spacing: 0.22em;
   font-weight: 400;
 }
 
@@ -281,7 +243,7 @@ button, input, select, textarea, label, span, a {
   position: absolute;
   left: 1rem; top: 50%; transform: translateY(-50%);
   width: 13px; height: 13px;
-  color: rgba(201,169,110,0.25);
+  color: rgba(201,169,110,0.45);
   pointer-events: none;
   transition: color 0.25s ease;
   z-index: 2;
@@ -304,7 +266,7 @@ button, input, select, textarea, label, span, a {
   padding-right: 1rem !important;
   background: #08080c !important;
   background-color: #08080c !important;
-  border: 1px solid rgba(201,169,110,0.15) !important;
+  border: 1px solid rgba(201,169,110,0.30) !important;
   border-radius: 2px !important;
   color: #F2EFE9 !important;
   font-family: 'Jura', sans-serif !important;
@@ -321,7 +283,7 @@ button, input, select, textarea, label, span, a {
 .auth-input::placeholder,
 .auth-native-input::placeholder,
 .auth-form input::placeholder {
-  color: rgba(242,239,233,0.20) !important;
+  color: rgba(242,239,233,0.22) !important;
   font-family: 'Jura', sans-serif !important;
 }
 
@@ -333,16 +295,15 @@ button, input, select, textarea, label, span, a {
 .auth-input-wrapper input:focus {
   background: rgba(201,169,110,0.03) !important;
   background-color: rgba(201,169,110,0.03) !important;
-  border-color: rgba(201,169,110,0.50) !important;
-  box-shadow: 0 0 0 1px rgba(201,169,110,0.08) inset, 0 0 16px rgba(201,169,110,0.08) !important;
+  border-color: rgba(201,169,110,0.70) !important;
+  box-shadow: 0 0 0 1px rgba(201,169,110,0.10) inset, 0 0 18px rgba(201,169,110,0.10) !important;
   outline: none !important;
 }
 
 .auth-input-wrapper:focus-within .auth-input-icon {
-  color: rgba(201,169,110,0.6);
+  color: rgba(201,169,110,0.7);
 }
 
-/* Autofill */
 .auth-input:-webkit-autofill,
 .auth-native-input:-webkit-autofill,
 .auth-form input:-webkit-autofill,
@@ -350,7 +311,7 @@ button, input, select, textarea, label, span, a {
 .auth-form input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px #08080c inset !important;
   -webkit-text-fill-color: #F2EFE9 !important;
-  border-color: rgba(201,169,110,0.15) !important;
+  border-color: rgba(201,169,110,0.30) !important;
   transition: background-color 9999s ease-in-out 0s !important;
 }
 
@@ -364,8 +325,8 @@ button, input, select, textarea, label, span, a {
   border: 1px solid rgba(239,68,68,0.20);
   background: rgba(60,0,0,0.20);
   color: rgba(255,160,160,0.85);
-  font-family: var(--font-body);
-  font-size: var(--font-size-body-sm);
+  font-family: 'Jura', sans-serif;
+  font-size: 0.78rem;
   letter-spacing: 0.04em;
   line-height: 1.5;
 }
@@ -420,7 +381,7 @@ button, input, select, textarea, label, span, a {
 }
 
 /* ============================= */
-/* Auth — Toggle link            */
+/* Auth — Toggle                 */
 /* ============================= */
 
 .auth-secondary-link,
@@ -429,61 +390,55 @@ button, input, select, textarea, label, span, a {
   display: flex;
   justify-content: center;
   gap: 0.4rem;
-  font-family: var(--font-body);
-  font-size: var(--font-size-caption);
-  letter-spacing: var(--letter-spacing-wide);
+  font-family: 'Jura', sans-serif;
+  font-size: 0.62rem;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
   color: var(--text-tertiary);
 }
 
 .auth-secondary-link span,
 .auth-toggle span {
-  color: rgba(201,169,110,0.6);
+  color: rgba(201,169,110,0.7);
   font-weight: 400;
   cursor: pointer;
   transition: color 0.2s ease;
 }
 
 .auth-secondary-link span:hover,
-.auth-toggle span:hover {
-  color: #C9A96E;
-}
+.auth-toggle span:hover { color: #C9A96E; }
 
 /* ============================= */
-/* Auth — Divisor                */
+/* Auth — Divisor vertical       */
 /* ============================= */
 
 .auth-divider {
   height: 1px;
   background: linear-gradient(90deg,
     transparent,
-    rgba(201,169,110,0.10) 30%,
-    rgba(201,169,110,0.10) 70%,
+    rgba(201,169,110,0.12) 30%,
+    rgba(201,169,110,0.12) 70%,
     transparent);
   margin: 0.35rem 0;
 }
 
 /* ============================= */
-/* Glass Utilities               */
+/* Glass / Card Utilities        */
 /* ============================= */
 
 .glass-subtle {
-  background: rgba(8,8,12,0.5);
+  background: rgba(8,8,12,0.4);
   border: 1px solid rgba(201,169,110,0.08);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
 }
 
 .glass-premium {
-  background: rgba(8,8,12,0.6);
+  background: rgba(8,8,12,0.5);
   border: 1px solid rgba(201,169,110,0.12);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
 }
-
-/* ============================= */
-/* Card Utilities                */
-/* ============================= */
 
 .card-lucy {
   border-radius: var(--card-radius-md);
@@ -510,7 +465,7 @@ button, input, select, textarea, label, span, a {
 }
 
 /* ============================= */
-/* State Utilities               */
+/* State / Glow                  */
 /* ============================= */
 
 .lucy-active {
@@ -518,40 +473,25 @@ button, input, select, textarea, label, span, a {
   box-shadow: 0 0 20px rgba(201,169,110,0.08) !important;
 }
 
-.lucy-glow {
-  box-shadow: 0 0 40px rgba(201,169,110,0.10);
-}
+.lucy-glow { box-shadow: 0 0 40px rgba(201,169,110,0.10); }
 
 /* ============================= */
 /* Email Content                 */
 /* ============================= */
 
-.email-content a {
-  color: rgba(201,169,110,0.7);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-}
+.email-content a { color: rgba(201,169,110,0.7); text-decoration: underline; text-underline-offset: 3px; }
 .email-content a:hover { color: #C9A96E; }
-.email-content img {
-  max-width: 100%;
-  border-radius: 2px;
-  opacity: 0.85;
-}
+.email-content img { max-width: 100%; border-radius: 2px; opacity: 0.85; }
 
 /* ============================= */
 /* Dashboard                     */
 /* ============================= */
 
 .ecs-dashboard-video-bg {
-  position: absolute;
-  top: 0; left: 0;
+  position: absolute; top: 0; left: 0;
   width: 100%; height: 100%;
-  object-fit: cover;
-  z-index: -1;
-  opacity: 0.5;
-  pointer-events: none;
+  object-fit: cover; z-index: -1; opacity: 0.5; pointer-events: none;
 }
-
 .ecs-dashboard-root { position: relative; overflow: hidden; }
 
 /* ============================= */
@@ -561,118 +501,73 @@ button, input, select, textarea, label, span, a {
 .App { min-height: 100vh; position: relative; }
 
 button, a, input, select, textarea {
-  transition:
-    background-color 0.2s ease,
-    border-color 0.2s ease,
-    box-shadow 0.2s ease,
-    opacity 0.2s ease;
+  transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
 }
 
-button:focus-visible,
-a:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
+button:focus-visible, a:focus-visible,
+input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 2px solid rgba(201,169,110,0.35);
   outline-offset: 2px;
 }
 
 /* ============================= */
-/* Email Card                    */
+/* Cards / Email                 */
 /* ============================= */
 
-.email-card {
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-  border-radius: var(--card-radius-md);
-}
-.email-card:hover { transform: translateY(-1px); }
-.email-card.active {
-  box-shadow: 0 0 30px -5px rgba(201,169,110,0.18);
-}
+.email-card { transition: transform 0.2s ease, box-shadow 0.2s ease; border-radius: var(--card-radius-md); }
+.email-card:hover { transform: translateY(-2px); }
+.email-card.active { box-shadow: 0 0 30px -5px rgba(201,169,110,0.18); }
 
 /* ============================= */
 /* Skeleton                      */
 /* ============================= */
 
 .skeleton {
-  background: linear-gradient(90deg,
-    rgba(8,8,12,0.5) 25%,
-    rgba(201,169,110,0.06) 50%,
-    rgba(8,8,12,0.5) 75%);
+  background: linear-gradient(90deg, rgba(8,8,12,0.5) 25%, rgba(201,169,110,0.06) 50%, rgba(8,8,12,0.5) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
-
-@keyframes shimmer {
-  0%   { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
+@keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
 
 /* ============================= */
-/* Priority Badge                */
+/* Priority / Pulse              */
 /* ============================= */
 
 .priority-badge.urgent::after {
-  content: '';
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
+  content: ''; position: absolute; inset: -2px; border-radius: inherit;
   background: linear-gradient(45deg, rgba(201,169,110,0.2), rgba(242,239,233,0.1));
-  filter: blur(8px);
-  z-index: -1;
+  filter: blur(8px); z-index: -1;
   animation: pulse-glow 2s ease-in-out infinite;
 }
-
-@keyframes pulse-glow {
-  0%, 100% { opacity: 0.5; }
-  50%       { opacity: 1; }
-}
+@keyframes pulse-glow { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
 /* ============================= */
 /* Input Glass                   */
 /* ============================= */
 
-.input-glass {
-  background: rgba(8,8,12,0.6);
-  border: 1px solid rgba(201,169,110,0.12);
-  backdrop-filter: blur(12px);
-}
-.input-glass:focus {
-  border-color: rgba(201,169,110,0.40);
-  box-shadow: 0 0 20px -5px rgba(201,169,110,0.15);
-}
+.input-glass { background: rgba(8,8,12,0.6); border: 1px solid rgba(201,169,110,0.12); backdrop-filter: blur(12px); }
+.input-glass:focus { border-color: rgba(201,169,110,0.40); box-shadow: 0 0 20px -5px rgba(201,169,110,0.15); }
 
 /* ============================= */
-/* Stagger Animation             */
+/* Stagger                       */
 /* ============================= */
 
-.stagger-item {
-  opacity: 0;
-  animation: slideUp 0.4s ease-out forwards;
-}
+.stagger-item { opacity: 0; animation: slideUp 0.4s ease-out forwards; }
 .stagger-item:nth-child(1) { animation-delay: 0.05s; }
 .stagger-item:nth-child(2) { animation-delay: 0.10s; }
 .stagger-item:nth-child(3) { animation-delay: 0.15s; }
 .stagger-item:nth-child(4) { animation-delay: 0.20s; }
 .stagger-item:nth-child(5) { animation-delay: 0.25s; }
-
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(20px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
+@keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
 /* ============================= */
-/* Lucy Particles                */
+/* Particles                     */
 /* ============================= */
 
 .lucy-particles-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.45;
-  filter: blur(0.5px);
-  mix-blend-mode: screen;
+  position: absolute; inset: 0; z-index: 0;
+  pointer-events: none; opacity: 0.45;
+  filter: blur(0.5px); mix-blend-mode: screen;
 }
 
 /* ============================= */
@@ -681,6 +576,6 @@ textarea:focus-visible {
 
 @media (max-width: 640px) {
   html { font-size: 14px; }
-  .auth-card { padding: 1.5rem 1.25rem; border-radius: 2px; }
+  .auth-card { padding: 1.5rem 1.25rem; border-radius: 16px; }
   .auth-brand h1 { font-size: 1.9rem; }
 }
