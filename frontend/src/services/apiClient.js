@@ -22,7 +22,7 @@ api.interceptors.response.use(
     (err) => {
         const status = err?.response?.status;
 
-        if (status === 401 && !isRedirecting) {
+        if (status === 401 && !isRedirecting && !err?.config?.url?.includes('auth/login') && !err?.config?.url?.includes('auth/register')) {
             isRedirecting = true;
 
             // Clear all auth state
