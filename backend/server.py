@@ -186,7 +186,7 @@ async def get_emails(
     user: Dict[str, Any] = Depends(get_current_user),
 ):
     """Get enriched emails with optional filtering"""
-    emails = get_enriched_emails()
+    emails = await get_enriched_emails()
     
     if label:
         emails = [e for e in emails if e.priority.priority_label == label]
@@ -211,7 +211,8 @@ async def get_email(request: Request, email_id: str, user: Dict[str, Any] = Depe
 @api_router.get("/emails/stats/summary")
 async def get_email_stats_route(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
     """Get email statistics"""
-    stats = get_email_stats()
+    emails = await get_enriched_emails()
+    stats = get_email_stats(emails)
     legacy = stats
     return build_response(request, data=stats, legacy=legacy)
 
