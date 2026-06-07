@@ -85,7 +85,7 @@ export default function BrokerDashboard() {
         </div>
       </header>
 
-      <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '4rem 2rem' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '5rem 3rem' }}>
 
         {/* Header */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '2.5rem' }}>
