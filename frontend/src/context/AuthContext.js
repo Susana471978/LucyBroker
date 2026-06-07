@@ -17,27 +17,38 @@ export const AuthProvider = ({ children }) => {
   });
 
   const login = async (email, password) => {
-    const res = await api.post('/auth/login', { email, password });
-    const data = res.data?.data || res.data;
-    const t = data.token;
-    const u = data.user;
-    localStorage.setItem('auth_token', t);
-    localStorage.setItem('user', JSON.stringify(u));
-    setToken(t);
-    setUser(u);
-    return u;
+    try {
+      const res = await api.post('/auth/login', { email, password });
+      console.log('Login response:', res.data);
+      const data = res.data?.data || res.data;
+      const t = data.token;
+      const u = data.user;
+      localStorage.setItem('auth_token', t);
+      localStorage.setItem('user', JSON.stringify(u));
+      setToken(t);
+      setUser(u);
+      return u;
+    } catch (err) {
+      console.error('Login error:', err);
+      throw err;
+    }
   };
 
   const register = async (email, password, name) => {
-    const res = await api.post('/auth/register', { email, password, name });
-    const data = res.data?.data || res.data;
-    const t = data.token;
-    const u = data.user;
-    localStorage.setItem('auth_token', t);
-    localStorage.setItem('user', JSON.stringify(u));
-    setToken(t);
-    setUser(u);
-    return u;
+    try {
+      const res = await api.post('/auth/register', { email, password, name });
+      const data = res.data?.data || res.data;
+      const t = data.token;
+      const u = data.user;
+      localStorage.setItem('auth_token', t);
+      localStorage.setItem('user', JSON.stringify(u));
+      setToken(t);
+      setUser(u);
+      return u;
+    } catch (err) {
+      console.error('Register error:', err);
+      throw err;
+    }
   };
 
   const logout = () => {
