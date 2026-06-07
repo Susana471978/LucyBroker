@@ -182,10 +182,11 @@ export default function AuthPage() {
         }
 
         .auth-label {
-          position: relative;
+          position: absolute;
           z-index: 4;
-          bottom: 18%;
-          padding: 0 1rem;
+          bottom: 2.5rem;
+          left: 2.5rem;
+          padding: 0;
         }
 
         .auth-brand {
@@ -272,8 +273,8 @@ export default function AuthPage() {
         }
 
         .auth-input {
-          background: rgba(8,8,12,0.9) !important;
-          border: 1px solid rgba(201,178,124,0.15) !important;
+          background: #0a0a0f !important;
+          border: 1px solid rgba(201,178,124,0.2) !important;
           color: rgba(255,255,255,0.8) !important;
           padding-left: 2.75rem !important;
           transition: border-color .28s, box-shadow .28s !important;
@@ -281,11 +282,13 @@ export default function AuthPage() {
           font-family: 'Plus Jakarta Sans', sans-serif !important;
           border-radius: 2px !important;
           box-shadow: none !important;
+          -webkit-appearance: none !important;
         }
         .auth-input::placeholder { color: rgba(255,255,255,0.20) !important; }
         .auth-input:focus {
+          background: #0d0d14 !important;
           border-color: rgba(201,178,124,0.5) !important;
-          box-shadow: 0 0 0 1px rgba(201,178,124,0.08) inset, 0 0 14px rgba(201,178,124,0.10) !important;
+          box-shadow: 0 0 14px rgba(201,178,124,0.08) !important;
           outline: none !important;
         }
 
