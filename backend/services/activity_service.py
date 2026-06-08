@@ -97,6 +97,7 @@ def generate_pdf(logs: List[dict], fecha: str) -> bytes:
         borderPadding=(0,0,4,0))
 
     elements.append(Paragraph("OBJETIVA.", title_style))
+    elements.append(Spacer(1, 0.2*cm))
     elements.append(Paragraph(f"Informe de actividad · {fecha}", sub_style))
     elements.append(Spacer(1, 0.3*cm))
 
