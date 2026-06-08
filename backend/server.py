@@ -27,7 +27,7 @@ from backend.models import (
     DraftReplyRequest,
 )
 
-from backend.services.activity_service import log_action, get_logs_by_date, generate_csv, generate_summary
+from backend.services.activity_service import log_action, get_logs_by_date, generate_csv, generate_summary, generate_pdf
 from backend.services.email_service import (
     get_enriched_emails,
     get_email_by_id,
@@ -313,6 +313,20 @@ async def get_informe(request: Request, fecha: Optional[str] = None, user: Dict[
     logs = await get_logs_by_date(db=db, fecha=fecha)
     summary = generate_summary(logs, fecha)
     return build_response(request, data=summary)
+
+@api_router.get("/log/pdf")
+async def get_pdf(request: Request, fecha: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):
+    from fastapi.responses import Response
+    from datetime import datetime, timezone
+    if not fecha:
+        fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    logs = await get_logs_by_date(db=db, fecha=fecha)
+    pdf_content = generate_pdf(logs, fecha)
+    return Response(
+        content=pdf_content,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f"attachment; filename=informe_objetiva_{fecha}.pdf"}
+    )
 
 @api_router.get("/log/csv")
 async def get_csv(request: Request, fecha: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):

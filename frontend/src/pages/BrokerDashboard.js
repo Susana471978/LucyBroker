@@ -95,11 +95,11 @@ export default function BrokerDashboard() {
             title="Descargar informe del día"
             onClick={async () => {
               try {
-                const res = await api.get(`/log/csv?fecha=${today}`, { responseType: 'blob' });
+                const res = await api.get(`/log/pdf?fecha=${today}`, { responseType: 'blob' });
                 const url = window.URL.createObjectURL(new Blob([res.data]));
                 const a = document.createElement('a');
                 a.href = url;
-                a.download = `informe_objetiva_${today}.csv`;
+                a.download = `informe_objetiva_${today}.pdf`;
                 a.click();
                 window.URL.revokeObjectURL(url);
               } catch(e) { alert('Error al descargar el informe'); }
