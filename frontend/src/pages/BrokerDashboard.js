@@ -91,14 +91,23 @@ export default function BrokerDashboard() {
           <button onClick={fetchEmails} disabled={syncing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted }}>
             <RefreshCw size={14} strokeWidth={1.5} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
           </button>
-          <a  
-            href={`/api/log/csv?fecha=${today}`}
-            download
+          <button
             title="Descargar informe del día"
-            style={{ color: C.textMuted, display: 'flex', alignItems: 'center', textDecoration: 'none' }}
+            onClick={async () => {
+              try {
+                const res = await api.get(`/log/csv?fecha=${today}`, { responseType: 'blob' });
+                const url = window.URL.createObjectURL(new Blob([res.data]));
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `informe_objetiva_${today}.csv`;
+                a.click();
+                window.URL.revokeObjectURL(url);
+              } catch(e) { alert('Error al descargar el informe'); }
+            }}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted, display: 'flex', alignItems: 'center' }}
           >
             <Download size={14} strokeWidth={1.5} />
-          </a>
+          </button>
           <span style={{ fontSize: '0.78rem', color: C.textSecondary }}>{user?.name}</span>
           <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted }}>
             <LogOut size={15} strokeWidth={1.5} />
