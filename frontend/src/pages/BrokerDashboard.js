@@ -1,8 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Inbox, Clock, Paperclip, AlertTriangle, LogOut, RefreshCw } from 'lucide-react';
+import { Mail, Inbox, Clock, Paperclip, AlertTriangle, LogOut, RefreshCw, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../services/apiClient';
+
+const logAction = async (accion, email) => {
+  try {
+    await api.post('/log/accion', {
+      accion,
+      correo_id: email?.id || '',
+      correo_asunto: email?.subject || '',
+      correo_de: email?.from_email || '',
+      categoria: email?.categoria || '',
+      prioridad: email?.priority?.priority_label || '',
+    });
+  } catch (e) {}
+};
 
 const C = {
   black: '#030305',
@@ -78,6 +91,15 @@ export default function BrokerDashboard() {
           <button onClick={fetchEmails} disabled={syncing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted }}>
             <RefreshCw size={14} strokeWidth={1.5} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
           </button>
+          
+            href={`/api/log/csv?fecha=${new Date().toISOString().split('T')[0]}`}
+            download
+            title="Descargar informe del día"
+            style={{ color: C.textMuted, display: 'flex', alignItems: 'center' }}
+            onClick={() => logAction('INFORME_DESCARGADO', {})}
+          >
+            <Download size={14} strokeWidth={1.5} />
+          </a>
           <span style={{ fontSize: '0.78rem', color: C.textSecondary }}>{user?.name}</span>
           <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted }}>
             <LogOut size={15} strokeWidth={1.5} />
@@ -142,7 +164,10 @@ export default function BrokerDashboard() {
                   const isSelected = selected === item.email?.id;
                   return (
                     <motion.div key={item.email?.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }}
-                      onClick={() => setSelected(isSelected ? null : item.email?.id)}
+                      onClick={() => {
+                      if (!isSelected) logAction('LEIDO', {...item.email, categoria: item.categoria, priority: item.priority});
+                      setSelected(isSelected ? null : item.email?.id);
+                    }}
                       style={{ padding: '1rem 1.25rem', background: isSelected ? C.surfaceHover : C.black, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', borderLeft: isSelected ? `2px solid ${C.gold}` : '2px solid transparent', transition: 'background .2s' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
