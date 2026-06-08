@@ -291,7 +291,6 @@ async def root(request: Request):
 @api_router.post("/log/accion")
 async def registrar_accion(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
     payload = await request.json()
-    db = request.app.state.db
     await log_action(
         db=db,
         user_id=user["user_id"],
@@ -308,7 +307,6 @@ async def registrar_accion(request: Request, user: Dict[str, Any] = Depends(get_
 
 @api_router.get("/log/informe")
 async def get_informe(request: Request, fecha: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):
-    db = request.app.state.db
     if not fecha:
         from datetime import datetime, timezone
         fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
@@ -320,7 +318,6 @@ async def get_informe(request: Request, fecha: Optional[str] = None, user: Dict[
 async def get_csv(request: Request, fecha: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):
     from fastapi.responses import Response
     from datetime import datetime, timezone
-    db = request.app.state.db
     if not fecha:
         fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     logs = await get_logs_by_date(db=db, fecha=fecha)
