@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Mail, Inbox, Clock, Paperclip, AlertTriangle, LogOut, RefreshCw, Download } from 'lucide-react';
+import { Mail, Inbox, Clock, Paperclip, LogOut, RefreshCw, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
 import api from '../services/apiClient';
 
@@ -47,6 +47,7 @@ export default function BrokerDashboard() {
   const firstName = user?.name?.split(' ')[0] || 'Agente';
   const hour = new Date().getHours();
   const greeting = hour < 13 ? 'Buenos días' : hour < 20 ? 'Buenas tardes' : 'Buenas noches';
+  const today = new Date().toISOString().split('T')[0];
 
   const fetchEmails = async () => {
     try {
@@ -77,7 +78,6 @@ export default function BrokerDashboard() {
   return (
     <div style={{ minHeight: '100vh', background: C.black, fontFamily: "'Plus Jakarta Sans', sans-serif", color: C.textPrimary }}>
 
-      {/* Navbar */}
       <header style={{ borderBottom: `1px solid ${C.border}`, padding: '0 2rem', height: '56px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(3,3,5,0.92)', backdropFilter: 'blur(12px)', position: 'sticky', top: 0, zIndex: 50 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           <div style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '1.3rem', color: C.gold, letterSpacing: '0.2em', textTransform: 'uppercase' }}>
@@ -91,12 +91,11 @@ export default function BrokerDashboard() {
           <button onClick={fetchEmails} disabled={syncing} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted }}>
             <RefreshCw size={14} strokeWidth={1.5} style={{ animation: syncing ? 'spin 1s linear infinite' : 'none' }} />
           </button>
-          
-            href={`/api/log/csv?fecha=${new Date().toISOString().split('T')[0]}`}
+          <a  
+            href={`/api/log/csv?fecha=${today}`}
             download
             title="Descargar informe del día"
-            style={{ color: C.textMuted, display: 'flex', alignItems: 'center' }}
-            onClick={() => logAction('INFORME_DESCARGADO', {})}
+            style={{ color: C.textMuted, display: 'flex', alignItems: 'center', textDecoration: 'none' }}
           >
             <Download size={14} strokeWidth={1.5} />
           </a>
@@ -111,7 +110,6 @@ export default function BrokerDashboard() {
 
       <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '4rem 3rem' }}>
 
-        {/* Header */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} style={{ marginBottom: '2.5rem' }}>
           <div style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.3em', color: C.gold, opacity: 0.6, marginBottom: '0.4rem' }}>{greeting}</div>
           <h1 style={{ fontFamily: 'Cormorant Garamond, serif', fontSize: '2.4rem', fontWeight: 300, color: C.textPrimary, margin: 0, lineHeight: 1.05 }}>
@@ -122,7 +120,6 @@ export default function BrokerDashboard() {
           </p>
         </motion.div>
 
-        {/* Stats */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
           style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1px', background: C.border, border: `1px solid ${C.border}`, marginBottom: '2.5rem' }}>
           {[
@@ -139,7 +136,6 @@ export default function BrokerDashboard() {
           ))}
         </motion.div>
 
-        {/* Estado */}
         {loading && (
           <div style={{ textAlign: 'center', padding: '4rem', color: C.textMuted, fontSize: '0.8rem', letterSpacing: '0.15em', textTransform: 'uppercase' }}>
             Cargando correos...
@@ -151,7 +147,6 @@ export default function BrokerDashboard() {
           </div>
         )}
 
-        {/* Emails */}
         {!loading && (
           <div style={{ display: 'grid', gridTemplateColumns: selected ? '1fr 1fr' : '1fr', gap: '1.5rem' }}>
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
@@ -163,11 +158,12 @@ export default function BrokerDashboard() {
                   const pStyle = getPriorityStyle(item.priority?.priority_label);
                   const isSelected = selected === item.email?.id;
                   return (
-                    <motion.div key={item.email?.id} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }}
+                    <motion.div key={item.email?.id}
+                      initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.05 * i }}
                       onClick={() => {
-                      if (!isSelected) logAction('LEIDO', {...item.email, categoria: item.categoria, priority: item.priority});
-                      setSelected(isSelected ? null : item.email?.id);
-                    }}
+                        if (!isSelected) logAction('LEIDO', { ...item.email, categoria: item.categoria, priority: item.priority });
+                        setSelected(isSelected ? null : item.email?.id);
+                      }}
                       style={{ padding: '1rem 1.25rem', background: isSelected ? C.surfaceHover : C.black, cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', borderLeft: isSelected ? `2px solid ${C.gold}` : '2px solid transparent', transition: 'background .2s' }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
@@ -202,7 +198,6 @@ export default function BrokerDashboard() {
               </div>
             </motion.div>
 
-            {/* Panel detalle */}
             {selectedEmail && (
               <motion.div initial={{ opacity: 0, x: 16 }} animate={{ opacity: 1, x: 0 }}
                 style={{ padding: '1.5rem', background: C.black, border: `1px solid ${C.borderGold}` }}>
@@ -231,7 +226,9 @@ export default function BrokerDashboard() {
                   <div style={{ fontSize: '0.8rem', color: C.textSecondary, lineHeight: 1.75, padding: '1rem', background: 'rgba(201,178,124,0.03)', border: `1px solid ${C.border}`, whiteSpace: 'pre-wrap' }}>
                     {selectedEmail.borrador || `Estimado/a ${selectedEmail.email?.from_name?.split(' ')[0]}, gracias por contactar con nosotros. Hemos recibido su mensaje y nos pondremos en contacto con usted a la mayor brevedad posible.`}
                   </div>
-                  <button style={{ marginTop: '1rem', width: '100%', padding: '0.75rem', background: 'transparent', border: `1px solid ${C.borderGold}`, color: C.gold, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.18em', cursor: 'pointer' }}
+                  <button
+                    onClick={() => logAction('RESPONDIDO', { ...selectedEmail.email, categoria: selectedEmail.categoria, priority: selectedEmail.priority })}
+                    style={{ marginTop: '1rem', width: '100%', padding: '0.75rem', background: 'transparent', border: `1px solid ${C.borderGold}`, color: C.gold, fontSize: '0.68rem', textTransform: 'uppercase', letterSpacing: '0.18em', cursor: 'pointer' }}
                     onMouseEnter={e => e.target.style.background = 'rgba(201,178,124,0.06)'}
                     onMouseLeave={e => e.target.style.background = 'transparent'}>
                     Enviar respuesta
