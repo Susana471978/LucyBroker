@@ -27,6 +27,7 @@ from backend.models import (
     DraftReplyRequest,
 )
 
+from backend.services.activity_service import log_action, get_logs_by_date, generate_csv, generate_summary
 from backend.services.email_service import (
     get_enriched_emails,
     get_email_by_id,
@@ -287,6 +288,49 @@ async def root(request: Request):
 
 
 @api_router.get("/health")
+@api_router.post("/log/accion")
+async def registrar_accion(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
+    payload = await request.json()
+    db = request.app.state.db
+    await log_action(
+        db=db,
+        user_id=user["user_id"],
+        user_name=user.get("name", user.get("email", "Usuario")),
+        accion=payload.get("accion", "LEIDO"),
+        correo_id=payload.get("correo_id", ""),
+        correo_asunto=payload.get("correo_asunto", ""),
+        correo_de=payload.get("correo_de", ""),
+        categoria=payload.get("categoria", ""),
+        prioridad=payload.get("prioridad", ""),
+        notas=payload.get("notas", ""),
+    )
+    return build_response(request, data={"ok": True})
+
+@api_router.get("/log/informe")
+async def get_informe(request: Request, fecha: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):
+    db = request.app.state.db
+    if not fecha:
+        from datetime import datetime, timezone
+        fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    logs = await get_logs_by_date(db=db, fecha=fecha)
+    summary = generate_summary(logs, fecha)
+    return build_response(request, data=summary)
+
+@api_router.get("/log/csv")
+async def get_csv(request: Request, fecha: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):
+    from fastapi.responses import Response
+    from datetime import datetime, timezone
+    db = request.app.state.db
+    if not fecha:
+        fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    logs = await get_logs_by_date(db=db, fecha=fecha)
+    csv_content = generate_csv(logs)
+    return Response(
+        content=csv_content,
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=informe_objetiva_{fecha}.csv"}
+    )
+
 async def health_legacy(request: Request):
     legacy = {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
     return build_response(request, data=legacy, legacy=legacy)

@@ -63,6 +63,21 @@ class EnrichedEmail(BaseModel):
     borrador: str = ""
 
 
+# ==================== ACTIVITY LOG ====================
+class ActivityLog(BaseModel):
+    id: str = ""
+    user_id: str
+    user_name: str
+    fecha: str
+    hora: str
+    accion: str  # LEIDO | CLASIFICADO | RESPONDIDO | ADJUNTO_ENVIADO
+    correo_id: str = ""
+    correo_asunto: str = ""
+    correo_de: str = ""
+    categoria: str = ""
+    prioridad: str = ""
+    notas: str = ""
+
 # ==================== AUTH MODELS ====================
 
 class UserCreate(BaseModel):
