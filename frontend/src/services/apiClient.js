@@ -1,48 +1,74 @@
-import axios from 'axios';
+// ─────────────────────────────────────────────
+// frontend/src/services/apiClient.js
+// Axios sin localStorage — cookies httpOnly + refresh automático
+// ─────────────────────────────────────────────
 
-const api = axios.create({
-    baseURL: '/api',
-    withCredentials: true,
-    timeout: 45000,
+import axios from "axios";
+
+const apiClient = axios.create({
+  baseURL: "/api",
+  withCredentials: true,   // ← envía/recibe cookies en cada petición
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-api.interceptors.request.use((config) => {
-    const token = localStorage.getItem('auth_token');
-    if (token) {
-        config.headers.Authorization = `Bearer ${token}`;
+// ── Flag para evitar bucles infinitos de refresh ──────────────────────────────
+let isRefreshing = false;
+let failedQueue = [];      // peticiones en espera mientras se refresca
+
+const processQueue = (error) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
     }
-    return config;
-});
+  });
+  failedQueue = [];
+};
 
-// ── Flag to prevent redirect loops (multiple 401s at once) ──
-let isRedirecting = false;
+// ── Interceptor de respuesta ──────────────────────────────────────────────────
+apiClient.interceptors.response.use(
+  (response) => response,
 
-api.interceptors.response.use(
-    (res) => res,
-    (err) => {
-        const status = err?.response?.status;
+  async (error) => {
+    const originalRequest = error.config;
 
-        if (status === 401 && !isRedirecting && !err?.config?.url?.includes('auth/login') && !err?.config?.url?.includes('auth/register')) {
-            isRedirecting = true;
+    // Solo intentamos refresh en 401 y si no es el propio endpoint de refresh/login
+    const isAuthEndpoint =
+      originalRequest.url?.includes("/auth/refresh") ||
+      originalRequest.url?.includes("/auth/login");
 
-            // Clear all auth state
-            localStorage.removeItem('auth_token');
-            localStorage.removeItem('user');
-            localStorage.removeItem('trial_start');
-            sessionStorage.removeItem('briefing_done');
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
+      if (isRefreshing) {
+        // Encola la petición hasta que termine el refresh
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => apiClient(originalRequest))
+          .catch((err) => Promise.reject(err));
+      }
 
-            // Redirect to landing — only if not already there
-            if (window.location.pathname !== '/') {
-                window.location.href = '/';
-            }
+      originalRequest._retry = true;
+      isRefreshing = true;
 
-            // Reset flag after redirect completes
-            setTimeout(() => { isRedirecting = false; }, 2000);
-        }
-
-        console.error('API Error:', err?.response || err);
-        return Promise.reject(err);
+      try {
+        await apiClient.post("/auth/refresh");   // rota los tokens en cookies
+        processQueue(null);
+        return apiClient(originalRequest);       // reintenta la petición original
+      } catch (refreshError) {
+        processQueue(refreshError);
+        // Refresh también falló → sesión caducada, redirige al login
+        window.location.href = "/login";
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
+
+    return Promise.reject(error);
+  }
 );
 
-export default api;
+export default apiClient;

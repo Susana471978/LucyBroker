@@ -240,7 +240,6 @@ export function useVoiceEngine() {
             setVoiceState(STATES.SPEAKING);
 
             const apiBase = apiClient.defaults.baseURL || "/api";
-            const token = localStorage.getItem("auth_token") || "";
 
             console.log("[TTS] Iniciando fetch...");
 

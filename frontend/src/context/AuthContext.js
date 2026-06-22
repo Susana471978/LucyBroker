@@ -1,78 +1,75 @@
-import { createContext, useContext, useState } from 'react';
-import api from '../services/apiClient';
+// ─────────────────────────────────────────────
+// frontend/src/context/AuthContext.js
+// Sin localStorage — la sesión vive en la cookie httpOnly
+// ─────────────────────────────────────────────
+
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import apiClient from "../services/apiClient";
 
 const AuthContext = createContext(null);
 
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
-};
+export function AuthProvider({ children }) {
+  const [user, setUser]       = useState(null);   // { id, email, role }
+  const [loading, setLoading] = useState(true);   // comprobando sesión inicial
 
-export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(localStorage.getItem('auth_token'));
-  const [user, setUser] = useState(() => {
-    const u = localStorage.getItem('user');
-    return u ? JSON.parse(u) : null;
-  });
+  // ── Al montar: comprueba si hay sesión activa (cookie válida) ────────────────
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data } = await apiClient.get("/auth/me");
+        setUser(data);
+      } catch {
+        setUser(null);   // no hay sesión o expiró
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkSession();
+  }, []);
 
-  const login = async (email, password) => {
+  // ── Login ─────────────────────────────────────────────────────────────────────
+  const login = useCallback(async (email, password) => {
+    const { data } = await apiClient.post("/auth/login", { email, password });
+    // La cookie ya la escribió el backend; solo necesitamos el perfil
+    const { data: profile } = await apiClient.get("/auth/me");
+    setUser(profile);
+    return data;
+  }, []);
+
+  // ── Register ──────────────────────────────────────────────────────────────────
+  const register = useCallback(async (email, password, name) => {
+    const { data } = await apiClient.post("/auth/register", { email, password, name });
+    const { data: profile } = await apiClient.get("/auth/me");
+    setUser(profile);
+    return data;
+  }, []);
+
+  // ── Logout ────────────────────────────────────────────────────────────────────
+  const logout = useCallback(async () => {
     try {
-      const res = await api.post('/auth/login', { email, password });
-      console.log('Login response:', res.data);
-      const data = res.data?.data || res.data;
-      const t = data.token;
-      const u = data.user;
-      localStorage.setItem('auth_token', t);
-      localStorage.setItem('user', JSON.stringify(u));
-      setToken(t);
-      setUser(u);
-      return u;
-    } catch (err) {
-      console.error('Login error:', err);
-      throw err;
+      await apiClient.post("/auth/logout");
+    } finally {
+      setUser(null);
+      window.location.href = "/login";
     }
-  };
+  }, []);
 
-  const register = async (email, password, name) => {
-    try {
-      const res = await api.post('/auth/register', { email, password, name });
-      const data = res.data?.data || res.data;
-      const t = data.token;
-      const u = data.user;
-      localStorage.setItem('auth_token', t);
-      localStorage.setItem('user', JSON.stringify(u));
-      setToken(t);
-      setUser(u);
-      return u;
-    } catch (err) {
-      console.error('Register error:', err);
-      throw err;
-    }
-  };
+  const value = { user, loading, login, register, logout };
 
-  const logout = () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-    setToken(null);
-    setUser(null);
-  };
+  if (loading) {
+    // Pantalla de carga mínima mientras se verifica la sesión
+    return (
+      <div className="flex items-center justify-center h-screen bg-gray-950">
+        <div className="w-8 h-8 border-4 border-violet-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
-  return (
-    <AuthContext.Provider value={{
-      user,
-      token,
-      loading: false,
-      language: user?.language || 'es',
-      login,
-      register,
-      logout,
-      updateLanguage: () => {},
-      isAuthenticated: !!token,
-    }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
 
-export default AuthContext;
+export function useAuth() {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error("useAuth debe usarse dentro de <AuthProvider>");
+  return ctx;
+}

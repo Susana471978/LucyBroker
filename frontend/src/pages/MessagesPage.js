@@ -36,12 +36,10 @@ const speakExecutive = async (text) => {
     }
     window.speechSynthesis.cancel();
 
-    const token = localStorage.getItem('auth_token');
     const res = await fetch(`${API_URL}/tts`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
       body: JSON.stringify({ text }),
     });
