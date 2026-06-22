@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional, Dict, Any
+from enum import Enum
 
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -79,11 +80,17 @@ class ActivityLog(BaseModel):
     notas: str = ""
 
 # ==================== AUTH MODELS ====================
+class RoleEnum(str, Enum):
+    director = "director"
+    agent    = "agent"
+    admin    = "admin"
+
 
 class UserCreate(BaseModel):
     email: str
     password: str
     name: str
+    role: RoleEnum = RoleEnum.agent
 
 
 class UserLogin(BaseModel):
@@ -96,6 +103,7 @@ class UserResponse(BaseModel):
     email: str
     name: str
     language: str = "es"
+    role: RoleEnum = RoleEnum.agent
 
 
 class TokenResponse(BaseModel):

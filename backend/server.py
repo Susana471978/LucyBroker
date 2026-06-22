@@ -143,6 +143,14 @@ async def get_current_user(request: Request) -> Dict[str, Any]:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Token inválido")
 
+def require_role(*roles: str):
+    """Dependencia que exige uno de los roles indicados."""
+    async def checker(user: Dict[str, Any] = Depends(get_current_user)):
+        if user.get("role", "agent") not in roles:
+            raise HTTPException(status_code=403, detail="Permiso denegado")
+        return user
+    return checker
+
 # ==================== AUTH ROUTES ====================
 @api_router.post("/auth/register")
 async def register(request: Request, response: Response, user_data: UserCreate):
@@ -194,6 +202,7 @@ async def login(request: Request, response: Response, credentials: UserLogin):
             email=user["email"],
             name=user["name"],
             language=user.get("language", "es"),
+            role=user.get("role", "agent"),
         ),
     )
     legacy = token_response.model_dump()
@@ -227,6 +236,21 @@ async def refresh_token(request: Request, response: Response):
 async def logout(response: Response):
     clear_auth_cookies(response)
     return {"message": "Sesión cerrada"}
+
+@api_router.get("/auth/users")
+async def list_users(request: Request, user: Dict[str, Any] = Depends(require_role("director", "admin"))):
+    users = await db.users.find({}, {"_id": 0, "password": 0}).to_list(100)
+    return {"users": users}
+
+@api_router.put("/auth/users/{user_id}/role")
+async def update_user_role(request: Request, user_id: str, body: dict, user: Dict[str, Any] = Depends(require_role("director", "admin"))):
+    new_role = body.get("role")
+    if new_role not in ["director", "agent", "admin"]:
+        raise HTTPException(status_code=400, detail="Rol inválido")
+    result = await db.users.update_one({"id": user_id}, {"$set": {"role": new_role}})
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado")
+    return {"message": f"Rol actualizado a {new_role}", "user_id": user_id}
 
 @api_router.get("/auth/me")
 async def get_me(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
