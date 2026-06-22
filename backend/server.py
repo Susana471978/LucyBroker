@@ -28,6 +28,7 @@ from backend.models import (
 )
 
 from backend.services.activity_service import log_action, get_logs_by_date, generate_csv, generate_summary, generate_pdf
+from backend.services.push_service import save_subscription, delete_subscription, send_push, broadcast_push
 from backend.services.email_service import (
     get_enriched_emails,
     get_email_by_id,
@@ -261,14 +262,10 @@ async def get_me(request: Request, user: Dict[str, Any] = Depends(get_current_us
         language=user.get("language", "es"),
     )
     legacy = user_response.model_dump()
-    return build_response(request, data=legacy, legacy=legacy)
-
 @api_router.put("/auth/language")
 async def update_language(request: Request, response: Response, language: str, user: Dict[str, Any] = Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]}, {"$set": {"language": language}})
     legacy = {"status": "ok", "language": language}
-    return build_response(request, data=legacy, legacy=legacy)
-
 # ==================== EMAIL ROUTES ====================
 
 
@@ -319,8 +316,6 @@ async def ai_chat(request: Request, payload: ChatRequest, user: Dict[str, Any] =
         raise HTTPException(status_code=503, detail="AI service not available in this environment")
     intent = await ai_service.process_intent(payload.message, payload.context)
     legacy = intent.model_dump()
-    return build_response(request, data=legacy, legacy=legacy)
-
 @api_router.post("/ai/summarize")
 async def ai_summarize(request: Request, payload: SummarizeRequest, user: Dict[str, Any] = Depends(get_current_user)):
     """Summarize an email"""
@@ -332,8 +327,6 @@ async def ai_summarize(request: Request, payload: SummarizeRequest, user: Dict[s
 
     summary = await ai_service.summarize_email(email)
     legacy = {"email_id": payload.email_id, "summary": summary}
-    return build_response(request, data=legacy, legacy=legacy)
-
 @api_router.post("/ai/draft-reply")
 async def ai_draft_reply(request: Request, payload: DraftReplyRequest, user: Dict[str, Any] = Depends(get_current_user)):
     """Generate draft replies for an email"""
@@ -345,8 +338,6 @@ async def ai_draft_reply(request: Request, payload: DraftReplyRequest, user: Dic
 
     drafts = await ai_service.draft_reply(email, payload.instructions, payload.tone)
     legacy = {"email_id": payload.email_id, "drafts": drafts}
-    return build_response(request, data=legacy, legacy=legacy)
-
 # ==================== BASE ROUTES ====================
 
 async def check_db_health() -> Dict[str, Any]:
@@ -377,8 +368,6 @@ async def check_redis_health() -> Dict[str, Any]:
 @api_router.get("/")
 async def root(request: Request):
     legacy = {"message": "Email Control System API", "version": "1.0.0"}
-    return build_response(request, data=legacy, legacy=legacy)
-
 
 @api_router.get("/health")
 @api_router.post("/log/accion")
@@ -448,8 +437,24 @@ async def get_csv(request: Request, fecha: Optional[str] = None, user: Dict[str,
 
 async def health_legacy(request: Request):
     legacy = {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
-    return build_response(request, data=legacy, legacy=legacy)
 
+@api_router.post("/push/subscribe")
+async def push_subscribe(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
+    body = await request.json()
+    ok = await save_subscription(db, user["id"], body)
+    return {"ok": ok}
+
+@api_router.post("/push/unsubscribe")
+async def push_unsubscribe(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
+    body = await request.json()
+    ok = await delete_subscription(db, user["id"], body.get("endpoint", ""))
+    return {"ok": ok}
+
+@api_router.post("/push/send")
+async def push_send(request: Request, user: Dict[str, Any] = Depends(require_role("director", "admin"))):
+    body = await request.json()
+    sent = await broadcast_push(db, body.get("title", "Lucy"), body.get("body", ""), body.get("url", "/"), body.get("role"))
+    return {"sent": sent}
 
 @app.get("/health")
 async def health_root(request: Request):
