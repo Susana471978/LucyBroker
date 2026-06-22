@@ -386,7 +386,7 @@ async def registrar_accion(request: Request, user: Dict[str, Any] = Depends(get_
     payload = await request.json()
     await log_action(
         db=db,
-        user_id=user["user_id"],
+        user_id=user["id"],
         user_name=user.get("name", user.get("email", "Usuario")),
         accion=payload.get("accion", "LEIDO"),
         correo_id=payload.get("correo_id", ""),
@@ -399,12 +399,23 @@ async def registrar_accion(request: Request, user: Dict[str, Any] = Depends(get_
     return build_response(request, data={"ok": True})
 
 @api_router.get("/log/informe")
-async def get_informe(request: Request, fecha: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):
+async def get_informe(request: Request, fecha: Optional[str] = None, filter_user_id: Optional[str] = None, user: Dict[str, Any] = Depends(get_current_user)):
     if not fecha:
-        from datetime import datetime, timezone
         fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    logs = await get_logs_by_date(db=db, fecha=fecha)
+    role = user.get("role", "agent")
+    uid = user["id"] if role == "agent" else (filter_user_id or None)
+    logs = await get_logs_by_date(db=db, fecha=fecha, user_id=uid)
     summary = generate_summary(logs, fecha)
+    return build_response(request, data=summary)
+
+@api_router.get("/log/global")
+async def get_informe_global(request: Request, fecha: Optional[str] = None, user: Dict[str, Any] = Depends(require_role("director", "admin"))):
+    if not fecha:
+        fecha = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    logs = await get_logs_by_date(db=db, fecha=fecha, user_id=None)
+    summary = generate_summary(logs, fecha)
+    ranking = sorted(summary["por_usuario"].items(), key=lambda x: -x[1])
+    summary["ranking_usuarios"] = [{"usuario": u, "acciones": n} for u, n in ranking]
     return build_response(request, data=summary)
 
 @api_router.get("/log/pdf")
