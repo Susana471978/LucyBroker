@@ -13,6 +13,7 @@ import HabitsPage from "./pages/HabitsPage";
 import PricingPage from "./pages/PricingPage";
 import { BillingSuccessPage, BillingCancelPage } from "./pages/BillingResultPage";
 import ContactsPage from "./pages/ContactsPage";
+import ActivityLogPage from './pages/ActivityLogPage';
 import BrokerDashboard from "./pages/BrokerDashboard";
 
 const SmartLanding = () => {
@@ -62,6 +63,7 @@ const AppRoutes = () => {
       <Route path="/app/habits" element={<ProtectedRoute><VoiceProvider><HabitsPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/app/pricing" element={<ProtectedRoute><VoiceProvider><PricingPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/app/contacts" element={<ProtectedRoute><VoiceProvider><ContactsPage /></VoiceProvider></ProtectedRoute>} />
+      <Route path="/app/activity" element={<ProtectedRoute><VoiceProvider><ActivityLogPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/app/billing/success" element={<ProtectedRoute><VoiceProvider><BillingSuccessPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/app/billing/cancel" element={<ProtectedRoute><VoiceProvider><BillingCancelPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/landing" element={<Navigate to="/" replace />} />
