@@ -54,7 +54,7 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const value = { user, loading, login, register, logout };
+  const value = { user, loading, login, register, logout, isAuthenticated: !!user };
 
   if (loading) {
     // Pantalla de carga mínima mientras se verifica la sesión
