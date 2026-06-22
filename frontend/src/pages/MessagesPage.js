@@ -22,7 +22,7 @@ import apiClient from '../services/apiClient';
 import { useVoice } from '../voice/VoiceProvider';
 
 /* ─── TTS ejecutivo ───────────────────────────────────── */
-const API_URL = `${process.env.REACT_APP_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
+const API_URL = `${import.meta.env.VITE_BACKEND_URL || 'http://127.0.0.1:8000'}/api`;
 
 let _currentAudio = null;
 

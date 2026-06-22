@@ -5,8 +5,7 @@ import App from "@/App";
 import { registerSW } from './registerSW';
 registerSW();
 
-if (process.env.NODE_ENV === 'production') {
-  const { registerSW } = require('./registerSW');
+if (import.meta.env.PROD) {
   registerSW();
 }
 const root = ReactDOM.createRoot(document.getElementById("root"));
