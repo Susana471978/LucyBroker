@@ -111,7 +111,7 @@ export default function BrokerDashboard() {
             <Download size={14} strokeWidth={1.5} />
           </button>
           { user?.role === 'director' || user?.role === 'admin' ? (
-            <button onClick={() => navigate('/admin/users')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: C.gold, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${C.borderGold}` }}>
+            <button onClick={() => navigate('/admin/users')} style={{ background: 'none', cursor: 'pointer', fontSize: '0.75rem', color: C.gold, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${C.borderGold}` }}>
               Usuarios
             </button>
           ) : null }
