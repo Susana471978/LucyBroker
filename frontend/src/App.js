@@ -31,7 +31,7 @@ const SmartLanding = () => {
       </div>
     );
   }
-  if (isAuthenticated) return <Navigate to="/broker" replace />;
+  if (isAuthenticated) return <Navigate to="/broker/briefing" replace />;
   return <LandingPage />;
 };
 
