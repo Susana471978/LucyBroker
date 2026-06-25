@@ -253,6 +253,24 @@ async def update_user_role(request: Request, user_id: str, body: dict, user: Dic
         raise HTTPException(status_code=404, detail="Usuario no encontrado")
     return {"message": f"Rol actualizado a {new_role}", "user_id": user_id}
 
+
+@api_router.post("/auth/admin/create-user")
+async def admin_create_user(request: Request, body: UserCreate, user: Dict[str, Any] = Depends(require_role("director", "admin"))):
+    existing = await db.users.find_one({"email": body.email})
+    if existing:
+        raise HTTPException(status_code=400, detail="Email ya registrado")
+    user_id = str(uuid.uuid4())
+    user_doc = {
+        "id": user_id,
+        "email": body.email,
+        "password": hash_password(body.password),
+        "name": body.name,
+        "role": body.role if body.role in ["director", "agent", "admin"] else "agent",
+        "language": "es",
+        "created_at": datetime.utcnow().isoformat()
+    }
+    await db.users.insert_one(user_doc)
+    return {"message": "Usuario creado", "user_id": user_id, "email": body.email, "role": user_doc["role"]}
 @api_router.get("/auth/me")
 async def get_me(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
     user_response = UserResponse(

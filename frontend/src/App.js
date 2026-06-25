@@ -15,6 +15,7 @@ import { BillingSuccessPage, BillingCancelPage } from "./pages/BillingResultPage
 import ContactsPage from "./pages/ContactsPage";
 import ActivityLogPage from './pages/ActivityLogPage';
 import BrokerDashboard from "./pages/BrokerDashboard";
+import AdminPage from "./pages/AdminPage";
 
 const SmartLanding = () => {
   const { isAuthenticated, loading } = useAuth();
@@ -50,12 +51,21 @@ const ProtectedRoute = ({ children }) => {
   return children;
 };
 
+const AdminRoute = ({ children }) => {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/auth" replace />;
+  if (!["director", "admin"].includes(user.role)) return <Navigate to="/broker" replace />;
+  return children;
+};
+
 const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/" element={<SmartLanding />} />
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/broker" element={<ProtectedRoute><BrokerDashboard /></ProtectedRoute>} />
+      <Route path="/admin/users" element={<AdminRoute><AdminPage /></AdminRoute>} />
       <Route path="/app" element={<ProtectedRoute><VoiceProvider><OverviewPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/app/messages" element={<ProtectedRoute><VoiceProvider><MessagesPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/app/tasks" element={<ProtectedRoute><VoiceProvider><TasksPage /></VoiceProvider></ProtectedRoute>} />

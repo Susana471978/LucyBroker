@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Mail, Inbox, Clock, Paperclip, LogOut, RefreshCw, Download } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -38,6 +39,7 @@ const getPriorityStyle = (label) => {
 
 export default function BrokerDashboard() {
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [selected, setSelected] = useState(null);
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -108,6 +110,11 @@ export default function BrokerDashboard() {
           >
             <Download size={14} strokeWidth={1.5} />
           </button>
+          { user?.role === 'director' || user?.role === 'admin' ? (
+            <button onClick={() => navigate('/admin/users')} style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '0.75rem', color: C.gold, padding: '2px 8px', borderRadius: '6px', border: `1px solid ${C.borderGold}` }}>
+              Usuarios
+            </button>
+          ) : null }
           <span style={{ fontSize: '0.78rem', color: C.textSecondary }}>{user?.name}</span>
           <button onClick={logout} style={{ background: 'none', border: 'none', cursor: 'pointer', color: C.textMuted }}>
             <LogOut size={15} strokeWidth={1.5} />
