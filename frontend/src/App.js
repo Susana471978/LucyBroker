@@ -16,6 +16,7 @@ import ContactsPage from "./pages/ContactsPage";
 import ActivityLogPage from './pages/ActivityLogPage';
 import BrokerDashboard from "./pages/BrokerDashboard";
 import BriefingPage from "./pages/BriefingPage";
+import BandejaPage from "./pages/BandejaPage";
 import AdminPage from "./pages/AdminPage";
 
 const SmartLanding = () => {
@@ -67,6 +68,7 @@ const AppRoutes = () => {
       <Route path="/auth" element={<AuthPage />} />
       <Route path="/broker" element={<Navigate to="/broker/briefing" replace />} />
       <Route path="/broker/briefing" element={<ProtectedRoute><BriefingPage /></ProtectedRoute>} />
+      <Route path="/broker/bandeja" element={<ProtectedRoute><BandejaPage /></ProtectedRoute>} />
       <Route path="/admin/users" element={<AdminRoute><AdminPage /></AdminRoute>} />
       <Route path="/app" element={<ProtectedRoute><VoiceProvider><OverviewPage /></VoiceProvider></ProtectedRoute>} />
       <Route path="/app/messages" element={<ProtectedRoute><VoiceProvider><MessagesPage /></VoiceProvider></ProtectedRoute>} />
