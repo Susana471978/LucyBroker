@@ -36,6 +36,30 @@ export default function BandejaPage() {
   const [syncing, setSyncing] = useState(false);
   const [selected, setSelected] = useState(null);
   const [filtro, setFiltro] = useState("todos");
+  const [aiDraft, setAiDraft] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const generateDraft = async (emailId) => {
+    setAiLoading(true);
+    setAiDraft(null);
+    try {
+      const res = await api.post("/ai/draft-reply", { email_id: emailId, instructions: "", tone: "professional" });
+      const drafts = res.data?.data?.drafts || res.data?.drafts || [];
+      if (drafts.length > 0) setAiDraft(drafts[0]);
+    } catch(e) {} finally { setAiLoading(false); }
+  };
+  const [aiDraft, setAiDraft] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+
+  const generateDraft = async (emailId) => {
+    setAiLoading(true);
+    setAiDraft(null);
+    try {
+      const res = await api.post("/ai/draft-reply", { email_id: emailId, instructions: "", tone: "professional" });
+      const drafts = res.data?.data?.drafts || res.data?.drafts || [];
+      if (drafts.length > 0) setAiDraft(drafts[0]);
+    } catch(e) {} finally { setAiLoading(false); }
+  };
   const today = new Date().toISOString().split("T")[0];
 
   const fetchEmails = async () => {
