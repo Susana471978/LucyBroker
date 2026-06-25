@@ -127,14 +127,14 @@ def clear_auth_cookies(response: Response):
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/api/auth/refresh")
 
-async def get_current_user(request: Request) -> Dict[str, Any]:
+async def get_current_user(request: Request, authorization: Optional[str] = Header(None)) -> Dict[str, Any]:
     token = request.cookies.get("access_token")
+    if not token and authorization and authorization.startswith("Bearer "):
+        token = authorization.replace("Bearer ", "")
     if not token:
         raise HTTPException(status_code=401, detail="Token requerido")
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        if payload.get("type") != "access":
-            raise HTTPException(status_code=401, detail="Token inválido")
         user = await db.users.find_one({"id": payload["user_id"]}, {"_id": 0})
         if not user:
             raise HTTPException(status_code=401, detail="Usuario no encontrado")

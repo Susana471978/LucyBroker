@@ -90,7 +90,9 @@ class UserCreate(BaseModel):
     email: str
     password: str
     name: str
-    role: RoleEnum = RoleEnum.agent
+    role: str = "employee"  # admin | employee
+    imap_user: Optional[str] = None
+    imap_password: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -103,7 +105,8 @@ class UserResponse(BaseModel):
     email: str
     name: str
     language: str = "es"
-    role: RoleEnum = RoleEnum.agent
+    role: str = "employee"
+    imap_user: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
