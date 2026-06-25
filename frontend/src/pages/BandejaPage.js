@@ -36,18 +36,7 @@ export default function BandejaPage() {
   const [syncing, setSyncing] = useState(false);
   const [selected, setSelected] = useState(null);
   const [filtro, setFiltro] = useState("todos");
-  const [aiDraft, setAiDraft] = useState(null);
-  const [aiLoading, setAiLoading] = useState(false);
 
-  const generateDraft = async (emailId) => {
-    setAiLoading(true);
-    setAiDraft(null);
-    try {
-      const res = await api.post("/ai/draft-reply", { email_id: emailId, instructions: "", tone: "professional" });
-      const drafts = res.data?.data?.drafts || res.data?.drafts || [];
-      if (drafts.length > 0) setAiDraft(drafts[0]);
-    } catch(e) {} finally { setAiLoading(false); }
-  };
   const [aiDraft, setAiDraft] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -250,11 +239,19 @@ export default function BandejaPage() {
                 {selectedEmail.resumen}
               </p>
             )}
-
             <div style={{ borderTop: "1px solid rgba(201,169,110,0.07)", paddingTop: 16 }}>
-              <div style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(242,239,233,0.25)", marginBottom: 10 }}>Respuesta sugerida</div>
-              <div style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.5)", lineHeight: 1.7, padding: "12px 14px", background: "rgba(201,169,110,0.02)", border: "1px solid rgba(201,169,110,0.07)", borderRadius: 6, whiteSpace: "pre-wrap", marginBottom: 12 }}>
-                {selectedEmail.borrador || `Estimado/a ${selectedEmail.email?.from_name?.split(" ")[0]}, gracias por contactar con nosotros. Hemos recibido su mensaje y nos pondremos en contacto a la mayor brevedad.`}
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+                <div style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(242,239,233,0.25)" }}>Respuesta sugerida</div>
+                <button
+                  onClick={() => generateDraft(selectedEmail.email?.id)}
+                  disabled={aiLoading}
+                  style={{ background: "none", border: "1px solid rgba(201,169,110,0.2)", borderRadius: 4, padding: "3px 10px", cursor: "pointer", color: "#C9A96E", fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", opacity: aiLoading ? 0.5 : 1, transition: "all 0.18s" }}
+                >
+                  {aiLoading ? "Generando..." : "✦ Lucy"}
+                </button>
+              </div>
+              <div style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.5)", lineHeight: 1.7, padding: "12px 14px", background: "rgba(201,169,110,0.02)", border: "1px solid rgba(201,169,110,0.07)", borderRadius: 6, whiteSpace: "pre-wrap", marginBottom: 12, minHeight: 80 }}>
+                {aiLoading ? "Lucy está redactando..." : (aiDraft || selectedEmail.borrador || `Estimado/a ${selectedEmail.email?.from_name?.split(" ")[0]}, gracias por contactar con nosotros. Hemos recibido su mensaje y nos pondremos en contacto a la mayor brevedad.`)}
               </div>
               <button
                 onClick={() => logAction("RESPONDIDO", { ...selectedEmail.email, categoria: selectedEmail.categoria, priority: selectedEmail.priority })}
@@ -264,6 +261,7 @@ export default function BandejaPage() {
               >
                 Marcar como respondido
               </button>
+            </div>
             </div>
           </div>
         )}
