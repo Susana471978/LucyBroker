@@ -65,7 +65,7 @@ const AppRoutes = () => {
     <Routes>
       <Route path="/" element={<SmartLanding />} />
       <Route path="/auth" element={<AuthPage />} />
-      <Route path="/broker" element={<ProtectedRoute><BrokerDashboard /></ProtectedRoute>} />
+      <Route path="/broker" element={<Navigate to="/broker/briefing" replace />} />
       <Route path="/broker/briefing" element={<ProtectedRoute><BriefingPage /></ProtectedRoute>} />
       <Route path="/admin/users" element={<AdminRoute><AdminPage /></AdminRoute>} />
       <Route path="/app" element={<ProtectedRoute><VoiceProvider><OverviewPage /></VoiceProvider></ProtectedRoute>} />
