@@ -96,7 +96,7 @@ export default function BandejaPage() {
             Bandeja
           </h1>
           <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.58rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(242,239,233,0.3)" }}>
-            Comunicaciones · Email · WhatsApp · Llamadas
+            Comunicaciones · Email · Web · WhatsApp
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
