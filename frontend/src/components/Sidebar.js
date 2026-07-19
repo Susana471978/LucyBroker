@@ -28,7 +28,7 @@ export default function Sidebar() {
     }}>
       <div style={{ padding: "28px 24px 24px", borderBottom: "1px solid rgba(201,168,112,0.06)" }}>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.78rem", fontWeight: 700, letterSpacing: "0.22em", textTransform: "uppercase", color: "#C9A870" }}>Lucy</div>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(242,239,233,0.28)", marginTop: 3 }}>Broker</div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.28em", textTransform: "uppercase", color: "rgba(242,239,233,0.55)", marginTop: 3 }}>Broker</div>
       </div>
 
       <nav style={{ flex: 1, padding: "16px 0", overflowY: "auto" }}>
@@ -41,7 +41,7 @@ export default function Sidebar() {
               background: active ? "rgba(201,168,112,0.07)" : "none",
               border: "none", borderLeft: active ? "2px solid #C9A870" : "2px solid transparent",
               cursor: "pointer",
-              color: active ? "#C9A870" : "rgba(242,239,233,0.45)",
+              color: active ? "#C9A870" : "rgba(242,239,233,0.6)",
               fontSize: "0.78rem", fontFamily: "'Instrument Sans', sans-serif",
               fontWeight: active ? 600 : 400, letterSpacing: "0.04em", textAlign: "left",
               transition: "all 0.18s ease",
@@ -54,9 +54,9 @@ export default function Sidebar() {
       </nav>
 
       <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(201,168,112,0.06)" }}>
-        <div style={{ fontSize: "0.72rem", color: "rgba(242,239,233,0.65)", fontWeight: 500, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.name}</div>
-        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(201,168,112,0.5)", marginBottom: 12 }}>{role}</div>
-        <button onClick={logout} style={{ background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(242,239,233,0.2)", cursor: "pointer", padding: 0, transition: "color 0.18s" }}
+        <div style={{ fontSize: "0.72rem", color: "rgba(242,239,233,0.75)", fontWeight: 500, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.name}</div>
+        <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(201,168,112,0.7)", marginBottom: 12 }}>{role}</div>
+        <button onClick={logout} style={{ background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(242,239,233,0.45)", cursor: "pointer", padding: 0, transition: "color 0.18s" }}
           onMouseEnter={e => e.currentTarget.style.color = "rgba(242,239,233,0.5)"}
           onMouseLeave={e => e.currentTarget.style.color = "rgba(242,239,233,0.2)"}>
           Cerrar sesión
