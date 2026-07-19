@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import imaplib
 import email
 import email.header
@@ -61,6 +62,18 @@ def _get_attachments(msg) -> List[EmailAttachment]:
     return attachments
 
 
+def _id_estable(msg, from_email: str, subject: str, date: str) -> str:
+    """Id reproducible entre sincronizaciones.
+
+    Usa el Message-ID de la cabecera, que es unico y estable. Si el
+    mensaje no lo trae (raro pero legal), cae a una huella de
+    remitente + asunto + fecha.
+    """
+    msg_id = (msg.get("Message-ID") or "").strip()
+    semilla = msg_id if msg_id else f"{from_email}|{subject}|{date}"
+    return "imap-" + hashlib.sha1(semilla.encode("utf-8", "replace")).hexdigest()[:16]
+
+
 def fetch_recent_emails(limit: int = 20) -> List[EmailEvent]:
     if not settings.imap_user or not settings.imap_password:
         logger.warning("IMAP not configured")
@@ -100,7 +113,8 @@ def fetch_recent_emails(limit: int = 20) -> List[EmailEvent]:
                 attachments = _get_attachments(msg)
 
                 emails.append(EmailEvent(
-                    id=f"imap-{uid.decode()}",
+                    id=_id_estable(msg, from_email, subject, date),
+                    canal="email",
                     thread_id=msg.get("Message-ID", str(uuid.uuid4())),
                     from_name=from_name or from_email,
                     from_email=from_email,

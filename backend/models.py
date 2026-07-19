@@ -6,6 +6,22 @@ from enum import Enum
 from pydantic import BaseModel, Field, ConfigDict
 
 
+# ==================== CANALES ====================
+
+class CanalEnum(str, Enum):
+    """Origen de un mensaje que entra en la bandeja.
+
+    El modelo se llama todavia EmailEvent por compatibilidad, pero la
+    bandeja es omnicanal: `canal` distingue de donde viene cada mensaje.
+    """
+
+    email = "email"
+    whatsapp = "whatsapp"
+    web = "web"                # asistente virtual de la landing
+    formulario = "formulario"  # formularios de contacto
+    telefono = "telefono"      # registro manual de una llamada
+
+
 # ==================== DATA CONTRACTS ====================
 
 class EmailAttachment(BaseModel):
@@ -20,6 +36,7 @@ class EmailEvent(BaseModel):
 
     model_config = ConfigDict(extra="ignore")
     id: str
+    canal: CanalEnum = CanalEnum.email
     thread_id: str
     from_name: str
     from_email: str
@@ -136,3 +153,21 @@ class DraftReplyRequest(BaseModel):
     email_id: str
     instructions: str
     tone: str = "professional"
+
+
+# ==================== INGESTA EXTERNA ====================
+
+class MensajeEntrante(BaseModel):
+    """Mensaje que entra en la bandeja desde un canal que no es IMAP.
+
+    Lo usan el asistente virtual de la web, los formularios de contacto
+    y, mas adelante, el webhook de WhatsApp. Se autentica con clave de
+    servicio, no con sesion de usuario.
+    """
+
+    canal: CanalEnum
+    remitente: str = Field(min_length=1, max_length=200)
+    contacto: str = Field(default="", max_length=200)
+    asunto: str = Field(default="", max_length=300)
+    cuerpo: str = Field(min_length=1, max_length=5000)
+    meta: Dict[str, Any] = {}
