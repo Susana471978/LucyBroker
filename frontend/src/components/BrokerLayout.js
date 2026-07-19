@@ -5,7 +5,7 @@ export default function BrokerLayout({ children }) {
     <div style={{
       display: "flex",
       minHeight: "100vh",
-      background: "#030305",
+      background: "#0E0C09",
       fontFamily: "'Plus Jakarta Sans', sans-serif",
     }}>
       <Sidebar />

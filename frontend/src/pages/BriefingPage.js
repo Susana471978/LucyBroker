@@ -41,9 +41,9 @@ export default function BriefingPage() {
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 40 }}>
           {[
-            { label: "Total", value: emails.length, color: "rgba(242,239,233,0.65)" },
+            { label: "Total", value: emails.length, color: "#F2EFE9" },
             { label: "Prioritarios", value: prioritarios.length, color: "#C9A870" },
-            { label: "Seguimiento", value: seguimiento.length, color: "rgba(201,168,112,0.5)" },
+            { label: "Seguimiento", value: seguimiento.length, color: "rgba(242,239,233,0.45)" },
           ].map(m => (
             <div key={m.label} style={{ background: "#0E0C09", border: "1px solid rgba(201,168,112,0.08)", borderRadius: 12, padding: "20px 24px" }}>
               <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "2rem", fontWeight: 700, color: m.color, lineHeight: 1, marginBottom: 6 }}>{loading ? "—" : m.value}</div>
