@@ -15,6 +15,8 @@ import uvicorn
 
 from backend.config import settings
 
+from backend.services.ai_service import AIService
+
 # ✅ IMPORTS DE MODELOS (CRÍTICO PARA AUTH)
 from backend.models import (
     UserCreate,
@@ -81,7 +83,7 @@ EMERGENT_LLM_KEY = os.environ.get('EMERGENT_LLM_KEY')
 app = FastAPI()
 api_router = APIRouter(prefix="/api")
 
-ai_service = None
+ai_service = AIService()
 
 
 # ==================== AUTH HELPERS ====================
@@ -334,6 +336,8 @@ async def ai_chat(request: Request, payload: ChatRequest, user: Dict[str, Any] =
         raise HTTPException(status_code=503, detail="AI service not available in this environment")
     intent = await ai_service.process_intent(payload.message, payload.context)
     legacy = intent.model_dump()
+    return build_response(request, data=legacy, legacy=legacy)
+
 @api_router.post("/ai/summarize")
 async def ai_summarize(request: Request, payload: SummarizeRequest, user: Dict[str, Any] = Depends(get_current_user)):
     """Summarize an email"""
@@ -345,6 +349,8 @@ async def ai_summarize(request: Request, payload: SummarizeRequest, user: Dict[s
 
     summary = await ai_service.summarize_email(email)
     legacy = {"email_id": payload.email_id, "summary": summary}
+    return build_response(request, data=legacy, legacy=legacy)
+
 @api_router.post("/ai/draft-reply")
 async def ai_draft_reply(request: Request, payload: DraftReplyRequest, user: Dict[str, Any] = Depends(get_current_user)):
     """Generate draft replies for an email"""
@@ -356,6 +362,7 @@ async def ai_draft_reply(request: Request, payload: DraftReplyRequest, user: Dic
 
     drafts = await ai_service.draft_reply(email, payload.instructions, payload.tone)
     legacy = {"email_id": payload.email_id, "drafts": drafts}
+    return build_response(request, data=legacy, legacy=legacy)
 # ==================== BASE ROUTES ====================
 
 async def check_db_health() -> Dict[str, Any]:
