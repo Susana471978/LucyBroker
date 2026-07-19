@@ -36,7 +36,6 @@ export default function BandejaPage() {
   const [syncing, setSyncing] = useState(false);
   const [selected, setSelected] = useState(null);
   const [filtro, setFiltro] = useState("todos");
-
   const [aiDraft, setAiDraft] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
 
@@ -47,8 +46,13 @@ export default function BandejaPage() {
       const res = await api.post("/ai/draft-reply", { email_id: emailId, instructions: "", tone: "professional" });
       const drafts = res.data?.data?.drafts || res.data?.drafts || [];
       if (drafts.length > 0) setAiDraft(drafts[0]);
-    } catch(e) {} finally { setAiLoading(false); }
+    } catch(e) {
+      console.error("Error generando borrador:", e);
+    } finally {
+      setAiLoading(false);
+    }
   };
+
   const today = new Date().toISOString().split("T")[0];
 
   const fetchEmails = async () => {
@@ -81,7 +85,6 @@ export default function BandejaPage() {
 
   return (
     <BrokerLayout>
-      {/* Header bandeja */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
         <div>
           <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "1.4rem", fontWeight: 600, color: "#F2EFE9", letterSpacing: "-0.02em", marginBottom: 4 }}>
@@ -104,10 +107,10 @@ export default function BandejaPage() {
           <button
             onClick={async () => {
               try {
-                const res = await api.get(`/log/pdf?fecha=${today}`, { responseType: "blob" });
+                const res = await api.get("/log/pdf?fecha=" + today, { responseType: "blob" });
                 const url = window.URL.createObjectURL(new Blob([res.data]));
                 const a = document.createElement("a");
-                a.href = url; a.download = `informe_${today}.pdf`; a.click();
+                a.href = url; a.download = "informe_" + today + ".pdf"; a.click();
                 window.URL.revokeObjectURL(url);
               } catch(e) {}
             }}
@@ -121,7 +124,6 @@ export default function BandejaPage() {
         </div>
       </div>
 
-      {/* Filtros */}
       <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
         {FILTROS.map(f => (
           <button key={f.key} onClick={() => setFiltro(f.key)} style={{
@@ -143,10 +145,7 @@ export default function BandejaPage() {
         ))}
       </div>
 
-      {/* Layout feed + detalle */}
       <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 1.1fr" : "1fr", gap: 16 }}>
-
-        {/* Feed */}
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {loading && (
             <div style={{ textAlign: "center", padding: "48px 0", fontFamily: "'Jura', sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(242,239,233,0.2)" }}>
@@ -166,13 +165,14 @@ export default function BandejaPage() {
                 onClick={() => {
                   if (!isSelected) logAction("LEIDO", { ...item.email, categoria: item.categoria, priority: item.priority });
                   setSelected(isSelected ? null : item.email?.id);
+                  setAiDraft(null);
                 }}
                 style={{
                   padding: "14px 18px",
                   background: isSelected ? "rgba(201,169,110,0.06)" : "#0D0D10",
                   border: "1px solid",
                   borderColor: isSelected ? "rgba(201,169,110,0.2)" : "rgba(242,239,233,0.04)",
-                  borderLeft: `3px solid ${isSelected ? "#C9A96E" : dotColor}`,
+                  borderLeft: "3px solid " + (isSelected ? "#C9A96E" : dotColor),
                   borderRadius: 8,
                   cursor: "pointer",
                   display: "flex", gap: 14, alignItems: "flex-start",
@@ -181,12 +181,9 @@ export default function BandejaPage() {
                 onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "rgba(201,169,110,0.03)"; }}
                 onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#0D0D10"; }}
               >
-                {/* Score */}
                 <div style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(201,169,110,0.06)", border: "1px solid rgba(201,169,110,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
                   <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "#C9A96E" }}>{item.priority?.priority_score ?? "—"}</span>
                 </div>
-
-                {/* Contenido */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <span style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: CANAL_COLORS.email.color, opacity: 0.8 }}>Email</span>
@@ -214,7 +211,6 @@ export default function BandejaPage() {
           })}
         </div>
 
-        {/* Detalle */}
         {selectedEmail && (
           <div style={{ background: "#0D0D10", border: "1px solid rgba(201,169,110,0.1)", borderRadius: 10, padding: "24px", position: "sticky", top: 32, maxHeight: "calc(100vh - 80px)", overflowY: "auto" }}>
             <div style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(201,169,110,0.4)", marginBottom: 14 }}>Detalle</div>
@@ -239,11 +235,12 @@ export default function BandejaPage() {
                 {selectedEmail.resumen}
               </p>
             )}
+
             <div style={{ borderTop: "1px solid rgba(201,169,110,0.07)", paddingTop: 16 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(242,239,233,0.25)" }}>Respuesta sugerida</div>
                 <button
-                  onClick={() => generateDraft(selectedEmail.email?.id)}
+                  onClick={(e) => { e.stopPropagation(); generateDraft(selectedEmail.email?.id); }}
                   disabled={aiLoading}
                   style={{ background: "none", border: "1px solid rgba(201,169,110,0.2)", borderRadius: 4, padding: "3px 10px", cursor: "pointer", color: "#C9A96E", fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", opacity: aiLoading ? 0.5 : 1, transition: "all 0.18s" }}
                 >
@@ -251,17 +248,16 @@ export default function BandejaPage() {
                 </button>
               </div>
               <div style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.5)", lineHeight: 1.7, padding: "12px 14px", background: "rgba(201,169,110,0.02)", border: "1px solid rgba(201,169,110,0.07)", borderRadius: 6, whiteSpace: "pre-wrap", marginBottom: 12, minHeight: 80 }}>
-                {aiLoading ? "Lucy está redactando..." : (aiDraft || selectedEmail.borrador || `Estimado/a ${selectedEmail.email?.from_name?.split(" ")[0]}, gracias por contactar con nosotros. Hemos recibido su mensaje y nos pondremos en contacto a la mayor brevedad.`)}
+                {aiLoading ? "Lucy está redactando..." : (aiDraft || selectedEmail.borrador || "Estimado/a " + (selectedEmail.email?.from_name?.split(" ")[0] || "") + ",\n\nGracias por contactar con nosotros. Hemos recibido su mensaje y nos pondremos en contacto a la mayor brevedad.\n\nAtentamente,\nObjetiva Broker\nCorreduría de Seguros\nSanta Cruz de Tenerife")}
               </div>
               <button
-                onClick={() => logAction("RESPONDIDO", { ...selectedEmail.email, categoria: selectedEmail.categoria, priority: selectedEmail.priority })}
+                onClick={(e) => { e.stopPropagation(); logAction("RESPONDIDO", { ...selectedEmail.email, categoria: selectedEmail.categoria, priority: selectedEmail.priority }); }}
                 style={{ width: "100%", padding: "10px", background: "transparent", border: "1px solid rgba(201,169,110,0.25)", borderRadius: 6, color: "#C9A96E", fontFamily: "'Jura', sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.18s" }}
                 onMouseEnter={e => { e.currentTarget.style.background = "rgba(201,169,110,0.06)"; e.currentTarget.style.borderColor = "rgba(201,169,110,0.4)"; }}
                 onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(201,169,110,0.25)"; }}
               >
                 Marcar como respondido
               </button>
-            </div>
             </div>
           </div>
         )}
