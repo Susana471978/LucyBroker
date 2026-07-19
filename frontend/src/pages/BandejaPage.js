@@ -20,7 +20,7 @@ const logAction = async (accion, email) => {
 const CANAL_COLORS = {
   email:      { color: "#7BA7C9", label: "Email" },
   whatsapp:   { color: "#5FAD7A", label: "WhatsApp" },
-  web:        { color: "#C9A96E", label: "Web" },
+  web:        { color: "#C9A870", label: "Web" },
   formulario: { color: "#A98BC9", label: "Formulario" },
   telefono:   { color: "#C97B7B", label: "Telefono" },
 };
@@ -30,7 +30,7 @@ const getCanal = (canal) =>
 
 const getPriorityDot = (label) => {
   if (["ALTA","PRIORITARIO"].includes(label)) return "#f87171";
-  if (["MEDIA","SEGUIMIENTO"].includes(label)) return "#C9A96E";
+  if (["MEDIA","SEGUIMIENTO"].includes(label)) return "#C9A870";
   return "rgba(242,239,233,0.2)";
 };
 
@@ -92,19 +92,19 @@ export default function BandejaPage() {
     <BrokerLayout>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
         <div>
-          <h1 style={{ fontFamily: "'Syne', sans-serif", fontSize: "1.4rem", fontWeight: 600, color: "#F2EFE9", letterSpacing: "-0.02em", marginBottom: 4 }}>
+          <h1 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "1.4rem", fontWeight: 600, color: "#F2EFE9", letterSpacing: "-0.02em", marginBottom: 4 }}>
             Bandeja
           </h1>
-          <div style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.58rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(242,239,233,0.3)" }}>
+          <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.58rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(242,239,233,0.3)" }}>
             Comunicaciones · Email · WhatsApp · Llamadas
           </div>
         </div>
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button
             onClick={fetchEmails} disabled={syncing}
-            style={{ background: "none", border: "1px solid rgba(201,169,110,0.15)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "rgba(242,239,233,0.4)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", transition: "all 0.18s" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,169,110,0.35)"}
-            onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(201,169,110,0.15)"}
+            style={{ background: "none", border: "1px solid rgba(201,168,112,0.15)", borderRadius: 3, padding: "6px 10px", cursor: "pointer", color: "rgba(242,239,233,0.4)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", transition: "all 0.18s" }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.35)"}
+            onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.15)"}
           >
             <RefreshCw size={12} strokeWidth={1.5} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
             Sincronizar
@@ -119,9 +119,9 @@ export default function BandejaPage() {
                 window.URL.revokeObjectURL(url);
               } catch(e) {}
             }}
-            style={{ background: "none", border: "1px solid rgba(201,169,110,0.15)", borderRadius: 6, padding: "6px 10px", cursor: "pointer", color: "rgba(242,239,233,0.4)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", transition: "all 0.18s" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,169,110,0.35)"}
-            onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(201,169,110,0.15)"}
+            style={{ background: "none", border: "1px solid rgba(201,168,112,0.15)", borderRadius: 3, padding: "6px 10px", cursor: "pointer", color: "rgba(242,239,233,0.4)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.72rem", transition: "all 0.18s" }}
+            onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.35)"}
+            onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.15)"}
           >
             <Download size={12} strokeWidth={1.5} />
             Informe
@@ -132,18 +132,18 @@ export default function BandejaPage() {
       <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
         {FILTROS.map(f => (
           <button key={f.key} onClick={() => setFiltro(f.key)} style={{
-            background: filtro === f.key ? "rgba(201,169,110,0.1)" : "none",
-            border: filtro === f.key ? "1px solid rgba(201,169,110,0.3)" : "1px solid rgba(242,239,233,0.06)",
+            background: filtro === f.key ? "rgba(201,168,112,0.1)" : "none",
+            border: filtro === f.key ? "1px solid rgba(201,168,112,0.3)" : "1px solid rgba(242,239,233,0.06)",
             borderRadius: 20, padding: "5px 14px",
             cursor: "pointer",
-            color: filtro === f.key ? "#C9A96E" : "rgba(242,239,233,0.35)",
-            fontFamily: "'Jura', sans-serif",
+            color: filtro === f.key ? "#C9A870" : "rgba(242,239,233,0.35)",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
             fontSize: "0.6rem", letterSpacing: "0.16em", textTransform: "uppercase",
             display: "flex", alignItems: "center", gap: 6,
             transition: "all 0.18s",
           }}>
             {f.label}
-            <span style={{ background: filtro === f.key ? "rgba(201,169,110,0.2)" : "rgba(242,239,233,0.06)", borderRadius: 10, padding: "1px 6px", fontSize: "0.58rem" }}>
+            <span style={{ background: filtro === f.key ? "rgba(201,168,112,0.2)" : "rgba(242,239,233,0.06)", borderRadius: 3, padding: "1px 6px", fontSize: "0.58rem" }}>
               {f.count}
             </span>
           </button>
@@ -153,12 +153,12 @@ export default function BandejaPage() {
       <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 1.1fr" : "1fr", gap: 16 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {loading && (
-            <div style={{ textAlign: "center", padding: "48px 0", fontFamily: "'Jura', sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(242,239,233,0.2)" }}>
+            <div style={{ textAlign: "center", padding: "48px 0", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(242,239,233,0.2)" }}>
               Cargando mensajes...
             </div>
           )}
           {!loading && filtrados.length === 0 && (
-            <div style={{ textAlign: "center", padding: "48px 0", fontFamily: "'Jura', sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(242,239,233,0.2)" }}>
+            <div style={{ textAlign: "center", padding: "48px 0", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", color: "rgba(242,239,233,0.2)" }}>
               Sin mensajes
             </div>
           )}
@@ -174,26 +174,26 @@ export default function BandejaPage() {
                 }}
                 style={{
                   padding: "14px 18px",
-                  background: isSelected ? "rgba(201,169,110,0.06)" : "#0D0D10",
+                  background: isSelected ? "rgba(201,168,112,0.06)" : "#0E0C09",
                   border: "1px solid",
-                  borderColor: isSelected ? "rgba(201,169,110,0.2)" : "rgba(242,239,233,0.04)",
-                  borderLeft: "3px solid " + (isSelected ? "#C9A96E" : dotColor),
-                  borderRadius: 8,
+                  borderColor: isSelected ? "rgba(201,168,112,0.2)" : "rgba(242,239,233,0.04)",
+                  borderLeft: "3px solid " + (isSelected ? "#C9A870" : dotColor),
+                  borderRadius: 3,
                   cursor: "pointer",
                   display: "flex", gap: 14, alignItems: "flex-start",
                   transition: "all 0.18s",
                 }}
-                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "rgba(201,169,110,0.03)"; }}
-                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#0D0D10"; }}
+                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "rgba(201,168,112,0.03)"; }}
+                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#0E0C09"; }}
               >
-                <div style={{ width: 28, height: 28, borderRadius: 6, background: "rgba(201,169,110,0.06)", border: "1px solid rgba(201,169,110,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                  <span style={{ fontFamily: "'Syne', sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "#C9A96E" }}>{item.priority?.priority_score ?? "—"}</span>
+                <div style={{ width: 28, height: 28, borderRadius: 3, background: "rgba(201,168,112,0.06)", border: "1px solid rgba(201,168,112,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.6rem", fontWeight: 700, color: "#C9A870" }}>{item.priority?.priority_score ?? "—"}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: getCanal(item.email?.canal).color, opacity: 0.8 }}>{getCanal(item.email?.canal).label}</span>
+                    <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: getCanal(item.email?.canal).color, opacity: 0.8 }}>{getCanal(item.email?.canal).label}</span>
                     {item.categoria && (
-                      <span style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(242,239,233,0.25)" }}>{item.categoria}</span>
+                      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(242,239,233,0.25)" }}>{item.categoria}</span>
                     )}
                     {item.email?.has_attachments && <Paperclip size={10} strokeWidth={1.5} color="rgba(242,239,233,0.3)" />}
                   </div>
@@ -217,9 +217,9 @@ export default function BandejaPage() {
         </div>
 
         {selectedEmail && (
-          <div style={{ background: "#0D0D10", border: "1px solid rgba(201,169,110,0.1)", borderRadius: 10, padding: "24px", position: "sticky", top: 32, maxHeight: "calc(100vh - 80px)", overflowY: "auto" }}>
-            <div style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(201,169,110,0.4)", marginBottom: 14 }}>Detalle</div>
-            <h3 style={{ fontFamily: "'Syne', sans-serif", fontSize: "1rem", fontWeight: 600, color: "#F2EFE9", letterSpacing: "-0.01em", marginBottom: 8, lineHeight: 1.3 }}>
+          <div style={{ background: "#0E0C09", border: "1px solid rgba(201,168,112,0.1)", borderRadius: 3, padding: "24px", position: "sticky", top: 32, maxHeight: "calc(100vh - 80px)", overflowY: "auto" }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(201,168,112,0.4)", marginBottom: 14 }}>Detalle</div>
+            <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "1rem", fontWeight: 600, color: "#F2EFE9", letterSpacing: "-0.01em", marginBottom: 8, lineHeight: 1.3 }}>
               {selectedEmail.email?.subject}
             </h3>
             <div style={{ fontSize: "0.7rem", color: "rgba(242,239,233,0.35)", marginBottom: 16 }}>
@@ -227,10 +227,10 @@ export default function BandejaPage() {
             </div>
 
             {selectedEmail.datos_clave && Object.values(selectedEmail.datos_clave).some(v => v) && (
-              <div style={{ background: "rgba(201,169,110,0.03)", border: "1px solid rgba(201,169,110,0.08)", borderRadius: 6, padding: "12px 14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 5 }}>
-                {selectedEmail.datos_clave.cliente && <div style={{ fontSize: "0.72rem" }}><span style={{ color: "rgba(242,239,233,0.3)", fontFamily: "'Jura', sans-serif", fontSize: "0.58rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Cliente </span><span style={{ color: "#F2EFE9" }}>{selectedEmail.datos_clave.cliente}</span></div>}
-                {selectedEmail.datos_clave.poliza && <div style={{ fontSize: "0.72rem" }}><span style={{ color: "rgba(242,239,233,0.3)", fontFamily: "'Jura', sans-serif", fontSize: "0.58rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Póliza </span><span style={{ color: "#C9A96E" }}>{selectedEmail.datos_clave.poliza}</span></div>}
-                {selectedEmail.datos_clave.aseguradora && <div style={{ fontSize: "0.72rem" }}><span style={{ color: "rgba(242,239,233,0.3)", fontFamily: "'Jura', sans-serif", fontSize: "0.58rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Aseguradora </span><span style={{ color: "#F2EFE9" }}>{selectedEmail.datos_clave.aseguradora}</span></div>}
+              <div style={{ background: "rgba(201,168,112,0.03)", border: "1px solid rgba(201,168,112,0.08)", borderRadius: 3, padding: "12px 14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 5 }}>
+                {selectedEmail.datos_clave.cliente && <div style={{ fontSize: "0.72rem" }}><span style={{ color: "rgba(242,239,233,0.3)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.58rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Cliente </span><span style={{ color: "#F2EFE9" }}>{selectedEmail.datos_clave.cliente}</span></div>}
+                {selectedEmail.datos_clave.poliza && <div style={{ fontSize: "0.72rem" }}><span style={{ color: "rgba(242,239,233,0.3)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.58rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Póliza </span><span style={{ color: "#C9A870" }}>{selectedEmail.datos_clave.poliza}</span></div>}
+                {selectedEmail.datos_clave.aseguradora && <div style={{ fontSize: "0.72rem" }}><span style={{ color: "rgba(242,239,233,0.3)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.58rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Aseguradora </span><span style={{ color: "#F2EFE9" }}>{selectedEmail.datos_clave.aseguradora}</span></div>}
                 {selectedEmail.datos_clave.urgencia && <div style={{ fontSize: "0.72rem", color: "#f87171" }}>{selectedEmail.datos_clave.urgencia}</div>}
               </div>
             )}
@@ -241,25 +241,25 @@ export default function BandejaPage() {
               </p>
             )}
 
-            <div style={{ borderTop: "1px solid rgba(201,169,110,0.07)", paddingTop: 16 }}>
+            <div style={{ borderTop: "1px solid rgba(201,168,112,0.07)", paddingTop: 16 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <div style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(242,239,233,0.25)" }}>Respuesta sugerida</div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.22em", textTransform: "uppercase", color: "rgba(242,239,233,0.25)" }}>Respuesta sugerida</div>
                 <button
                   onClick={(e) => { e.stopPropagation(); generateDraft(selectedEmail.email?.id); }}
                   disabled={aiLoading}
-                  style={{ background: "none", border: "1px solid rgba(201,169,110,0.2)", borderRadius: 4, padding: "3px 10px", cursor: "pointer", color: "#C9A96E", fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", opacity: aiLoading ? 0.5 : 1, transition: "all 0.18s" }}
+                  style={{ background: "none", border: "1px solid rgba(201,168,112,0.2)", borderRadius: 3, padding: "3px 10px", cursor: "pointer", color: "#C9A870", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", opacity: aiLoading ? 0.5 : 1, transition: "all 0.18s" }}
                 >
                   {aiLoading ? "Generando..." : "✦ Lucy"}
                 </button>
               </div>
-              <div style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.5)", lineHeight: 1.7, padding: "12px 14px", background: "rgba(201,169,110,0.02)", border: "1px solid rgba(201,169,110,0.07)", borderRadius: 6, whiteSpace: "pre-wrap", marginBottom: 12, minHeight: 80 }}>
+              <div style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.5)", lineHeight: 1.7, padding: "12px 14px", background: "rgba(201,168,112,0.02)", border: "1px solid rgba(201,168,112,0.07)", borderRadius: 3, whiteSpace: "pre-wrap", marginBottom: 12, minHeight: 80 }}>
                 {aiLoading ? "Lucy está redactando..." : (aiDraft || selectedEmail.borrador || "Estimado/a " + (selectedEmail.email?.from_name?.split(" ")[0] || "") + ",\n\nGracias por contactar con nosotros. Hemos recibido su mensaje y nos pondremos en contacto a la mayor brevedad.\n\nAtentamente,\nObjetiva Broker\nCorreduría de Seguros\nSanta Cruz de Tenerife")}
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); logAction("RESPONDIDO", { ...selectedEmail.email, categoria: selectedEmail.categoria, priority: selectedEmail.priority }); }}
-                style={{ width: "100%", padding: "10px", background: "transparent", border: "1px solid rgba(201,169,110,0.25)", borderRadius: 6, color: "#C9A96E", fontFamily: "'Jura', sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.18s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(201,169,110,0.06)"; e.currentTarget.style.borderColor = "rgba(201,169,110,0.4)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(201,169,110,0.25)"; }}
+                style={{ width: "100%", padding: "10px", background: "transparent", border: "1px solid rgba(201,168,112,0.25)", borderRadius: 3, color: "#C9A870", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.6rem", letterSpacing: "0.2em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.18s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(201,168,112,0.06)"; e.currentTarget.style.borderColor = "rgba(201,168,112,0.4)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(201,168,112,0.25)"; }}
               >
                 Marcar como respondido
               </button>
