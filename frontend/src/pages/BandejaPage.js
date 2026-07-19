@@ -18,10 +18,15 @@ const logAction = async (accion, email) => {
 };
 
 const CANAL_COLORS = {
-  email:     { color: "#7BA7C9", label: "Email" },
-  whatsapp:  { color: "#5FAD7A", label: "WhatsApp" },
-  llamada:   { color: "#C97B7B", label: "Llamada" },
+  email:      { color: "#7BA7C9", label: "Email" },
+  whatsapp:   { color: "#5FAD7A", label: "WhatsApp" },
+  web:        { color: "#C9A96E", label: "Web" },
+  formulario: { color: "#A98BC9", label: "Formulario" },
+  telefono:   { color: "#C97B7B", label: "Telefono" },
 };
+
+const getCanal = (canal) =>
+  CANAL_COLORS[canal] || { color: "rgba(242,239,233,0.3)", label: canal || "Otro" };
 
 const getPriorityDot = (label) => {
   if (["ALTA","PRIORITARIO"].includes(label)) return "#f87171";
@@ -186,7 +191,7 @@ export default function BandejaPage() {
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: CANAL_COLORS.email.color, opacity: 0.8 }}>Email</span>
+                    <span style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.14em", textTransform: "uppercase", color: getCanal(item.email?.canal).color, opacity: 0.8 }}>{getCanal(item.email?.canal).label}</span>
                     {item.categoria && (
                       <span style={{ fontFamily: "'Jura', sans-serif", fontSize: "0.55rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(242,239,233,0.25)" }}>{item.categoria}</span>
                     )}
