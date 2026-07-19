@@ -115,7 +115,7 @@ export default function AuthPage() {
   return (
     <>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Jura:wght@300;400;500&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300;1,400&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
 
         .auth-root {
           min-height: 100vh;
@@ -123,7 +123,7 @@ export default function AuthPage() {
           display: flex;
           align-items: stretch;
           overflow: hidden;
-          font-family: 'Jura', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
         }
 
         .auth-top-line {
@@ -197,7 +197,7 @@ export default function AuthPage() {
         }
 
         .auth-tagline {
-          font-family: 'Jura', sans-serif !important;
+          font-family: 'Plus Jakarta Sans', sans-serif !important;
           font-size: 0.58rem !important;
           font-weight: 400 !important;
           font-style: normal !important;
@@ -239,7 +239,7 @@ export default function AuthPage() {
 
         /* "ACCEDER" eyebrow */
         .auth-form-title {
-          font-family: 'Jura', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 0.6rem;
           font-weight: 500;
           color: #C9A96E;
@@ -253,7 +253,7 @@ export default function AuthPage() {
         /* Labels */
         .auth-field-label {
           display: block;
-          font-family: 'Jura', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 0.6rem;
           font-weight: 500;
           text-transform: uppercase;
@@ -281,7 +281,7 @@ export default function AuthPage() {
           background: #08080c;
           border: 1px solid rgba(201,169,110,0.30);
           color: #F2EFE9;
-          font-family: 'Jura', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 0.82rem;
           font-weight: 400;
           letter-spacing: 0.05em;
@@ -293,7 +293,7 @@ export default function AuthPage() {
         }
         .auth-native-input::placeholder {
           color: rgba(242,239,233,0.25);
-          font-family: 'Jura', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
         }
         .auth-native-input:focus {
           border-color: rgba(201,169,110,0.75);
@@ -335,7 +335,7 @@ export default function AuthPage() {
           background: transparent;
           border: 1px solid #F2EFE9;
           color: #F2EFE9;
-          font-family: 'Jura', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 0.65rem;
           font-weight: 500;
           text-transform: uppercase;
@@ -357,7 +357,7 @@ export default function AuthPage() {
 
         /* Error */
         .auth-error {
-          font-family: 'Jura', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 0.68rem;
           letter-spacing: 0.05em;
           color: rgba(239,120,120,0.9);
@@ -371,7 +371,7 @@ export default function AuthPage() {
         /* Toggle login/register */
         .auth-toggle {
           margin-top: 1.25rem;
-          font-family: 'Jura', sans-serif;
+          font-family: 'Plus Jakarta Sans', sans-serif;
           font-size: 0.62rem;
           letter-spacing: 0.15em;
           color: rgba(242,239,233,0.35);
