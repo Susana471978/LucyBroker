@@ -48,13 +48,13 @@ class Settings(BaseModel):
     )
     jwt_algorithm: str = "HS256"
 
-    emergent_llm_key: str | None = Field(default=None, alias="EMERGENT_LLM_KEY")
-    encryption_key: str | None = Field(default=None, alias="ENCRYPTION_KEY")
-    imap_host: str = Field(default_factory=lambda: __import__("os").environ.get("IMAP_HOST", "imap.gmail.com"))
-    imap_port: int = Field(default_factory=lambda: int(__import__("os").environ.get("IMAP_PORT", "993")))
-    imap_user: str | None = Field(default_factory=lambda: __import__("os").environ.get("IMAP_USER"))
-    imap_password: str | None = Field(default_factory=lambda: __import__("os").environ.get("IMAP_PASSWORD"))
-    groq_api_key: str | None = Field(default=None, alias="GROQ_API_KEY")
+    emergent_llm_key: str | None = Field(default_factory=lambda: os.environ.get("EMERGENT_LLM_KEY"))
+    encryption_key: str | None = Field(default_factory=lambda: os.environ.get("ENCRYPTION_KEY"))
+    imap_host: str = Field(default_factory=lambda: os.environ.get("IMAP_HOST", "imap.gmail.com"))
+    imap_port: int = Field(default_factory=lambda: int(os.environ.get("IMAP_PORT", "993")))
+    imap_user: str | None = Field(default_factory=lambda: os.environ.get("IMAP_USER"))
+    imap_password: str | None = Field(default_factory=lambda: os.environ.get("IMAP_PASSWORD"))
+    groq_api_key: str | None = Field(default_factory=lambda: os.environ.get("GROQ_API_KEY"))
 
     cors_origins: List[str] = Field(
         default_factory=lambda: os.environ.get("CORS_ORIGINS", "*").split(",")
