@@ -7,12 +7,32 @@ from backend.models import EmailEvent, EnrichedEmail
 from backend.services.imap_client import fetch_recent_emails
 from backend.services.processor import process_email
 from backend.services.rules_engine import calculate_priority
+from backend.services.mensajes_service import (
+    guardar_mensaje,
+    listar_mensajes,
+    obtener_mensaje,
+)
 from backend.utils.logger import get_logger
 
 logger = get_logger("email_service")
 
 
-async def get_enriched_emails(limit: int = 20) -> List[EnrichedEmail]:
+async def sincronizar_imap(limit: int = 20) -> dict:
+    """Trae lo nuevo de IMAP, lo enriquece y lo guarda.
+
+    Solo se llama al sincronizar, no al leer la bandeja: enriquecer
+    cuesta llamadas al modelo y el resultado no cambia.
+    """
+    enriquecidos = await _enriquecer_desde_imap(limit)
+    nuevos = 0
+    for enriched in enriquecidos:
+        if await guardar_mensaje(enriched):
+            nuevos += 1
+    logger.info("Sincronizacion IMAP: %d revisados, %d nuevos", len(enriquecidos), nuevos)
+    return {"revisados": len(enriquecidos), "nuevos": nuevos}
+
+
+async def _enriquecer_desde_imap(limit: int = 20) -> List[EnrichedEmail]:
     emails = fetch_recent_emails(limit=limit)
     result = []
     for email_event in emails:
@@ -40,6 +60,15 @@ async def get_enriched_emails(limit: int = 20) -> List[EnrichedEmail]:
     return sorted(result, key=lambda x: x.priority.priority_score, reverse=True)
 
 
+async def get_enriched_emails(limit: int = 100, canal: Optional[str] = None) -> List[dict]:
+    """Bandeja: lee de Mongo, sin tocar IMAP ni el modelo."""
+    return await listar_mensajes(canal=canal, limite=limit)
+
+
+async def get_mensaje_by_id(mensaje_id: str) -> Optional[dict]:
+    return await obtener_mensaje(mensaje_id)
+
+
 def get_email_by_id(email_id: str) -> Optional[EmailEvent]:
     emails = fetch_recent_emails(limit=50)
     for e in emails:
@@ -48,11 +77,15 @@ def get_email_by_id(email_id: str) -> Optional[EmailEvent]:
     return None
 
 
-def get_email_stats(emails: List[EnrichedEmail]) -> Dict[str, int]:
+def get_email_stats(emails: List[dict]) -> Dict[str, int]:
+    """Estadisticas sobre los documentos que devuelve Mongo."""
+    def _label(e: dict) -> str:
+        return (e.get("priority") or {}).get("priority_label", "")
+
     return {
         "total": len(emails),
-        "prioritarios": len([e for e in emails if e.priority.priority_label == "ALTA"]),
-        "seguimiento": len([e for e in emails if e.priority.priority_label == "MEDIA"]),
-        "info": len([e for e in emails if e.priority.priority_label == "BAJA"]),
-        "with_attachments": len([e for e in emails if e.email.has_attachments]),
+        "prioritarios": len([e for e in emails if _label(e) in ("ALTA", "PRIORITARIO")]),
+        "seguimiento": len([e for e in emails if _label(e) in ("MEDIA", "SEGUIMIENTO")]),
+        "info": len([e for e in emails if _label(e) in ("BAJA", "INFO")]),
+        "with_attachments": len([e for e in emails if (e.get("email") or {}).get("has_attachments")]),
     }

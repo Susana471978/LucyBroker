@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 import uuid
+import hashlib
+import hmac
 from datetime import datetime, timezone, timedelta
 from typing import Optional, Dict, Any, List
 from pathlib import Path
@@ -19,6 +21,9 @@ from backend.services.ai_service import AIService
 
 # ✅ IMPORTS DE MODELOS (CRÍTICO PARA AUTH)
 from backend.models import (
+    EmailEvent,
+    EnrichedEmail,
+    MensajeEntrante,
     UserCreate,
     UserLogin,
     UserResponse,
@@ -33,9 +38,12 @@ from backend.services.activity_service import log_action, get_logs_by_date, gene
 from backend.services.push_service import save_subscription, delete_subscription, send_push, broadcast_push
 from backend.services.email_service import (
     get_enriched_emails,
+    get_mensaje_by_id,
+    sincronizar_imap,
     get_email_by_id,
     get_email_stats,
 )
+from backend.services.mensajes_service import guardar_mensaje, actualizar_estado
 from backend.services.rules_engine import calculate_priority
 
 from backend.utils.rate_limit import RateLimitMiddleware
@@ -293,31 +301,105 @@ async def update_language(request: Request, response: Response, language: str, u
 async def get_emails(
     request: Request,
     label: Optional[str] = None,
+    canal: Optional[str] = None,
     has_attachments: Optional[bool] = None,
     user: Dict[str, Any] = Depends(get_current_user),
 ):
-    """Get enriched emails with optional filtering"""
-    emails = await get_enriched_emails()
-    
+    """Bandeja unificada. Lee de Mongo, no de IMAP."""
+    emails = await get_enriched_emails(canal=canal)
+
     if label:
-        emails = [e for e in emails if e.priority.priority_label == label]
-    
+        emails = [e for e in emails if (e.get("priority") or {}).get("priority_label") == label]
+
     if has_attachments is not None:
-        emails = [e for e in emails if e.email.has_attachments == has_attachments]
-    
+        emails = [e for e in emails if (e.get("email") or {}).get("has_attachments") == has_attachments]
+
     legacy = emails
     return build_response(request, data=emails, legacy=legacy, meta={"total": len(emails)})
 
+
+@api_router.post("/emails/sincronizar")
+async def sincronizar(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
+    """Trae lo nuevo de IMAP y lo guarda. Es lo unico que llama al modelo."""
+    resultado = await sincronizar_imap()
+    return build_response(request, data=resultado, legacy=resultado)
+
+
+@api_router.post("/mensajes/ingesta")
+async def ingesta_mensaje(
+    request: Request,
+    payload: MensajeEntrante,
+    x_ingesta_key: str = Header(default=""),
+):
+    """Entrada a la bandeja desde canales que no son IMAP.
+
+    Lo usa el asistente virtual de la web y, mas adelante, los
+    formularios y el webhook de WhatsApp. Se autentica con clave de
+    servicio porque quien llama es otro proceso, no una persona con
+    sesion iniciada.
+    """
+    esperada = os.environ.get("INGESTA_KEY", "")
+    if not esperada:
+        raise HTTPException(status_code=503, detail="Ingesta no configurada")
+    if not hmac.compare_digest(x_ingesta_key, esperada):
+        logger.warning("Intento de ingesta con clave invalida desde %s", request.client.host if request.client else "?")
+        raise HTTPException(status_code=401, detail="Clave de servicio invalida")
+
+    ahora = datetime.now(timezone.utc)
+    semilla = f"{payload.canal}|{payload.contacto or payload.remitente}|{payload.cuerpo}|{ahora.isoformat()}"
+    mensaje_id = f"{payload.canal.value}-" + hashlib.sha1(semilla.encode("utf-8", "replace")).hexdigest()[:16]
+
+    evento = EmailEvent(
+        id=mensaje_id,
+        canal=payload.canal,
+        thread_id=mensaje_id,
+        from_name=payload.remitente,
+        from_email=payload.contacto,
+        subject=payload.asunto or f"Mensaje desde {payload.canal.value}",
+        date=ahora.isoformat(),
+        snippet=payload.cuerpo[:200].replace("\n", " "),
+        body=payload.cuerpo,
+        meta=payload.meta,
+    )
+
+    enriched = EnrichedEmail(
+        email=evento,
+        priority=calculate_priority(evento),
+        categoria=payload.meta.get("categoria", "OTRO"),
+        datos_clave=payload.meta,
+        resumen=payload.cuerpo[:200],
+    )
+
+    nuevo = await guardar_mensaje(enriched)
+    logger.info("Ingesta %s: %s (nuevo=%s)", payload.canal.value, mensaje_id, nuevo)
+
+    datos = {"id": mensaje_id, "canal": payload.canal.value, "nuevo": nuevo}
+    return build_response(request, data=datos, legacy=datos)
+
+
+@api_router.patch("/emails/{email_id}/estado")
+async def cambiar_estado(
+    request: Request,
+    email_id: str,
+    estado: str,
+    user: Dict[str, Any] = Depends(get_current_user),
+):
+    """Marca un mensaje como leido, respondido o archivado."""
+    if estado not in ("nuevo", "leido", "respondido", "archivado"):
+        raise HTTPException(status_code=400, detail="Estado no valido")
+    if not await actualizar_estado(email_id, estado):
+        raise HTTPException(status_code=404, detail="Mensaje no encontrado")
+    datos = {"id": email_id, "estado": estado}
+    return build_response(request, data=datos, legacy=datos)
+
 @api_router.get("/emails/{email_id}")
 async def get_email(request: Request, email_id: str, user: Dict[str, Any] = Depends(get_current_user)):
-    """Get single email with priority analysis"""
-    email = get_email_by_id(email_id)
-    if not email:
-        raise HTTPException(status_code=404, detail="Email no encontrado")
+    """Un mensaje concreto, ya enriquecido, desde Mongo."""
+    mensaje = await get_mensaje_by_id(email_id)
+    if not mensaje:
+        raise HTTPException(status_code=404, detail="Mensaje no encontrado")
 
-    enriched = EnrichedEmail(email=email, priority=calculate_priority(email))
-    legacy = enriched
-    return build_response(request, data=enriched, legacy=legacy)
+    return build_response(request, data=mensaje, legacy=mensaje)
 
 @api_router.get("/emails/stats/summary")
 async def get_email_stats_route(request: Request, user: Dict[str, Any] = Depends(get_current_user)):
