@@ -18,20 +18,20 @@ const logAction = async (accion, email) => {
 };
 
 const CANAL_COLORS = {
-  email:      { color: "#7BA7C9", label: "Email" },
-  whatsapp:   { color: "#5FAD7A", label: "WhatsApp" },
-  web:        { color: "#C9A870", label: "Web" },
-  formulario: { color: "#A98BC9", label: "Formulario" },
-  telefono:   { color: "#C97B7B", label: "Telefono" },
+  email:      { color: "#3F6F96", label: "Email" },
+  whatsapp:   { color: "#2F7D4E", label: "WhatsApp" },
+  web:        { color: "#9C7434", label: "Web" },
+  formulario: { color: "#6F52A0", label: "Formulario" },
+  telefono:   { color: "#A34747", label: "Telefono" },
 };
 
 const getCanal = (canal) =>
-  CANAL_COLORS[canal] || { color: "rgba(242,239,233,0.55)", label: canal || "Otro" };
+  CANAL_COLORS[canal] || { color: "rgba(16,16,18,0.5)", label: canal || "Otro" };
 
 const getPriorityDot = (label) => {
-  if (["ALTA","PRIORITARIO"].includes(label)) return "#f87171";
-  if (["MEDIA","SEGUIMIENTO"].includes(label)) return "#C9A870";
-  return "rgba(242,239,233,0.2)";
+  if (["ALTA","PRIORITARIO"].includes(label)) return "#B03A3A";
+  if (["MEDIA","SEGUIMIENTO"].includes(label)) return "#9C7434";
+  return "rgba(16,16,18,0.2)";
 };
 
 export default function BandejaPage() {
@@ -181,39 +181,39 @@ export default function BandejaPage() {
                 }}
                 style={{
                   padding: "14px 18px",
-                  background: isSelected ? "rgba(201,168,112,0.06)" : "#0E0C09",
+                  background: isSelected ? "#FFFFFF" : "#F1F1F0",
                   border: "1px solid",
-                  borderColor: isSelected ? "rgba(201,168,112,0.2)" : "rgba(242,239,233,0.04)",
-                  borderLeft: "3px solid " + (isSelected ? "#C9A870" : dotColor),
+                  borderColor: isSelected ? "rgba(156,116,52,0.5)" : "rgba(16,16,18,0.12)",
+                  borderLeft: "3px solid " + (isSelected ? "#9C7434" : dotColor),
                   borderRadius: 3,
                   cursor: "pointer",
                   display: "flex", gap: 14, alignItems: "flex-start",
                   transition: "all 0.18s",
                 }}
-                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "rgba(201,168,112,0.03)"; }}
-                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#0E0C09"; }}
+                onMouseEnter={e => { if (!isSelected) e.currentTarget.style.background = "#FFFFFF"; }}
+                onMouseLeave={e => { if (!isSelected) e.currentTarget.style.background = "#F1F1F0"; }}
               >
-                <div style={{ width: 28, height: 28, borderRadius: 3, background: "rgba(201,168,112,0.06)", border: "1px solid rgba(201,168,112,0.1)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
-                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.75rem", fontWeight: 700, color: "#C9A870" }}>{item.priority?.priority_score ?? "—"}</span>
+                <div style={{ width: 28, height: 28, borderRadius: 3, background: "rgba(156,116,52,0.12)", border: "1px solid rgba(156,116,52,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 2 }}>
+                  <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.75rem", fontWeight: 700, color: "#9C7434" }}>{item.priority?.priority_score ?? "—"}</span>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: getCanal(item.email?.canal).color, opacity: 0.8 }}>{getCanal(item.email?.canal).label}</span>
                     {item.categoria && (
-                      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(242,239,233,0.55)" }}>{item.categoria}</span>
+                      <span style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(16,16,18,0.55)" }}>{item.categoria}</span>
                     )}
-                    {item.email?.has_attachments && <Paperclip size={10} strokeWidth={1.5} color="rgba(242,239,233,0.3)" />}
+                    {item.email?.has_attachments && <Paperclip size={11} strokeWidth={1.5} color="rgba(16,16,18,0.4)" />}
                   </div>
-                  <div style={{ fontSize: "0.88rem", color: "#F2EFE9", fontWeight: 500, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: "0.88rem", color: "#101012", fontWeight: 600, marginBottom: 3, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {item.email?.subject || "(sin asunto)"}
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: "0.85rem", color: "rgba(242,239,233,0.75)" }}>{item.email?.from_name}</span>
-                    <span style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.45)" }}>·</span>
-                    <span style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.45)" }}>{new Date(item.email?.date).toLocaleDateString("es-ES")}</span>
+                    <span style={{ fontSize: "0.85rem", color: "rgba(16,16,18,0.75)" }}>{item.email?.from_name}</span>
+                    <span style={{ fontSize: "0.78rem", color: "rgba(16,16,18,0.35)" }}>·</span>
+                    <span style={{ fontSize: "0.78rem", color: "rgba(16,16,18,0.5)" }}>{new Date(item.email?.date).toLocaleDateString("es-ES")}</span>
                   </div>
                   {item.resumen && (
-                    <div style={{ fontSize: "0.8rem", color: "rgba(242,239,233,0.6)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    <div style={{ fontSize: "0.8rem", color: "rgba(16,16,18,0.6)", marginTop: 4, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {item.resumen}
                     </div>
                   )}
