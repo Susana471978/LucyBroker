@@ -39,21 +39,21 @@ export default function Sidebar() {
               display: "flex", alignItems: "center", gap: 10,
               width: "100%", padding: "10px 24px",
               background: active ? "rgba(156,116,52,0.12)" : "none",
-              border: "none", borderLeft: active ? "2px solid #9C7434" : "2px solid transparent",
+              border: "none", borderLeft: active ? "3px solid #9C7434" : "3px solid transparent",
               cursor: "pointer",
               color: active ? "#9C7434" : "rgba(16,16,18,0.65)",
               fontSize: "0.85rem", fontFamily: "'Plus Jakarta Sans', sans-serif",
               fontWeight: active ? 600 : 400, letterSpacing: "0.04em", textAlign: "left",
               transition: "all 0.18s ease",
             }}>
-              <span style={{ fontSize: "0.7rem", opacity: active ? 1 : 0.6 }}>{item.icon}</span>
+              <span style={{ fontSize: "0.8rem", opacity: active ? 1 : 0.75 }}>{item.icon}</span>
               {item.label}
             </button>
           );
         })}
       </nav>
 
-      <div style={{ padding: "16px 24px", borderTop: "1px solid rgba(16,16,18,0.1)" }}>
+      <div style={{ padding: "18px 24px 26px", borderTop: "1px solid rgba(16,16,18,0.1)" }}>
         <div style={{ fontSize: "0.8rem", color: "#101012", fontWeight: 500, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{user?.name}</div>
         <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#9C7434", marginBottom: 12 }}>{role}</div>
         <button onClick={logout} style={{ background: "none", border: "none", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(16,16,18,0.5)", cursor: "pointer", padding: 0, transition: "color 0.18s" }}

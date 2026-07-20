@@ -244,7 +244,7 @@ export default function BandejaPage() {
               {selectedEmail.email?.subject}
             </h3>
             <div style={{ fontSize: "0.8rem", color: "rgba(16,16,18,0.6)", marginBottom: 16 }}>
-              {selectedEmail.email?.from_name} · {selectedEmail.email?.from_email}
+              {selectedEmail.email?.from_name && selectedEmail.email?.from_name !== selectedEmail.email?.from_email ? selectedEmail.email.from_name + " · " : ""}{selectedEmail.email?.from_email}
             </div>
 
             {selectedEmail.datos_clave && Object.values(selectedEmail.datos_clave).some(v => v) && (
