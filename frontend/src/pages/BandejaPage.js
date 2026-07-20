@@ -157,7 +157,7 @@ export default function BandejaPage() {
         ))}
       </div>
 
-      <div>
+      <div style={{ maxWidth: 1200 }}>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {loading && (
             <div style={{ textAlign: "center", padding: "48px 0", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(242,239,233,0.45)" }}>
