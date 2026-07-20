@@ -217,49 +217,49 @@ export default function BandejaPage() {
         </div>
 
         {selectedEmail && (
-          <div style={{ background: "#0E0C09", border: "1px solid rgba(201,168,112,0.1)", borderRadius: 3, padding: "24px", position: "sticky", top: 32, maxHeight: "calc(100vh - 80px)", overflowY: "auto" }}>
-            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(201,168,112,0.7)", marginBottom: 14 }}>Detalle</div>
-            <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "1rem", fontWeight: 600, color: "#F2EFE9", letterSpacing: "-0.01em", marginBottom: 8, lineHeight: 1.3 }}>
+          <div style={{ background: "#F1F1F0", border: "1px solid rgba(16,16,18,0.12)", borderRadius: 3, padding: "24px", position: "sticky", top: 32, maxHeight: "calc(100vh - 80px)", overflowY: "auto" }}>
+            <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#9C7434", marginBottom: 14 }}>Detalle</div>
+            <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "1rem", fontWeight: 600, color: "#101012", letterSpacing: "-0.01em", marginBottom: 8, lineHeight: 1.3 }}>
               {selectedEmail.email?.subject}
             </h3>
-            <div style={{ fontSize: "0.7rem", color: "rgba(242,239,233,0.6)", marginBottom: 16 }}>
+            <div style={{ fontSize: "0.8rem", color: "rgba(16,16,18,0.6)", marginBottom: 16 }}>
               {selectedEmail.email?.from_name} · {selectedEmail.email?.from_email}
             </div>
 
             {selectedEmail.datos_clave && Object.values(selectedEmail.datos_clave).some(v => v) && (
-              <div style={{ background: "rgba(201,168,112,0.03)", border: "1px solid rgba(201,168,112,0.08)", borderRadius: 3, padding: "12px 14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 5 }}>
-                {selectedEmail.datos_clave.cliente && <div style={{ fontSize: "0.8rem" }}><span style={{ color: "rgba(242,239,233,0.55)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Cliente </span><span style={{ color: "#F2EFE9" }}>{selectedEmail.datos_clave.cliente}</span></div>}
-                {selectedEmail.datos_clave.poliza && <div style={{ fontSize: "0.8rem" }}><span style={{ color: "rgba(242,239,233,0.55)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Póliza </span><span style={{ color: "#C9A870" }}>{selectedEmail.datos_clave.poliza}</span></div>}
-                {selectedEmail.datos_clave.aseguradora && <div style={{ fontSize: "0.8rem" }}><span style={{ color: "rgba(242,239,233,0.55)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Aseguradora </span><span style={{ color: "#F2EFE9" }}>{selectedEmail.datos_clave.aseguradora}</span></div>}
-                {selectedEmail.datos_clave.urgencia && <div style={{ fontSize: "0.8rem", color: "#f87171" }}>{selectedEmail.datos_clave.urgencia}</div>}
+              <div style={{ background: "rgba(16,16,18,0.04)", border: "1px solid rgba(16,16,18,0.1)", borderRadius: 3, padding: "12px 14px", marginBottom: 16, display: "flex", flexDirection: "column", gap: 5 }}>
+                {selectedEmail.datos_clave.cliente && <div style={{ fontSize: "0.8rem" }}><span style={{ color: "rgba(16,16,18,0.55)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Cliente </span><span style={{ color: "#101012", fontWeight: 500 }}>{selectedEmail.datos_clave.cliente}</span></div>}
+                {selectedEmail.datos_clave.poliza && <div style={{ fontSize: "0.8rem" }}><span style={{ color: "rgba(16,16,18,0.55)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Póliza </span><span style={{ color: "#9C7434", fontWeight: 500 }}>{selectedEmail.datos_clave.poliza}</span></div>}
+                {selectedEmail.datos_clave.aseguradora && <div style={{ fontSize: "0.8rem" }}><span style={{ color: "rgba(16,16,18,0.55)", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase" }}>Aseguradora </span><span style={{ color: "#101012", fontWeight: 500 }}>{selectedEmail.datos_clave.aseguradora}</span></div>}
+                {selectedEmail.datos_clave.urgencia && <div style={{ fontSize: "0.8rem", color: "#B03A3A", fontWeight: 500 }}>{selectedEmail.datos_clave.urgencia}</div>}
               </div>
             )}
 
             {selectedEmail.resumen && (
-              <p style={{ fontSize: "0.8rem", color: "rgba(242,239,233,0.55)", lineHeight: 1.7, marginBottom: 20 }}>
+              <p style={{ fontSize: "0.85rem", color: "rgba(16,16,18,0.7)", lineHeight: 1.7, marginBottom: 20 }}>
                 {selectedEmail.resumen}
               </p>
             )}
 
-            <div style={{ borderTop: "1px solid rgba(201,168,112,0.07)", paddingTop: 16 }}>
+            <div style={{ borderTop: "1px solid rgba(16,16,18,0.12)", paddingTop: 16 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(242,239,233,0.55)" }}>Respuesta sugerida</div>
+                <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(16,16,18,0.55)" }}>Respuesta sugerida</div>
                 <button
                   onClick={(e) => { e.stopPropagation(); generateDraft(selectedEmail.email?.id); }}
                   disabled={aiLoading}
-                  style={{ background: "none", border: "1px solid rgba(201,168,112,0.2)", borderRadius: 3, padding: "3px 10px", cursor: "pointer", color: "#C9A870", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", opacity: aiLoading ? 0.5 : 1, transition: "all 0.18s" }}
+                  style={{ background: "none", border: "1px solid rgba(156,116,52,0.4)", borderRadius: 3, padding: "4px 11px", cursor: "pointer", color: "#9C7434", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", opacity: aiLoading ? 0.5 : 1, transition: "all 0.18s" }}
                 >
                   {aiLoading ? "Generando..." : "✦ Lucy"}
                 </button>
               </div>
-              <div style={{ fontSize: "0.85rem", color: "rgba(242,239,233,0.65)", lineHeight: 1.7, padding: "12px 14px", background: "rgba(201,168,112,0.02)", border: "1px solid rgba(201,168,112,0.07)", borderRadius: 3, whiteSpace: "pre-wrap", marginBottom: 12, minHeight: 80 }}>
+              <div style={{ fontSize: "0.85rem", color: "rgba(16,16,18,0.75)", lineHeight: 1.7, padding: "12px 14px", background: "#FFFFFF", border: "1px solid rgba(16,16,18,0.12)", borderRadius: 3, whiteSpace: "pre-wrap", marginBottom: 12, minHeight: 80 }}>
                 {aiLoading ? "Lucy está redactando..." : (aiDraft || selectedEmail.borrador || "Estimado/a " + (selectedEmail.email?.from_name?.split(" ")[0] || "") + ",\n\nGracias por contactar con nosotros. Hemos recibido su mensaje y nos pondremos en contacto a la mayor brevedad.\n\nAtentamente,\nObjetiva Broker\nCorreduría de Seguros\nSanta Cruz de Tenerife")}
               </div>
               <button
                 onClick={(e) => { e.stopPropagation(); logAction("RESPONDIDO", { ...selectedEmail.email, categoria: selectedEmail.categoria, priority: selectedEmail.priority }); }}
-                style={{ width: "100%", padding: "10px", background: "transparent", border: "1px solid rgba(201,168,112,0.25)", borderRadius: 3, color: "#C9A870", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.18s" }}
-                onMouseEnter={e => { e.currentTarget.style.background = "rgba(201,168,112,0.06)"; e.currentTarget.style.borderColor = "rgba(201,168,112,0.4)"; }}
-                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(201,168,112,0.25)"; }}
+                style={{ width: "100%", padding: "10px", background: "transparent", border: "1px solid rgba(156,116,52,0.45)", borderRadius: 3, color: "#9C7434", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", cursor: "pointer", transition: "all 0.18s" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "rgba(156,116,52,0.1)"; e.currentTarget.style.borderColor = "rgba(156,116,52,0.7)"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.borderColor = "rgba(156,116,52,0.45)"; }}
               >
                 Marcar como respondido
               </button>
