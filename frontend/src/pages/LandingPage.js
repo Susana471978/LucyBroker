@@ -625,6 +625,36 @@ export default function LandingPage() {
           margin-right: auto;
         }
 
+        /* ══ CTA EN CLARO ══ */
+        /* Fondo opaco: tapa el canvas de particulas, que es fixed con
+           zIndex 0. Las particulas doradas no se leen sobre crema. */
+        .lp-cta-section {
+          background: var(--light);
+          position: relative;
+          z-index: 2;
+        }
+        .lp-cta-headline {
+          color: var(--on-light);
+        }
+        .lp-cta-headline em {
+          color: var(--gold-dark);
+        }
+        .lp-cta-sub {
+          color: rgba(16,16,18,0.65);
+        }
+        .lp-cta-section .btn-main {
+          border-color: rgba(156,116,52,0.55);
+          color: var(--gold-dark);
+          background: transparent;
+          box-shadow: none;
+        }
+        .lp-cta-section .btn-main:hover {
+          border-color: rgba(156,116,52,0.9);
+          color: #101012;
+          background: rgba(156,116,52,0.1);
+          box-shadow: none;
+        }
+
         /* ══ FOOTER ══ */
         .lp-footer {
           padding: 3rem 10%;
@@ -838,7 +868,7 @@ export default function LandingPage() {
             <span className="lp-logo-sub">Correduría de Seguros</span>
           </div>
           <p style={{ fontSize: '0.7rem', color: 'rgba(255,255,255,0.25)' }}>
-            © 2026 Syntexia Solutions · Objetiva · España
+            © 2026 Objetiva Broker · Santa Cruz de Tenerife
           </p>
         </footer>
       </div>
