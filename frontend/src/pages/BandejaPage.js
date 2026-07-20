@@ -102,7 +102,7 @@ export default function BandejaPage() {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button
             onClick={fetchEmails} disabled={syncing}
-            style={{ background: "none", border: "1px solid rgba(201,168,112,0.15)", borderRadius: 3, padding: "6px 10px", cursor: "pointer", color: "rgba(242,239,233,0.6)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", transition: "all 0.18s" }}
+            style={{ background: "none", border: "1px solid rgba(201,168,112,0.3)", borderRadius: 3, padding: "7px 12px", cursor: "pointer", color: "rgba(242,239,233,0.85)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", transition: "all 0.18s" }}
             onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.35)"}
             onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.15)"}
           >
@@ -119,7 +119,7 @@ export default function BandejaPage() {
                 window.URL.revokeObjectURL(url);
               } catch(e) {}
             }}
-            style={{ background: "none", border: "1px solid rgba(201,168,112,0.15)", borderRadius: 3, padding: "6px 10px", cursor: "pointer", color: "rgba(242,239,233,0.6)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", transition: "all 0.18s" }}
+            style={{ background: "none", border: "1px solid rgba(201,168,112,0.3)", borderRadius: 3, padding: "7px 12px", cursor: "pointer", color: "rgba(242,239,233,0.85)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", transition: "all 0.18s" }}
             onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.35)"}
             onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.15)"}
           >
@@ -201,7 +201,7 @@ export default function BandejaPage() {
                     {item.email?.subject || "(sin asunto)"}
                   </div>
                   <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: "0.7rem", color: "rgba(242,239,233,0.6)" }}>{item.email?.from_name}</span>
+                    <span style={{ fontSize: "0.85rem", color: "rgba(242,239,233,0.75)" }}>{item.email?.from_name}</span>
                     <span style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.45)" }}>·</span>
                     <span style={{ fontSize: "0.78rem", color: "rgba(242,239,233,0.45)" }}>{new Date(item.email?.date).toLocaleDateString("es-ES")}</span>
                   </div>
