@@ -153,11 +153,14 @@ export default function LandingPage() {
         }
 
         .lp-wrap {
-          --black: #030305;
-          --gold: #C9B27C;
+          --black: #000000;
+          --gold: #F0C987;
+          --gold-dark: #9C7434;
           --champagne: #E8D5A3;
-          --silver: #ffffff;
-          --gray: rgba(255,255,255,0.6);
+          --silver: #F1F1F0;
+          --gray: rgba(241,241,240,0.6);
+          --light: #F1F1F0;
+          --on-light: #101012;
           background: var(--black);
           color: var(--silver);
           font-family: 'Plus Jakarta Sans', sans-serif;
@@ -412,7 +415,7 @@ export default function LandingPage() {
 
         .lp-stat {
           padding: 3rem 2rem;
-          background: #030305;
+          background: #000000;
           text-align: center;
         }
 
@@ -442,7 +445,7 @@ export default function LandingPage() {
         }
 
         .feature-card {
-          background: #030305;
+          background: #000000;
           padding: 3.5rem 2.5rem;
           transition: background .28s ease;
           position: relative;
@@ -535,11 +538,39 @@ export default function LandingPage() {
           color: var(--gold);
         }
 
+        /* ══ FUNCIONES EN CLARO ══ */
+        /* Misma logica que .products en objetiva-landing: la seccion
+           invierte a crema y las tarjetas siguen siendo negras. */
+        #funciones {
+          background: var(--light);
+        }
+        #funciones .label {
+          color: var(--gold-dark);
+        }
+        #funciones .lp-features-headline {
+          color: var(--on-light);
+        }
+        #funciones .lp-features-headline em {
+          color: var(--gold-dark);
+        }
+        #funciones .lp-features-grid {
+          background: rgba(16,16,18,0.12);
+        }
+        #funciones .feature-card {
+          background: var(--black);
+        }
+        #funciones .feature-card:hover {
+          background: #17171a;
+        }
+        #funciones .feature-card.priority {
+          background: #101012;
+        }
+
         /* ══ QUOTE ══ */
         .lp-quote {
           text-align: center;
           padding: 8rem 10%;
-          background: #030305;
+          background: #000000;
           border-top: 1px solid rgba(201,178,124,0.08);
           border-bottom: 1px solid rgba(201,178,124,0.08);
         }
