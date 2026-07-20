@@ -82,6 +82,13 @@ export default function BandejaPage() {
 
   const selectedEmail = emails.find(e => e.email?.id === selected);
 
+  useEffect(() => {
+    if (!selected) return;
+    const cerrar = (e) => { if (e.key === "Escape") setSelected(null); };
+    window.addEventListener("keydown", cerrar);
+    return () => window.removeEventListener("keydown", cerrar);
+  }, [selected]);
+
   const FILTROS = [
     { key: "todos",       label: "Todos",       count: emails.length },
     { key: "prioritario", label: "Prioritarios", count: emails.filter(e => ["ALTA","PRIORITARIO"].includes(e.priority?.priority_label)).length },
@@ -150,7 +157,7 @@ export default function BandejaPage() {
         ))}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: selected ? "1fr 1.1fr" : "1fr", gap: 16 }}>
+      <div>
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
           {loading && (
             <div style={{ textAlign: "center", padding: "48px 0", fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.75rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "rgba(242,239,233,0.45)" }}>
@@ -217,7 +224,21 @@ export default function BandejaPage() {
         </div>
 
         {selectedEmail && (
-          <div style={{ background: "#F1F1F0", border: "1px solid rgba(16,16,18,0.12)", borderRadius: 3, padding: "24px", position: "sticky", top: 32, maxHeight: "calc(100vh - 80px)", overflowY: "auto" }}>
+          <>
+          <div
+            onClick={() => setSelected(null)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 40 }}
+          />
+          <div style={{ position: "fixed", top: 0, right: 0, bottom: 0, width: "min(560px, 92vw)", background: "#F1F1F0", borderLeft: "1px solid rgba(16,16,18,0.15)", padding: "28px 32px", overflowY: "auto", zIndex: 41, boxShadow: "-24px 0 48px rgba(0,0,0,0.35)" }}>
+            <button
+              onClick={() => setSelected(null)}
+              aria-label="Cerrar"
+              style={{ position: "absolute", top: 20, right: 22, background: "none", border: "none", cursor: "pointer", color: "rgba(16,16,18,0.45)", fontSize: "1.4rem", lineHeight: 1, padding: 4 }}
+              onMouseEnter={e => e.currentTarget.style.color = "#101012"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(16,16,18,0.45)"}
+            >
+              ×
+            </button>
             <div style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "0.72rem", letterSpacing: "0.12em", textTransform: "uppercase", color: "#9C7434", marginBottom: 14 }}>Detalle</div>
             <h3 style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", fontSize: "1rem", fontWeight: 600, color: "#101012", letterSpacing: "-0.01em", marginBottom: 8, lineHeight: 1.3 }}>
               {selectedEmail.email?.subject}
@@ -265,6 +286,7 @@ export default function BandejaPage() {
               </button>
             </div>
           </div>
+          </>
         )}
       </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
