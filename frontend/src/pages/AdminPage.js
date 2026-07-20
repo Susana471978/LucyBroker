@@ -1,3 +1,4 @@
+import BrokerLayout from "../components/BrokerLayout";
 import React, { useState, useEffect } from "react";
 import { useAuth } from "../context/AuthContext";
 import apiClient from "../services/apiClient";
@@ -64,6 +65,7 @@ export default function AdminPage() {
   };
 
   return (
+    <BrokerLayout>
     <div className="min-h-screen bg-[#0E0C09] text-white p-6">
       <div className="max-w-4xl mx-auto">
 
@@ -215,5 +217,6 @@ export default function AdminPage() {
         )}
       </div>
     </div>
+    </BrokerLayout>
   );
 }

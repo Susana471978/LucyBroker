@@ -4,9 +4,9 @@ import { useNavigate, useLocation } from "react-router-dom";
 const NAV = [
   { key: "bandeja",  label: "Bandeja",  icon: "◈", path: "/broker/bandeja",  roles: ["director","admin","agent"] },
   { key: "briefing", label: "Briefing", icon: "◉", path: "/broker/briefing", roles: ["director","admin","agent"] },
-  { key: "equipo",   label: "Equipo",   icon: "◫", path: "/broker/equipo",   roles: ["director","admin"] },
-  { key: "informes", label: "Informes", icon: "◪", path: "/broker/informes", roles: ["director","admin"] },
-  { key: "config",   label: "Config",   icon: "◧", path: "/broker/config",   roles: ["director","admin","agent"] },
+  { key: "equipo",   label: "Equipo",   icon: "◫", path: "/broker/equipo",   roles: ["director","admin"], proximamente: true },
+  { key: "informes", label: "Informes", icon: "◪", path: "/broker/informes", roles: ["director","admin"], proximamente: true },
+  { key: "config",   label: "Config",   icon: "◧", path: "/broker/config",   roles: ["director","admin","agent"], proximamente: true },
   { key: "usuarios", label: "Usuarios", icon: "◬", path: "/admin/users",     roles: ["director","admin"] },
 ];
 
@@ -35,12 +35,18 @@ export default function Sidebar() {
         {visible.map(item => {
           const active = location.pathname.startsWith(item.path);
           return (
-            <button key={item.key} onClick={() => navigate(item.path)} style={{
+            <button
+              key={item.key}
+              onClick={() => { if (!item.proximamente) navigate(item.path); }}
+              disabled={item.proximamente}
+              title={item.proximamente ? "Disponible proximamente" : undefined}
+              style={{
               display: "flex", alignItems: "center", gap: 10,
               width: "100%", padding: "10px 24px",
               background: active ? "rgba(156,116,52,0.12)" : "none",
               border: "none", borderLeft: active ? "3px solid #9C7434" : "3px solid transparent",
-              cursor: "pointer",
+              cursor: item.proximamente ? "default" : "pointer",
+              opacity: item.proximamente ? 0.4 : 1,
               color: active ? "#9C7434" : "rgba(16,16,18,0.65)",
               fontSize: "0.85rem", fontFamily: "'Plus Jakarta Sans', sans-serif",
               fontWeight: active ? 600 : 400, letterSpacing: "0.04em", textAlign: "left",
