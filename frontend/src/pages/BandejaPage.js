@@ -102,11 +102,11 @@ export default function BandejaPage() {
         <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button
             onClick={fetchEmails} disabled={syncing}
-            style={{ background: "none", border: "1px solid rgba(201,168,112,0.3)", borderRadius: 3, padding: "7px 12px", cursor: "pointer", color: "rgba(242,239,233,0.85)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", transition: "all 0.18s" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.35)"}
-            onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.15)"}
+            style={{ background: "rgba(201,168,112,0.12)", border: "1px solid rgba(201,168,112,0.45)", borderRadius: 3, padding: "8px 14px", cursor: "pointer", color: "#C9A870", fontWeight: 500, display: "flex", alignItems: "center", gap: 7, fontSize: "0.82rem", transition: "all 0.18s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(201,168,112,0.2)"; e.currentTarget.style.borderColor = "rgba(201,168,112,0.7)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(201,168,112,0.12)"; e.currentTarget.style.borderColor = "rgba(201,168,112,0.45)"; }}
           >
-            <RefreshCw size={12} strokeWidth={1.5} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
+            <RefreshCw size={14} strokeWidth={1.5} style={{ animation: syncing ? "spin 1s linear infinite" : "none" }} />
             Sincronizar
           </button>
           <button
@@ -119,11 +119,11 @@ export default function BandejaPage() {
                 window.URL.revokeObjectURL(url);
               } catch(e) {}
             }}
-            style={{ background: "none", border: "1px solid rgba(201,168,112,0.3)", borderRadius: 3, padding: "7px 12px", cursor: "pointer", color: "rgba(242,239,233,0.85)", display: "flex", alignItems: "center", gap: 6, fontSize: "0.8rem", transition: "all 0.18s" }}
-            onMouseEnter={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.35)"}
-            onMouseLeave={e => e.currentTarget.style.borderColor = "rgba(201,168,112,0.15)"}
+            style={{ background: "rgba(242,239,233,0.04)", border: "1px solid rgba(242,239,233,0.14)", borderRadius: 3, padding: "8px 14px", cursor: "pointer", color: "rgba(242,239,233,0.8)", display: "flex", alignItems: "center", gap: 7, fontSize: "0.82rem", transition: "all 0.18s" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(242,239,233,0.08)"; e.currentTarget.style.borderColor = "rgba(242,239,233,0.25)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(242,239,233,0.04)"; e.currentTarget.style.borderColor = "rgba(242,239,233,0.14)"; }}
           >
-            <Download size={12} strokeWidth={1.5} />
+            <Download size={14} strokeWidth={1.5} />
             Informe
           </button>
         </div>
