@@ -81,6 +81,7 @@ db = client[settings.db_name]
 # JWT Config
 JWT_SECRET = os.environ.get('JWT_SECRET', 'default-secret-key')
 JWT_ALGORITHM = 'HS256'
+SSO_SECRET = os.environ.get('SSO_SECRET')
 REFRESH_SECRET = os.environ.get('REFRESH_TOKEN_SECRET', 'lucy-refresh-secret-2026')
 ACCESS_EXPIRE_MIN = 15
 REFRESH_EXPIRE_DAYS = 7
@@ -111,6 +112,19 @@ def create_access_token(user_id: str, email: str, role: str = "agent") -> str:
         "type": "access",
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+
+def create_sso_token(email: str) -> str:
+    """Token SSO para los módulos embebidos (Clavex, CRM, Siniestros).
+    Indexado por email — cada módulo busca al usuario por email en su propia base.
+    Firmado con SSO_SECRET, compartido por los cuatro servicios."""
+    payload = {
+        "email": email,
+        "type": "sso",
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_EXPIRE_MIN),
+    }
+    return jwt.encode(payload, SSO_SECRET, algorithm=JWT_ALGORITHM)
+
 
 def create_refresh_token(user_id: str) -> str:
     payload = {
@@ -217,6 +231,7 @@ async def login(request: Request, response: Response, credentials: UserLogin):
         ),
     )
     legacy = token_response.model_dump()
+    legacy["sso_token"] = create_sso_token(user["email"])
     return build_response(request, data=legacy, legacy=legacy, meta={"user_id": user["id"]})
 
 @api_router.post("/auth/refresh")
