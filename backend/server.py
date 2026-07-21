@@ -613,6 +613,52 @@ if settings.env == "development":
         return build_response(request, data=payload, legacy=payload)
 
 
+@api_router.post("/test/send-email")
+async def test_send_email(payload: dict):
+    """Endpoint de demo: envía un correo real usando las credenciales SMTP
+    resueltas vía Clavex (con fallback al .env si Clavex no responde)."""
+    from backend.services.smtp_client import send_email
+    to = payload.get("to")
+    subject = payload.get("subject", "Prueba desde Lucy")
+    body = payload.get("body", "Correo de prueba enviado desde Lucy usando credenciales de Clavex.")
+    if not to:
+        return {"ok": False, "error": "Falta el campo 'to'"}
+    enviado = send_email(to, subject, body)
+    return {"ok": enviado, "to": to, "subject": subject}
+
+@api_router.post("/clavex/login")
+async def clavex_login(payload: dict):
+    from backend.services.clavex_admin_client import login
+    email = payload.get("email")
+    password = payload.get("password")
+    ok = login(email, password)
+    return {"ok": ok}
+
+@api_router.get("/clavex/service-credentials")
+async def clavex_list_credentials():
+    from backend.services.clavex_admin_client import list_credentials, is_logged_in
+    if not is_logged_in():
+        return {"ok": False, "error": "No hay sesion activa con Clavex"}
+    return {"ok": True, "data": list_credentials()}
+
+@api_router.post("/clavex/service-credentials")
+async def clavex_upsert_credential(payload: dict):
+    from backend.services.clavex_admin_client import upsert_credential, is_logged_in
+    if not is_logged_in():
+        return {"ok": False, "error": "No hay sesion activa con Clavex"}
+    result = upsert_credential(
+        payload.get("nombre"), payload.get("tipo"),
+        payload.get("campos", {}), payload.get("activo", True)
+    )
+    return {"ok": True, "data": result}
+
+@api_router.delete("/clavex/service-credentials/{nombre}")
+async def clavex_deactivate_credential(nombre: str):
+    from backend.services.clavex_admin_client import deactivate_credential, is_logged_in
+    if not is_logged_in():
+        return {"ok": False, "error": "No hay sesion activa con Clavex"}
+    return {"ok": True, "data": deactivate_credential(nombre)}
+
 # Include router
 app.include_router(api_router)
 
