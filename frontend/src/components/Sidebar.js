@@ -13,7 +13,7 @@ const NAV = [
 // Modulos externos del ecosistema Objetiva (SSO via sso_token).
 // proximamente:true hasta que cada modulo tenga su pagina /sso.
 const MODULOS = [
-  { key: "siniestros", label: "Siniestros", icon: "◱", url: "https://siniestros.objetivabroker.es", roles: ["director","admin","agent"], proximamente: true },
+  { key: "siniestros", label: "Siniestros", icon: "◱", url: "https://siniestros.objetivabroker.es", roles: ["director","admin","agent"], proximamente: false },
   { key: "crm",        label: "CRM",        icon: "◭", url: "https://crm.objetivabroker.es",        roles: ["director","admin","agent"], proximamente: true },
   { key: "clavex",     label: "Clavex",     icon: "◮", url: "https://clavex.objetivabroker.es",     roles: ["director","admin","agent"], proximamente: true },
 ];
