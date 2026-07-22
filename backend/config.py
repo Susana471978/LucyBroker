@@ -16,6 +16,32 @@ def _resolve_env() -> str:
     return os.environ.get("ENV", "development").lower()
 
 
+class ImapAccount(BaseModel):
+    host: str
+    port: int
+    user: str
+    password: str
+    buzon: str = ""
+
+
+def _resolve_imap_accounts() -> List["ImapAccount"]:
+    cuentas: List[ImapAccount] = []
+    sufijo = ""
+    i = 1
+    while True:
+        user = os.environ.get(f"IMAP_USER{sufijo}")
+        if not user:
+            break
+        host = os.environ.get(f"IMAP_HOST{sufijo}", "imap.gmail.com")
+        port = int(os.environ.get(f"IMAP_PORT{sufijo}", "993"))
+        password = os.environ.get(f"IMAP_PASSWORD{sufijo}", "")
+        buzon = os.environ.get(f"IMAP_BUZON{sufijo}", "principal" if not sufijo else user)
+        cuentas.append(ImapAccount(host=host, port=port, user=user, password=password, buzon=buzon))
+        i += 1
+        sufijo = f"_{i}"
+    return cuentas
+
+
 def _resolve_mongo_url() -> str:
     env = _resolve_env()
     value = os.environ.get("MONGO_URL")
@@ -54,6 +80,7 @@ class Settings(BaseModel):
     imap_port: int = Field(default_factory=lambda: int(os.environ.get("IMAP_PORT", "993")))
     imap_user: str | None = Field(default_factory=lambda: os.environ.get("IMAP_USER"))
     imap_password: str | None = Field(default_factory=lambda: os.environ.get("IMAP_PASSWORD"))
+    imap_accounts: List["ImapAccount"] = Field(default_factory=_resolve_imap_accounts)
     groq_api_key: str | None = Field(default_factory=lambda: os.environ.get("GROQ_API_KEY"))
 
     cors_origins: List[str] = Field(

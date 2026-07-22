@@ -74,15 +74,17 @@ def _id_estable(msg, from_email: str, subject: str, date: str) -> str:
     return "imap-" + hashlib.sha1(semilla.encode("utf-8", "replace")).hexdigest()[:16]
 
 
-def fetch_recent_emails(limit: int = 20) -> List[EmailEvent]:
-    if not settings.imap_user or not settings.imap_password:
-        logger.warning("IMAP not configured")
+def fetch_recent_emails(cuenta=None, limit: int = 20) -> List[EmailEvent]:
+    if cuenta is None:
+        cuenta = settings.imap_accounts[0] if settings.imap_accounts else None
+    if cuenta is None or not cuenta.user or not cuenta.password:
+        logger.warning("IMAP not configured for account: %s", getattr(cuenta, "buzon", "?"))
         return []
 
     emails = []
     try:
-        mail = imaplib.IMAP4_SSL(settings.imap_host, settings.imap_port)
-        mail.login(settings.imap_user, settings.imap_password)
+        mail = imaplib.IMAP4_SSL(cuenta.host, cuenta.port)
+        mail.login(cuenta.user, cuenta.password)
         mail.select("INBOX")
 
         _, data = mail.search(None, "ALL")
@@ -115,6 +117,7 @@ def fetch_recent_emails(limit: int = 20) -> List[EmailEvent]:
                 emails.append(EmailEvent(
                     id=_id_estable(msg, from_email, subject, date),
                     canal="email",
+                    buzon=cuenta.buzon,
                     thread_id=msg.get("Message-ID", str(uuid.uuid4())),
                     from_name=from_name or from_email,
                     from_email=from_email,

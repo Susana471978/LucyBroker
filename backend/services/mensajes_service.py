@@ -26,6 +26,7 @@ async def asegurar_indices() -> None:
     """Indices minimos. Idempotente, se puede llamar en cada arranque."""
     await db[COLECCION].create_index("id", unique=True)
     await db[COLECCION].create_index("canal")
+    await db[COLECCION].create_index("buzon")
     await db[COLECCION].create_index([("priority.priority_score", -1)])
     await db[COLECCION].create_index("estado")
 
@@ -38,6 +39,7 @@ async def guardar_mensaje(enriched: EnrichedEmail) -> bool:
     """
     doc = enriched.model_dump(mode="json")
     doc["canal"] = doc.get("email", {}).get("canal", "email")
+    doc["buzon"] = doc.get("email", {}).get("buzon", "")
     doc["estado"] = "nuevo"
     doc["creado_en"] = datetime.now(timezone.utc).isoformat()
 
@@ -51,6 +53,7 @@ async def guardar_mensaje(enriched: EnrichedEmail) -> bool:
 
 async def listar_mensajes(
     canal: Optional[str] = None,
+    buzon: Optional[str] = None,
     label: Optional[str] = None,
     estado: Optional[str] = None,
     limite: int = 100,
@@ -59,6 +62,8 @@ async def listar_mensajes(
     filtro: Dict[str, Any] = {}
     if canal:
         filtro["canal"] = canal
+    if buzon:
+        filtro["buzon"] = buzon
     if label:
         filtro["priority.priority_label"] = label
     if estado:

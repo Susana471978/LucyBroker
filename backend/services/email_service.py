@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import List, Optional, Dict, Any
 
+from backend.config import settings
 from backend.models import EmailEvent, EnrichedEmail
 from backend.services.imap_client import fetch_recent_emails
 from backend.services.processor import process_email
@@ -33,29 +34,34 @@ async def sincronizar_imap(limit: int = 20) -> dict:
 
 
 async def _enriquecer_desde_imap(limit: int = 20) -> List[EnrichedEmail]:
-    emails = fetch_recent_emails(limit=limit)
     result = []
-    for email_event in emails:
+    for cuenta in settings.imap_accounts:
         try:
-            ai_result = await process_email(email_event)
-            priority = calculate_priority(email_event)
-            # Sobreescribir score con el de Groq si está disponible
-            if ai_result.get("score"):
-                priority.priority_score = ai_result["score"]
-            if ai_result.get("prioridad"):
-                priority.priority_label = ai_result["prioridad"]
-
-            enriched = EnrichedEmail(
-                email=email_event,
-                priority=priority,
-                categoria=ai_result.get("categoria", "OTRO"),
-                datos_clave=ai_result.get("datos_clave", {}),
-                resumen=ai_result.get("resumen", email_event.snippet),
-                borrador=ai_result.get("borrador", ""),
-            )
-            result.append(enriched)
+            emails = fetch_recent_emails(cuenta=cuenta, limit=limit)
         except Exception as e:
-            logger.error("Error enriching email %s: %s", email_event.id, e)
+            logger.error("Error conectando cuenta IMAP %s: %s", cuenta.buzon, e)
+            continue
+        for email_event in emails:
+            try:
+                ai_result = await process_email(email_event)
+                priority = calculate_priority(email_event)
+                # Sobreescribir score con el de Groq si está disponible
+                if ai_result.get("score"):
+                    priority.priority_score = ai_result["score"]
+                if ai_result.get("prioridad"):
+                    priority.priority_label = ai_result["prioridad"]
+
+                enriched = EnrichedEmail(
+                    email=email_event,
+                    priority=priority,
+                    categoria=ai_result.get("categoria", "OTRO"),
+                    datos_clave=ai_result.get("datos_clave", {}),
+                    resumen=ai_result.get("resumen", email_event.snippet),
+                    borrador=ai_result.get("borrador", ""),
+                )
+                result.append(enriched)
+            except Exception as e:
+                logger.error("Error enriching email %s: %s", email_event.id, e)
 
     return sorted(result, key=lambda x: x.priority.priority_score, reverse=True)
 
@@ -70,10 +76,11 @@ async def get_mensaje_by_id(mensaje_id: str) -> Optional[dict]:
 
 
 def get_email_by_id(email_id: str) -> Optional[EmailEvent]:
-    emails = fetch_recent_emails(limit=50)
-    for e in emails:
-        if e.id == email_id:
-            return e
+    for cuenta in settings.imap_accounts:
+        emails = fetch_recent_emails(cuenta=cuenta, limit=50)
+        for e in emails:
+            if e.id == email_id:
+                return e
     return None
 
 

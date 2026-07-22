@@ -37,6 +37,7 @@ class EmailEvent(BaseModel):
     model_config = ConfigDict(extra="ignore")
     id: str
     canal: CanalEnum = CanalEnum.email
+    buzon: str = ""
     thread_id: str
     from_name: str
     from_email: str
