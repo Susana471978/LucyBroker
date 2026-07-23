@@ -303,8 +303,13 @@ async def get_me(request: Request, user: Dict[str, Any] = Depends(get_current_us
         email=user["email"],
         name=user["name"],
         language=user.get("language", "es"),
+        role=user.get("role", "employee"),
+        imap_user=user.get("imap_user"),
+        buzon_asignado=user.get("buzon_asignado"),
     )
     legacy = user_response.model_dump()
+    return build_response(request, data=legacy, legacy=legacy)
+
 @api_router.put("/auth/language")
 async def update_language(request: Request, response: Response, language: str, user: Dict[str, Any] = Depends(get_current_user)):
     await db.users.update_one({"id": user["id"]}, {"$set": {"language": language}})

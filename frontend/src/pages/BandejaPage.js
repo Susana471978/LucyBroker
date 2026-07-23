@@ -77,6 +77,7 @@ export default function BandejaPage() {
   const filtrados = emails.filter(e => {
     if (filtro === "prioritario") return ["ALTA","PRIORITARIO"].includes(e.priority?.priority_label);
     if (filtro === "seguimiento") return ["MEDIA","SEGUIMIENTO"].includes(e.priority?.priority_label);
+    if (filtro.startsWith("cat:")) return e.categoria === filtro.slice(4);
     return true;
   });
 
@@ -94,6 +95,19 @@ export default function BandejaPage() {
     { key: "prioritario", label: "Prioritarios", count: emails.filter(e => ["ALTA","PRIORITARIO"].includes(e.priority?.priority_label)).length },
     { key: "seguimiento", label: "Seguimiento",  count: emails.filter(e => ["MEDIA","SEGUIMIENTO"].includes(e.priority?.priority_label)).length },
   ];
+
+  const CATEGORIAS = [
+    { cat: "SINIESTRO",         label: "Siniestros" },
+    { cat: "RENOVACION",        label: "Renovaciones" },
+    { cat: "POLIZA",            label: "Polizas" },
+    { cat: "REUNION",           label: "Reunion" },
+    { cat: "IMPAGO",            label: "Recibos" },
+    { cat: "SOLICITUD_CLIENTE", label: "Solicitudes" },
+  ].map(c => ({
+    key: "cat:" + c.cat,
+    label: c.label,
+    count: emails.filter(e => e.categoria === c.cat).length,
+  }));
 
   return (
     <BrokerLayout>
@@ -136,7 +150,7 @@ export default function BandejaPage() {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
         {FILTROS.map(f => (
           <button key={f.key} onClick={() => setFiltro(f.key)} style={{
             background: filtro === f.key ? "rgba(201,168,112,0.1)" : "none",
@@ -151,6 +165,27 @@ export default function BandejaPage() {
           }}>
             {f.label}
             <span style={{ background: filtro === f.key ? "rgba(201,168,112,0.2)" : "rgba(242,239,233,0.06)", borderRadius: 3, padding: "1px 6px", fontSize: "0.72rem" }}>
+              {f.count}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+        {CATEGORIAS.map(f => (
+          <button key={f.key} onClick={() => setFiltro(filtro === f.key ? "todos" : f.key)} style={{
+            background: filtro === f.key ? "rgba(123,167,201,0.1)" : "none",
+            border: filtro === f.key ? "1px solid rgba(123,167,201,0.3)" : "1px solid rgba(242,239,233,0.06)",
+            borderRadius: 20, padding: "4px 12px",
+            cursor: "pointer",
+            color: filtro === f.key ? "#7BA7C9" : "rgba(242,239,233,0.5)",
+            fontFamily: "'Plus Jakarta Sans', sans-serif",
+            fontSize: "0.72rem", letterSpacing: "0.14em", textTransform: "uppercase",
+            display: "flex", alignItems: "center", gap: 6,
+            transition: "all 0.18s",
+          }}>
+            {f.label}
+            <span style={{ background: filtro === f.key ? "rgba(123,167,201,0.2)" : "rgba(242,239,233,0.06)", borderRadius: 3, padding: "1px 6px", fontSize: "0.68rem" }}>
               {f.count}
             </span>
           </button>
