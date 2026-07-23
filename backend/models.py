@@ -111,6 +111,7 @@ class UserCreate(BaseModel):
     role: str = "employee"  # admin | employee
     imap_user: Optional[str] = None
     imap_password: Optional[str] = None
+    buzon_asignado: Optional[str] = None
 
 
 class UserLogin(BaseModel):
@@ -125,6 +126,7 @@ class UserResponse(BaseModel):
     language: str = "es"
     role: str = "employee"
     imap_user: Optional[str] = None
+    buzon_asignado: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
