@@ -57,6 +57,7 @@ async def listar_mensajes(
     label: Optional[str] = None,
     estado: Optional[str] = None,
     limite: int = 100,
+    offset: int = 0,
 ) -> List[Dict[str, Any]]:
     """Mensajes ordenados por prioridad, con filtros opcionales."""
     filtro: Dict[str, Any] = {}
@@ -73,6 +74,7 @@ async def listar_mensajes(
         db[COLECCION]
         .find(filtro, {"_id": 0})
         .sort("priority.priority_score", -1)
+        .skip(offset)
         .limit(limite)
     )
     return await cursor.to_list(limite)

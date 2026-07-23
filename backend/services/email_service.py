@@ -66,9 +66,9 @@ async def _enriquecer_desde_imap(limit: int = 20) -> List[EnrichedEmail]:
     return sorted(result, key=lambda x: x.priority.priority_score, reverse=True)
 
 
-async def get_enriched_emails(limit: int = 100, canal: Optional[str] = None, buzon: Optional[str] = None) -> List[dict]:
+async def get_enriched_emails(limit: int = 100, offset: int = 0, canal: Optional[str] = None, buzon: Optional[str] = None) -> List[dict]:
     """Bandeja: lee de Mongo, sin tocar IMAP ni el modelo."""
-    return await listar_mensajes(canal=canal, buzon=buzon, limite=limit)
+    return await listar_mensajes(canal=canal, buzon=buzon, limite=limit, offset=offset)
 
 
 async def get_mensaje_by_id(mensaje_id: str) -> Optional[dict]:

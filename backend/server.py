@@ -304,12 +304,13 @@ async def get_emails(
     canal: Optional[str] = None,
     buzon: Optional[str] = None,
     has_attachments: Optional[bool] = None,
+    offset: int = 0,
     user: Dict[str, Any] = Depends(get_current_user),
 ):
     """Bandeja unificada. Lee de Mongo, no de IMAP."""
     buzon_forzado = user.get("buzon_asignado")
     buzon_efectivo = buzon_forzado if buzon_forzado else buzon
-    emails = await get_enriched_emails(canal=canal, buzon=buzon_efectivo)
+    emails = await get_enriched_emails(canal=canal, buzon=buzon_efectivo, offset=offset)
 
     if label:
         emails = [e for e in emails if (e.get("priority") or {}).get("priority_label") == label]
