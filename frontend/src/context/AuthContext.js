@@ -23,7 +23,9 @@ export function AuthProvider({ children }) {
     const { data } = await apiClient.post("/auth/login", { email, password });
     const token = data?.data?.token || data?.token;
     const userData = data?.data?.user || data?.user;
+    const ssoToken = data?.data?.sso_token || data?.sso_token;
     localStorage.setItem("auth_token", token);
+    if (ssoToken) localStorage.setItem("sso_token", ssoToken);
     setUser(userData);
     return userData;
   }, []);
@@ -32,13 +34,16 @@ export function AuthProvider({ children }) {
     const { data } = await apiClient.post("/auth/register", { email, password, name });
     const token = data?.data?.token || data?.token;
     const userData = data?.data?.user || data?.user;
+    const ssoToken = data?.data?.sso_token || data?.sso_token;
     localStorage.setItem("auth_token", token);
+    if (ssoToken) localStorage.setItem("sso_token", ssoToken);
     setUser(userData);
     return userData;
   }, []);
 
   const logout = useCallback(async () => {
     localStorage.removeItem("auth_token");
+    localStorage.removeItem("sso_token");
     setUser(null);
     window.location.href = "/auth";
   }, []);

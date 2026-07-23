@@ -10,12 +10,29 @@ const NAV = [
   { key: "usuarios", label: "Usuarios", icon: "◬", path: "/admin/users",     roles: ["director","admin"] },
 ];
 
+// Modulos externos del ecosistema Objetiva (SSO via sso_token).
+// proximamente:true hasta que cada modulo tenga su pagina /sso.
+const MODULOS = [
+  { key: "siniestros", label: "Siniestros", icon: "◱", url: "https://siniestros.objetivabroker.es", roles: ["director","admin","agent"], proximamente: false },
+  { key: "crm",        label: "CRM",        icon: "◭", url: "https://crm.objetivabroker.es",        roles: ["director","admin","agent"], proximamente: true },
+  { key: "clavex",     label: "Clavex",     icon: "◮", url: "https://clavex.objetivabroker.es",     roles: ["director","admin","agent"], proximamente: true },
+];
+
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const role = user?.role || "agent";
   const visible = NAV.filter(n => n.roles.includes(role));
+  const modulosVisibles = MODULOS.filter(m => m.roles.includes(role));
+
+  const abrirModulo = (m) => {
+    if (m.proximamente) return;
+    const sso = localStorage.getItem("sso_token");
+    if (!sso) { alert("Sesion SSO no disponible. Vuelve a iniciar sesion."); return; }
+    const url = `${m.url}/sso?token=${encodeURIComponent(sso)}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
 
   return (
     <aside style={{
@@ -57,6 +74,37 @@ export default function Sidebar() {
             </button>
           );
         })}
+
+        {modulosVisibles.length > 0 && (
+          <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(16,16,18,0.1)" }}>
+            <div style={{ padding: "0 24px 8px", fontSize: "0.68rem", fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(16,16,18,0.4)" }}>
+              Modulos
+            </div>
+            {modulosVisibles.map(m => (
+              <button
+                key={m.key}
+                onClick={() => abrirModulo(m)}
+                disabled={m.proximamente}
+                title={m.proximamente ? "Disponible proximamente" : `Abrir ${m.label}`}
+                style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  width: "100%", padding: "10px 24px",
+                  background: "none", border: "none",
+                  borderLeft: "3px solid transparent",
+                  cursor: m.proximamente ? "default" : "pointer",
+                  opacity: m.proximamente ? 0.4 : 1,
+                  color: "rgba(16,16,18,0.65)",
+                  fontSize: "0.85rem", fontFamily: "'Plus Jakarta Sans', sans-serif",
+                  fontWeight: 400, letterSpacing: "0.04em", textAlign: "left",
+                  transition: "all 0.18s ease",
+                }}>
+                <span style={{ fontSize: "0.8rem", opacity: 0.75 }}>{m.icon}</span>
+                {m.label}
+                <span style={{ marginLeft: "auto", fontSize: "0.62rem", opacity: 0.6 }}>↗</span>
+              </button>
+            ))}
+          </div>
+        )}
       </nav>
 
       <div style={{ padding: "18px 24px 26px", borderTop: "1px solid rgba(16,16,18,0.1)" }}>
